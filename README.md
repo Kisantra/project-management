@@ -77,6 +77,9 @@ Domain pajak yang didukung mencakup:
 ### Tugas Harian — Daftar & Detail Tugas
 ![Tugas Harian - List & Modal](docs/screenshots/tugas-harian-list-modal.png)
 
+### Manajemen Klien — Daftar Klien
+![Daftar Klien](docs/screenshots/daftar-klien.png)
+
 <!-- PLACEHOLDER: docs/screenshots/portal-klien.png
      Konteks: panel klien (/klien) — tampilan self-service untuk klien. -->
 ### Portal Klien

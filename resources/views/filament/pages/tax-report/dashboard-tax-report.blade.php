@@ -27,9 +27,9 @@
             @livewire(\App\Livewire\TaxReport\Dashboard\BalanceTrend::class)
         </div>
 
-        {{-- Prioritas: klien terbesar menurut peredaran bruto tahunan, dan siapa
-             yang menanganinya. Rentangnya tahunan, jadi diletakkan terpisah dari
-             baris section yang berbasis satu masa. --}}
+        {{-- Prioritas: klien terbesar menurut peredaran bruto pada masa terpilih,
+             dan siapa yang menanganinya. Mengikuti filter periode seperti section
+             lain di atas. --}}
         @livewire(\App\Livewire\TaxReport\Dashboard\TopClientsRevenue::class)
     </div>
 </x-filament-panels::page>

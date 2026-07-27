@@ -612,6 +612,16 @@
     outline-offset: 1px;
 }
 
+/* Varian dengan label teks (mis. "Tahunan" / "Per masa"), bukan ikon. */
+.tp-seg--text button {
+    width: auto;
+    padding: 0 0.6rem;
+    font-size: var(--tp-size-2xs);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+}
+
 /*
  * Baris kelengkapan yang bisa diklik untuk menyaring.
  *

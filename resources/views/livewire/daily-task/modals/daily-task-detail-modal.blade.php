@@ -108,6 +108,21 @@
         .dark .dt-member-ava {
             background: linear-gradient(135deg, #22d3ee 0%, #0891b2 100%);
         }
+
+        /*
+         * Panel modal Filament default memakai gray-900 (#18181b, dingin),
+         * sedangkan konten .dt-slide-in memakai #111110 (hangat). Karena
+         * .fi-modal-content punya padding 24px, warna dingin itu bocor sebagai
+         * bingkai di sekeliling konten -> terasa "tidak sinkron" di dark mode.
+         * Samakan panel + hilangkan bingkai. Di-scope via :has(.dt-slide-in)
+         * agar tidak mengganggu modal Filament lain.
+         */
+        .dark .fi-modal-window:has(.dt-slide-in) {
+            background-color: #111110;
+        }
+        .fi-modal-window:has(.dt-slide-in) .fi-modal-content {
+            padding: 0;
+        }
     </style>
 
     <x-filament::modal id="task-detail-modal" width="2xl" slide-over>

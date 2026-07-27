@@ -6,21 +6,32 @@
 
 <section class="tp-panel" aria-labelledby="tp-topclients-heading">
 
-    <div class="tp-panel-header flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-5 py-3.5">
+    <div class="tp-panel-header flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3.5">
         <h2 id="tp-topclients-heading" class="tp-panel-title">Klien terbesar</h2>
-        <p style="font-size: var(--tp-size-xs); color: var(--tp-text-muted);">
-            Peredaran bruto {{ $year }}
-        </p>
+        <div class="flex items-center gap-3">
+            <p style="font-size: var(--tp-size-xs); color: var(--tp-text-muted); white-space: nowrap;">
+                Peredaran bruto {{ $periodLabel }}
+            </p>
+            {{-- Toggle rentang: akumulasi setahun vs hanya masa terpilih. --}}
+            <div class="tp-seg tp-seg--text" role="group" aria-label="Rentang peredaran bruto">
+                <button type="button" wire:click="setScope('year')"
+                        aria-pressed="{{ $scope === 'year' ? 'true' : 'false' }}"
+                        title="Akumulasi setahun">Tahunan</button>
+                <button type="button" wire:click="setScope('month')"
+                        aria-pressed="{{ $scope === 'month' ? 'true' : 'false' }}"
+                        title="Hanya masa terpilih">Per masa</button>
+            </div>
+        </div>
     </div>
 
     @if ($rows->isEmpty())
         <div class="px-5 py-10 text-center">
             <x-heroicon-o-banknotes class="mx-auto h-6 w-6" style="color: var(--tp-text-faint);" aria-hidden="true" />
             <p class="mt-3 font-medium" style="font-size: var(--tp-size-sm); color: var(--tp-text);">
-                Belum ada peredaran bruto tercatat untuk {{ $year }}
+                Belum ada peredaran bruto tercatat untuk {{ $scope === 'month' ? 'masa' : 'tahun' }} {{ $periodLabel }}
             </p>
             <p class="mx-auto mt-1 max-w-md" style="font-size: var(--tp-size-xs); color: var(--tp-text-muted);">
-                Angka ini terisi dari Faktur Keluaran yang diinput pada laporan pajak tahun tersebut.
+                Angka ini terisi dari Faktur Keluaran yang diinput pada laporan pajak {{ $scope === 'month' ? 'masa' : 'tahun' }} tersebut.
             </p>
         </div>
     @else
@@ -76,7 +87,7 @@
                         </span>
 
                         {{-- Penanggung jawab: siapa yang paling banyak menginput
-                             faktur klien ini tahun tersebut. --}}
+                             faktur klien ini pada masa tersebut. --}}
                         <span class="col-start-2 row-start-2 flex items-center gap-2 lg:col-start-4 lg:row-start-1">
                             @if ($h)
                                 @if ($h['avatar'])
@@ -122,7 +133,11 @@
         @endif
 
         <p class="px-5 pb-3.5 pt-1" style="font-size: var(--tp-size-xs); color: var(--tp-text-muted);">
-            Peredaran bruto akumulatif setahun dari Faktur Keluaran. Penanggung jawab diambil dari siapa yang paling banyak menginput faktur klien tersebut.
+            @if ($scope === 'month')
+                Peredaran bruto masa {{ $periodLabel }} dari Faktur Keluaran. Penanggung jawab diambil dari siapa yang paling banyak menginput faktur klien tersebut pada masa itu.
+            @else
+                Peredaran bruto akumulatif setahun {{ $periodLabel }} dari Faktur Keluaran. Penanggung jawab diambil dari siapa yang paling banyak menginput faktur klien tersebut sepanjang tahun.
+            @endif
         </p>
     @endif
 </section>

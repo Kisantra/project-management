@@ -494,6 +494,13 @@ class ClientResource extends Resource
                         Forms\Components\TextInput::make('NPWP')
                             ->label('NPWP')
                             ->placeholder('XX.XXX.XXX.X-XXX.XXX'),
+                        // KLU (Klasifikasi Lapangan Usaha) — khusus klien Badan.
+                        Forms\Components\TextInput::make('klu')
+                            ->label('KLU')
+                            ->placeholder('mis. 62019')
+                            ->maxLength(255)
+                            ->helperText('Klasifikasi Lapangan Usaha — kode bidang usaha sesuai NPWP/DJP.')
+                            ->visible(fn (Forms\Get $get) => $get('client_type') === 'Badan'),
                         Forms\Components\TextInput::make('EFIN')
                             ->label('EFIN')
                             ->placeholder('Electronic Filing Identification Number'),                       
@@ -665,7 +672,14 @@ class ClientResource extends Resource
                     ->copyable()
                     ->copyMessage('NPWP copied!')
                     ->fontFamily('mono'),
-                
+
+                Tables\Columns\TextColumn::make('klu')
+                    ->label('KLU')
+                    ->searchable()
+                    ->placeholder('—')
+                    ->fontFamily('mono')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
                     ->badge()

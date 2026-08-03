@@ -274,6 +274,8 @@ Deploy ke produksi berjalan **otomatis** lewat **GitHub Actions** setiap `push` 
 
 Migrasi basis data **dijalankan manual** di server (`php artisan migrate --force`) agar perubahan skema selalu ditinjau.
 
+> **Walkthrough lengkap** (transfer repo ke organization + setup pipeline dari nol, bisa dipakai ulang untuk repo lain): [`docs/PANDUAN-DEPLOY.md`](docs/PANDUAN-DEPLOY.md).
+
 ---
 
 ## Lisensi

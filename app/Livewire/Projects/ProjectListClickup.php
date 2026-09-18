@@ -58,6 +58,19 @@ class ProjectListClickup extends Component implements HasActions, HasForms
     #[Url(as: 'client')]
     public array $clientFilter = [];
 
+    /**
+     * Quick SOP filter driven by the pill row under the toolbar.
+     * Empty = all. Otherwise a list of SOP ids (as strings) and/or the
+     * literal 'none' for projects without an SOP. Multi-select, OR-ed.
+     *
+     * Deliberately untyped: Livewire assigns the raw query-string value
+     * before mount(), and bookmarked URLs from the single-select era carry
+     * a scalar (?sop=3). A typed `array` would throw there. Always read
+     * through $this->sopSelection(), never the raw property.
+     */
+    #[Url(as: 'sop')]
+    public $sopFilter = [];
+
     #[Url(as: 'assignee')]
     public array $assigneeFilter = [];
 
@@ -331,6 +344,20 @@ class ProjectListClickup extends Component implements HasActions, HasForms
         'progress' => 'Progress',
     ];
 
+    /**
+     * Group-by choices in the order the toolbar stepper cycles through them.
+     * The blade reads the same list, so labels live in one place.
+     */
+    public const GROUP_BY_OPTIONS = [
+        'status'     => 'Status',
+        'priority'   => 'Priority',
+        'pic'        => 'PIC',
+        'client'     => 'Client',
+        'department' => 'Departemen',
+        'sop'        => 'SOP',
+        'none'       => 'None',
+    ];
+
     public const PRIORITIES = [
         'urgent' => ['label' => 'Urgent', 'color' => '#b91c1c', 'bg' => '#fee2e2'],
         'normal' => ['label' => 'Normal', 'color' => '#0e7490', 'bg' => '#cffafe'],
@@ -371,7 +398,51 @@ class ProjectListClickup extends Component implements HasActions, HasForms
             'picFilter',
             'clientFilter',
             'assigneeFilter',
+            'sopFilter',
         ]);
+    }
+
+    /**
+     * Pill row handler. '' clears everything ("Semua"); any other value is
+     * added to or removed from the selection.
+     */
+    public function toggleSopFilter(string $value): void
+    {
+        if ($value === '') {
+            $this->sopFilter = [];
+            return;
+        }
+
+        $current = $this->sopSelection();
+
+        $this->sopFilter = in_array($value, $current, true)
+            ? array_values(array_diff($current, [$value]))
+            : [...$current, $value];
+    }
+
+    /**
+     * Normalised SOP selection: always a list of strings, accepting the
+     * scalar / int / nested shapes a query string can produce.
+     *
+     * A plain method on purpose: Livewire memoises getXProperty computed
+     * values for the whole request, which would hand toggleSopFilter() a
+     * stale list after it mutates $sopFilter.
+     */
+    public function sopSelection(): array
+    {
+        $raw = $this->sopFilter;
+
+        if ($raw === null || $raw === '' || $raw === []) {
+            return [];
+        }
+
+        return collect(\Illuminate\Support\Arr::wrap($raw))
+            ->flatten()
+            ->map(fn ($v) => trim((string) $v))
+            ->filter(fn (string $v) => $v === 'none' || ctype_digit($v))
+            ->unique()
+            ->values()
+            ->all();
     }
 
     public function removeStatus(string $status): void
@@ -418,7 +489,8 @@ class ProjectListClickup extends Component implements HasActions, HasForms
             || !empty($this->priorityFilter)
             || !empty($this->picFilter)
             || !empty($this->clientFilter)
-            || !empty($this->assigneeFilter);
+            || !empty($this->assigneeFilter)
+            || !empty($this->sopSelection());
     }
 
     public function getActiveFilterCountProperty(): int
@@ -469,6 +541,24 @@ class ProjectListClickup extends Component implements HasActions, HasForms
      * Sets the flag so the next render starts computing/caching the
      * filter dropdown option lists (PIC, Client, Assignee).
      */
+    /**
+     * Step the group-by option forward (+1) or backward (-1), wrapping around.
+     * Driven by the left/right arrows on the toolbar stepper.
+     */
+    public function cycleGroupBy(int $direction): void
+    {
+        $keys = array_keys(self::GROUP_BY_OPTIONS);
+        $count = count($keys);
+        $current = array_search($this->groupBy, $keys, true);
+
+        if ($current === false) {
+            $current = 0;
+        }
+
+        $step = $direction < 0 ? -1 : 1;
+        $this->groupBy = $keys[($current + $step + $count) % $count];
+    }
+
     public function loadFilterOptions(): void
     {
         $this->filterOptionsLoaded = true;
@@ -662,6 +752,16 @@ class ProjectListClickup extends Component implements HasActions, HasForms
                     ->where('submitted_documents.status', 'uploaded'),
             ]);
 
+        return $this->applySort($this->applyFilters($query));
+    }
+
+    /**
+     * Every WHERE clause the toolbar controls, applied to $query.
+     * $withSop=false skips the SOP pill filter so the pill counts can be
+     * computed against "everything else the user has filtered".
+     */
+    protected function applyFilters(Builder $query, bool $withSop = true): Builder
+    {
         if ($this->search !== '') {
             $term = '%' . $this->search . '%';
             $query->where(function ($q) use ($term) {
@@ -690,6 +790,25 @@ class ProjectListClickup extends Component implements HasActions, HasForms
             $query->whereIn('client_id', $this->clientFilter);
         }
 
+        $selection = $this->sopSelection();
+
+        if ($withSop && !empty($selection)) {
+            $includeNone = in_array('none', $selection, true);
+            $sopIds = array_values(array_filter(
+                array_map('intval', array_diff($selection, ['none'])),
+                fn (int $id) => $id > 0,
+            ));
+
+            $query->where(function ($q) use ($includeNone, $sopIds) {
+                if ($sopIds) {
+                    $q->whereIn('sop_id', $sopIds);
+                }
+                if ($includeNone) {
+                    $sopIds ? $q->orWhereNull('sop_id') : $q->whereNull('sop_id');
+                }
+            });
+        }
+
         if ($this->activeClientsOnly) {
             $query->whereHas('client', fn ($q) => $q->where('status', 'Active'));
         }
@@ -702,7 +821,46 @@ class ProjectListClickup extends Component implements HasActions, HasForms
 
         $this->applyDueDateFilter($query);
 
-        return $this->applySort($query);
+        return $query;
+    }
+
+    /**
+     * Counts for the SOP pill row, respecting every other active filter.
+     *
+     * Returns ['total' => int, 'none' => int, 'sops' => [['id','name','count'], ...]]
+     * SOPs with zero matches are dropped, except the one currently selected
+     * so the user can always click it again to deselect.
+     */
+    public function getSopFacetsProperty(): array
+    {
+        $counts = $this->applyFilters($this->baseQuery(), withSop: false)
+            ->toBase()
+            ->selectRaw('sop_id, COUNT(*) AS c')
+            ->groupBy('sop_id')
+            ->pluck('c', 'sop_id');
+
+        $sops = \Illuminate\Support\Facades\Cache::remember(
+            'project_list_sop_options',
+            now()->addSeconds(60),
+            fn () => \App\Models\Sop::query()->orderBy('name')->get(['id', 'name']),
+        );
+
+        $items = $sops
+            ->map(fn ($sop) => [
+                'id'    => (string) $sop->id,
+                'name'  => $sop->name,
+                'count' => (int) ($counts[$sop->id] ?? 0),
+            ])
+            ->filter(fn ($row) => $row['count'] > 0 || in_array($row['id'], $this->sopSelection(), true))
+            ->sortBy([['count', 'desc'], ['name', 'asc']])
+            ->values()
+            ->all();
+
+        return [
+            'total' => (int) $counts->sum(),
+            'none'  => (int) ($counts[''] ?? $counts[null] ?? 0),
+            'sops'  => $items,
+        ];
     }
 
     protected function applySort(Builder $query): Builder

@@ -8,15 +8,12 @@
 <div class="cu-root" wire:poll.visible.60s>
     {{-- ============== TOOLBAR ============== --}}
     @php
-        $groupByOptions = [
-            'status' => 'Status',
-            'priority' => 'Priority',
-            'pic' => 'PIC',
-            'client' => 'Client',
-            'department' => 'Departemen',
-            'sop' => 'SOP',
-            'none' => 'None',
-        ];
+        $groupByOptions = ProjectListClickup::GROUP_BY_OPTIONS;
+        $groupByKeys = array_keys($groupByOptions);
+        $groupByIndex = array_search($groupBy, $groupByKeys, true);
+        $groupByIndex = $groupByIndex === false ? 0 : $groupByIndex;
+        $groupByPrev = $groupByOptions[$groupByKeys[($groupByIndex - 1 + count($groupByKeys)) % count($groupByKeys)]];
+        $groupByNext = $groupByOptions[$groupByKeys[($groupByIndex + 1) % count($groupByKeys)]];
     @endphp
 
     <div class="cu-toolbar">
@@ -30,11 +27,50 @@
             <kbd class="cu-search-kbd">⌘K</kbd>
         </div>
 
-        {{-- Group by — custom dropdown that shows current value --}}
-        <div class="cu-filter cu-dropdown {{ $groupBy !== 'none' ? 'is-active' : '' }}" x-data="{ open: false }">
-            <button type="button" @click="open = !open" class="cu-filter-btn cu-filter-btn-icon" title="Group by: {{ $groupByOptions[$groupBy] ?? 'None' }}">
-                <svg class="cu-filter-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M11 18h2"/></svg>
-            </button>
+        {{-- Group by — stepper: arrows cycle the option, the label opens the full list --}}
+        <div class="cu-filter cu-dropdown cu-groupby {{ $groupBy === 'none' ? 'is-none' : '' }}"
+             x-data="{ open: false }"
+             @keydown.left.prevent="$wire.cycleGroupBy(-1)"
+             @keydown.right.prevent="$wire.cycleGroupBy(1)">
+            <div class="cu-groupby-ctl"
+                 role="group"
+                 aria-label="Group by"
+                 wire:loading.class="is-busy"
+                 wire:target="cycleGroupBy, groupBy">
+                <button type="button"
+                        wire:click="cycleGroupBy(-1)"
+                        wire:loading.attr="disabled"
+                        wire:target="cycleGroupBy, groupBy"
+                        class="cu-groupby-arrow"
+                        title="{{ $groupByPrev }}"
+                        aria-label="Group by sebelumnya: {{ $groupByPrev }}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+
+                <button type="button"
+                        @click="open = !open"
+                        class="cu-groupby-current"
+                        title="Pilih group by"
+                        aria-haspopup="listbox"
+                        :aria-expanded="open">
+                    <span class="cu-groupby-cap">Group by</span>
+                    <span class="cu-groupby-value" wire:key="groupby-value-{{ $groupBy }}">
+                        {{ $groupByOptions[$groupBy] ?? 'None' }}
+                        <svg class="cu-groupby-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </span>
+                    <span class="cu-groupby-spin" aria-hidden="true"></span>
+                </button>
+
+                <button type="button"
+                        wire:click="cycleGroupBy(1)"
+                        wire:loading.attr="disabled"
+                        wire:target="cycleGroupBy, groupBy"
+                        class="cu-groupby-arrow"
+                        title="{{ $groupByNext }}"
+                        aria-label="Group by berikutnya: {{ $groupByNext }}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+            </div>
             <div x-show="open" @click.outside="open = false" x-cloak class="cu-dropdown-panel">
                 @foreach ($groupByOptions as $key => $label)
                     <button type="button"
@@ -273,6 +309,108 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="18" x="3" y="3" rx="1"/><rect width="7" height="11" x="14" y="3" rx="1"/></svg>
                 Papan
             </button>
+        </div>
+    </div>
+
+    {{-- ============== SOP QUICK-FILTER PILLS ============== --}}
+    @php
+        $sopFacets = $this->sopFacets;
+        $sopSelected = $this->sopSelection(); // normalised; never read $sopFilter directly
+        $sopVisibleLimit = 6;
+        $sopPrimary = array_slice($sopFacets['sops'], 0, $sopVisibleLimit);
+        $sopOverflow = array_slice($sopFacets['sops'], $sopVisibleLimit);
+        // If the selected SOP is hidden in the overflow, open the row expanded.
+        $sopSelectedHidden = collect($sopOverflow)->contains(fn ($r) => in_array($r['id'], $sopSelected, true))
+            || in_array('none', $sopSelected, true);
+        $sopIsOn = fn (string $id): bool => in_array($id, $sopSelected, true);
+        $sopAllOn = empty($sopSelected);
+        // Pick a small icon from keywords in the SOP name; falls back to a document.
+        $sopIcon = function (string $name): string {
+            $n = strtolower($name);
+            return match (true) {
+                str_contains($n, 'sp2dk')                                              => 'mail',
+                str_contains($n, 'pemeriksaan') || str_contains($n, 'audit')           => 'search',
+                str_contains($n, 'keberatan') || str_contains($n, 'banding')           => 'scale',
+                str_contains($n, 'keuangan')                                           => 'book',
+                str_contains($n, 'spt') || str_contains($n, 'lapor')                   => 'clipboard',
+                str_contains($n, 'npwp') || str_contains($n, 'pkp') || str_contains($n, 'nib')
+                    || str_contains($n, 'nomor induk') || str_contains($n, 'permohonan')
+                    || str_contains($n, 'perubahan')                                   => 'id',
+                default                                                                => 'file',
+            };
+        };
+    @endphp
+    <div class="cu-sop-bar"
+         role="group"
+         aria-label="Filter SOP"
+         x-data="{ more: @js($sopSelectedHidden) }"
+         wire:loading.class="is-busy"
+         wire:target="toggleSopFilter, sopFilter">
+        <span class="cu-sop-bar-label">SOP</span>
+
+        <div class="cu-sop-pills">
+            <button type="button"
+                    wire:click="toggleSopFilter('')"
+                    class="cu-sop-pill {{ $sopAllOn ? 'is-on' : '' }}"
+                    aria-pressed="{{ $sopAllOn ? 'true' : 'false' }}">
+                @include('livewire.projects.partials.sop-icon', ['icon' => 'layers'])
+                <span class="cu-sop-pill-label">Semua</span>
+                <span class="cu-sop-pill-count">{{ $sopFacets['total'] }}</span>
+            </button>
+
+            @foreach ($sopPrimary as $sop)
+                <button type="button"
+                        wire:click="toggleSopFilter('{{ $sop['id'] }}')"
+                        wire:key="sop-pill-{{ $sop['id'] }}"
+                        class="cu-sop-pill {{ $sopIsOn($sop['id']) ? 'is-on' : '' }}"
+                        aria-pressed="{{ $sopIsOn($sop['id']) ? 'true' : 'false' }}"
+                        title="{{ $sop['name'] }}">
+                    @include('livewire.projects.partials.sop-icon', ['icon' => $sopIcon($sop['name'])])
+                    <span class="cu-sop-pill-label">{{ $sop['name'] }}</span>
+                    <span class="cu-sop-pill-count">{{ $sop['count'] }}</span>
+                </button>
+            @endforeach
+
+            @foreach ($sopOverflow as $sop)
+                <button type="button"
+                        x-show="more"
+                        x-cloak
+                        x-transition.opacity.duration.120ms
+                        wire:click="toggleSopFilter('{{ $sop['id'] }}')"
+                        wire:key="sop-pill-{{ $sop['id'] }}"
+                        class="cu-sop-pill {{ $sopIsOn($sop['id']) ? 'is-on' : '' }}"
+                        aria-pressed="{{ $sopIsOn($sop['id']) ? 'true' : 'false' }}"
+                        title="{{ $sop['name'] }}">
+                    @include('livewire.projects.partials.sop-icon', ['icon' => $sopIcon($sop['name'])])
+                    <span class="cu-sop-pill-label">{{ $sop['name'] }}</span>
+                    <span class="cu-sop-pill-count">{{ $sop['count'] }}</span>
+                </button>
+            @endforeach
+
+            @if ($sopFacets['none'] > 0 || $sopIsOn('none'))
+                <button type="button"
+                        x-show="more || @js($sopIsOn('none'))"
+                        x-cloak
+                        x-transition.opacity.duration.120ms
+                        wire:click="toggleSopFilter('none')"
+                        class="cu-sop-pill cu-sop-pill-ghost {{ $sopIsOn('none') ? 'is-on' : '' }}"
+                        aria-pressed="{{ $sopIsOn('none') ? 'true' : 'false' }}">
+                    @include('livewire.projects.partials.sop-icon', ['icon' => 'slash'])
+                    <span class="cu-sop-pill-label">Tanpa SOP</span>
+                    <span class="cu-sop-pill-count">{{ $sopFacets['none'] }}</span>
+                </button>
+            @endif
+
+            @if (count($sopOverflow) > 0 || $sopFacets['none'] > 0)
+                <button type="button"
+                        @click="more = !more"
+                        class="cu-sop-more"
+                        :aria-expanded="more">
+                    <span x-show="!more">{{ count($sopOverflow) + ($sopFacets['none'] > 0 ? 1 : 0) }} lainnya</span>
+                    <span x-show="more" x-cloak>Ringkas</span>
+                    <svg class="cu-sop-more-caret" :class="{ 'is-open': more }" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+            @endif
         </div>
     </div>
 
@@ -1691,6 +1829,248 @@
         justify-content: center;
     }
 
+    /* ----- Group-by stepper ---------------------------------------------
+       Quiet, soft-filled pill in the same family as the search box:
+       [ ‹ ]  GROUP BY / Value ⌄  [ › ]
+       Arrows step through the options; the middle segment opens the
+       full list. No ring or tint so it reads as one calm control. */
+    .cu-groupby-ctl {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        height: 38px;
+        padding: 0 4px;
+        gap: 2px;
+        background: var(--cu-bg-soft);
+        border-radius: 10px;
+        transition: background .15s, box-shadow .15s;
+    }
+    .cu-groupby-ctl:hover,
+    .cu-groupby-ctl:focus-within {
+        background: var(--cu-bg);
+        box-shadow: 0 1px 4px rgba(15, 23, 42, .08);
+    }
+    .dark .cu-groupby-ctl:hover,
+    .dark .cu-groupby-ctl:focus-within {
+        background: var(--cu-bg-hover);
+        box-shadow: none;
+    }
+    .cu-groupby-arrow,
+    .cu-groupby-current {
+        background: transparent;
+        border: 0;
+        font: inherit;
+        color: var(--cu-ink);
+        cursor: pointer;
+    }
+    .cu-groupby-arrow {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        color: var(--cu-muted);
+        transition: background .12s, color .12s, opacity .12s;
+    }
+    .cu-groupby-arrow:hover {
+        background: var(--cu-bg-hover);
+        color: var(--cu-ink);
+    }
+    .cu-groupby-arrow:active svg { transform: translateX(var(--nudge, 0)); }
+    .cu-groupby-arrow:first-child { --nudge: -1px; }
+    .cu-groupby-arrow:last-child  { --nudge:  1px; }
+    .cu-groupby-arrow:disabled { opacity: .35; cursor: default; }
+    .cu-groupby-arrow:disabled:hover { background: transparent; color: var(--cu-muted); }
+    .cu-groupby-arrow svg { transition: transform .1s; }
+
+    .cu-groupby-current {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        min-width: 96px;
+        height: 30px;
+        padding: 0 10px;
+        border-radius: 8px;
+        text-align: left;
+        transition: background .12s;
+    }
+    .cu-groupby-current:hover { background: var(--cu-bg-hover); }
+    .cu-groupby-cap {
+        font-size: 9.5px;
+        font-weight: 600;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        line-height: 1;
+        color: var(--cu-subtle);
+        margin-bottom: 3px;
+    }
+    .cu-groupby-value {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1;
+        color: var(--cu-ink);
+        white-space: nowrap;
+        animation: cu-groupby-in .16s ease-out;
+    }
+    .cu-groupby.is-none .cu-groupby-value { color: var(--cu-muted); font-weight: 500; }
+    .cu-groupby-caret {
+        color: var(--cu-subtle);
+        transition: transform .15s;
+    }
+    .cu-groupby-current[aria-expanded="true"] .cu-groupby-caret { transform: rotate(180deg); }
+    @keyframes cu-groupby-in {
+        from { opacity: 0; transform: translateY(2px); }
+        to   { opacity: 1; transform: none; }
+    }
+
+    /* Busy state: while Livewire re-renders, dim the value and spin a
+       small ring in its place so the click is visibly acknowledged. */
+    .cu-groupby-spin {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        width: 12px;
+        height: 12px;
+        margin-top: -6px;
+        border-radius: 99px;
+        border: 2px solid var(--cu-line-strong);
+        border-top-color: var(--cu-accent);
+        opacity: 0;
+        transition: opacity .12s;
+        pointer-events: none;
+    }
+    .cu-groupby-ctl.is-busy .cu-groupby-spin {
+        opacity: 1;
+        animation: cu-groupby-spin .7s linear infinite;
+    }
+    .cu-groupby-ctl.is-busy .cu-groupby-value { opacity: .45; }
+    .cu-groupby-ctl.is-busy .cu-groupby-caret { visibility: hidden; }
+    @keyframes cu-groupby-spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 640px) {
+        .cu-groupby-current { min-width: 0; }
+    }
+
+    /* ----- SOP quick-filter bar -----------------------------------------
+       One calm row under the toolbar: a small "SOP" label, then chips.
+       Chips are borderless soft-fill at rest and take the app's primary
+       (Filament --primary-*, cyan) when selected, so they read as the
+       same family as the rest of the admin. Only the top few SOPs show;
+       the rest sit behind a "N lainnya" toggle so the row never crowds. */
+    .cu-sop-bar {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        margin: 2px 0 20px;
+        transition: opacity .15s;
+    }
+    .cu-sop-bar.is-busy { opacity: .55; pointer-events: none; }
+    .cu-sop-bar-label {
+        flex-shrink: 0;
+        padding-top: 10px;
+        font-size: 10.5px;
+        font-weight: 600;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: var(--cu-subtle);
+        line-height: 1;
+    }
+    .cu-sop-pills {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+        min-width: 0;
+    }
+    .cu-sop-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 32px;
+        padding: 0 13px;
+        max-width: 240px;
+        background: var(--cu-bg-soft);
+        border: 0;
+        border-radius: 99px;
+        font: inherit;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--cu-muted);
+        cursor: pointer;
+        transition: background .12s, color .12s, box-shadow .12s;
+    }
+    .cu-sop-pill:hover {
+        background: var(--cu-bg-hover);
+        color: var(--cu-ink);
+    }
+    .cu-sop-pill:focus-visible {
+        outline: 2px solid rgb(var(--primary-500));
+        outline-offset: 2px;
+    }
+    .cu-sop-pill-ico { flex-shrink: 0; opacity: .75; }
+    .cu-sop-pill-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .cu-sop-pill-count {
+        font-size: 11.5px;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+        color: var(--cu-subtle);
+        line-height: 1;
+    }
+    .cu-sop-pill.is-on {
+        background: rgba(var(--primary-500), .12);
+        color: rgb(var(--primary-700));
+        box-shadow: inset 0 0 0 1px rgba(var(--primary-500), .35);
+    }
+    .cu-sop-pill.is-on:hover { background: rgba(var(--primary-500), .16); }
+    .cu-sop-pill.is-on .cu-sop-pill-ico { opacity: 1; }
+    .cu-sop-pill.is-on .cu-sop-pill-count { color: rgba(var(--primary-700), .75); }
+    .dark .cu-sop-pill.is-on {
+        background: rgba(var(--primary-400), .14);
+        color: rgb(var(--primary-300));
+        box-shadow: inset 0 0 0 1px rgba(var(--primary-400), .35);
+    }
+    .dark .cu-sop-pill.is-on .cu-sop-pill-count { color: rgba(var(--primary-300), .75); }
+    .cu-sop-pill-ghost { background: transparent; box-shadow: inset 0 0 0 1px var(--cu-line); }
+    .cu-sop-pill-ghost:hover { background: var(--cu-bg-soft); }
+
+    /* "N lainnya" toggle: text-only so it does not compete with chips. */
+    .cu-sop-more {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 32px;
+        padding: 0 8px;
+        background: transparent;
+        border: 0;
+        border-radius: 8px;
+        font: inherit;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: rgb(var(--primary-600));
+        cursor: pointer;
+        transition: background .12s;
+    }
+    .cu-sop-more:hover { background: rgba(var(--primary-500), .08); }
+    .dark .cu-sop-more { color: rgb(var(--primary-400)); }
+    .cu-sop-more-caret { transition: transform .15s; }
+    .cu-sop-more-caret.is-open { transform: rotate(180deg); }
+
+    @media (max-width: 640px) {
+        .cu-sop-bar { gap: 10px; }
+        .cu-sop-bar-label { display: none; }
+        .cu-sop-pill { max-width: 180px; }
+    }
+
     .cu-filter-ico { color: var(--cu-muted); flex-shrink: 0; }
     .cu-filter-label { color: var(--cu-muted); font-weight: 500; }
     .cu-filter-sep { color: var(--cu-subtle); margin: 0 -2px; }
@@ -2189,8 +2569,8 @@
     }
 
     /* ----- Group card — clean, flat, minimal ------------------------------
-       Quiet container per group. The status color shows only on a 3px left
-       accent bar and inside the badge — the rest of the card stays neutral
+       Quiet container per group. The status color shows only inside the
+       badge — the rest of the card stays neutral
        so rows are easy to scan. No shadows, just a thin border.
        NOTE: no overflow:hidden — would clip the status-picker dropdown that
        pops out of the card. Rounded corners are matched on first/last
@@ -2206,16 +2586,6 @@
     .cu-group-card:hover {
         border-color: var(--cu-line-strong);
     }
-    .cu-group-card::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; bottom: 0;
-        width: 3px;
-        background: var(--group-color, var(--cu-line-strong));
-        border-top-left-radius: 9px;
-        border-bottom-left-radius: 9px;
-    }
-    .cu-group-card-flat::before { background: var(--cu-line-strong); }
     .dark .cu-group-card { border-color: var(--cu-line-strong); }
     .dark .cu-group-card:hover { border-color: var(--cu-muted); }
 

@@ -24,9 +24,13 @@ class TaxChat extends Page
     public array $chatHistory = [];
 
     
+    /**
+     * Hidden from the sidebar on purpose; the page stays reachable by URL
+     * for anyone with the tax-chat permission (see canAccess()).
+     */
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()->can('tax-chat.*');
+        return false;
     }
     
     public static function canAccess(): bool

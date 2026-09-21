@@ -33,6 +33,12 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         'email',
         'password',
         'department_id',
+        'position',
+        'job_title',
+        'status',
+        'avatar_path',
+        'avatar_url',
+        'signature_path',
     ];
 
     /**
@@ -175,6 +181,50 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         if ($this->avatar_path && \Storage::disk('public')->exists($this->avatar_path)) {
             \Storage::disk('public')->delete($this->avatar_path);
         }
+    }
+
+    /**
+     * Remove the stored signature file (only files we uploaded to the public
+     * disk; hand-placed files under public/images are left alone).
+     */
+    public function deleteOldSignature(): void
+    {
+        if ($this->signature_path && \Storage::disk('public')->exists($this->signature_path)) {
+            \Storage::disk('public')->delete($this->signature_path);
+        }
+    }
+
+    /**
+     * Web URL of the signature image, whether it lives on the public disk or
+     * was placed by hand under public/. Null when there is none.
+     */
+    /**
+     * Title printed under the name in a letter's signature block.
+     * Explicit job_title wins; otherwise "Tax Manager" is derived from
+     * department + position (a Director is printed without the department).
+     */
+    public function signatureTitle(): ?string
+    {
+        if (filled($this->job_title)) {
+            return $this->job_title;
+        }
+
+        $position = trim((string) $this->position);
+        if ($position === '') {
+            return null;
+        }
+
+        $department = trim((string) $this->department?->name);
+        if ($department === '' || strcasecmp($position, 'Director') === 0) {
+            return $position;
+        }
+
+        return "{$department} {$position}";
+    }
+
+    public function signatureUrl(): ?string
+    {
+        return app(\App\Services\LetterService::class)->signatureSources($this)['url'] ?? null;
     }
 
     /**

@@ -75,6 +75,14 @@ class ViewProject extends ViewRecord
         $this->updateProjectStatus();
     }
 
+    /**
+     * The page heading is the project itself; the view no longer repeats the name.
+     */
+    public function getHeading(): string
+    {
+        return $this->record->name;
+    }
+
     protected function getViewData(): array
     {
         return [
@@ -595,9 +603,9 @@ class ViewProject extends ViewRecord
                     ->button(),
 
                 Actions\Action::make('viewActivity')
-                    ->label('View Activity Log')
+                    ->label('Aktivitas')
                     ->icon('heroicon-o-clock')
-                    ->url(fn() => ProjectResource::getUrl('activity', ['record' => $this->record])),
+                    ->url(fn() => ProjectResource::getUrl('view', ['record' => $this->record]) . '#aktivitas'),
             ];
         }
 
@@ -1263,9 +1271,9 @@ class ViewProject extends ViewRecord
                 ->button(),
 
             Actions\Action::make('viewActivity')
-                ->label('View Activity Log')
+                ->label('Aktivitas')
                 ->icon('heroicon-o-clock')
-                ->url(fn() => ProjectResource::getUrl('activity', ['record' => $this->record])),
+                ->url(fn() => ProjectResource::getUrl('view', ['record' => $this->record]) . '#aktivitas'),
 
             PreviousRecordAction::make(),
             NextRecordAction::make(),

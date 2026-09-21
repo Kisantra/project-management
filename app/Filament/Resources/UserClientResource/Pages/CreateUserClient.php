@@ -22,6 +22,13 @@ class CreateUserClient extends CreateRecord
             'name' => $data['user']['name'],
             'email' => $data['user']['email'],
             'password' => Hash::make($data['user']['password']),
+            'department_id' => $data['user']['department_id'] ?? null,
+            'position' => $data['user']['position'] ?? null,
+            'job_title' => filled($data['user']['job_title'] ?? null) ? trim($data['user']['job_title']) : null,
+            'status' => $data['user']['status'] ?? 'active',
+            'avatar_path' => $data['user']['avatar_path'] ?? null,
+            'avatar_url' => ! empty($data['user']['avatar_path']) ? 'storage/' . $data['user']['avatar_path'] : ($data['user']['avatar_url'] ?? null),
+            'signature_path' => $data['user']['signature_path'] ?? null,
         ]);
 
         $firstUserClient = null;

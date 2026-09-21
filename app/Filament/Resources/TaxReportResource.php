@@ -48,6 +48,10 @@ class TaxReportResource extends Resource
 
     protected static ?string $modelLabel = 'Laporan Pajaks';
 
+    protected static ?string $navigationLabel = 'Laporan Pajak';
+
+    protected static ?string $navigationIcon = 'heroicon-o-receipt-percent';
+
     // protected static ?string $cluster = LaporanPajak::class;
     protected static ?string $navigationGroup = 'Tax Management';
     protected static ?int $navigationSort = 2;

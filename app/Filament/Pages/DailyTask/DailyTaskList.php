@@ -28,7 +28,8 @@ class DailyTaskList extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()->can('daily-task.list.*');
+        // Hidden from the sidebar for now (menu parked); the page itself stays reachable.
+        return false;
     }
     
     public static function canAccess(): bool

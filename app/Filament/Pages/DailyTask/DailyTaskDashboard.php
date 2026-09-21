@@ -19,7 +19,8 @@ class DailyTaskDashboard extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()->can('daily-task.dashboard.*');
+        // Hidden from the sidebar for now (menu parked); the page itself stays reachable.
+        return false;
     }
     
     public static function canAccess(): bool

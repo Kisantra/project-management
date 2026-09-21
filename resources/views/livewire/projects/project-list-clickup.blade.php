@@ -554,7 +554,24 @@
                     }
                 @endphp
 
-                <div class="cu-row" wire:key="proj-{{ $project->id }}" style="{{ $gridStyle }}">
+                @php $projectUrl = $this->viewUrl($project); @endphp
+                {{-- Whole row is the link. Clicks that land on an inner control
+                     (status picker, priority, assignees, action menu) are left
+                     alone; everything else navigates. Ctrl/Cmd-click opens a tab. --}}
+                <div class="cu-row cu-row-link"
+                     wire:key="proj-{{ $project->id }}"
+                     style="{{ $gridStyle }}"
+                     x-data
+                     data-href="{{ $projectUrl }}"
+                     role="link"
+                     tabindex="0"
+                     @click="
+                        if ($event.target.closest('a, button, input, select, textarea, label, .cu-dropdown-panel')) return;
+                        ($event.ctrlKey || $event.metaKey)
+                            ? window.open($el.dataset.href, '_blank')
+                            : window.location.assign($el.dataset.href);
+                     "
+                     @keydown.enter.self.prevent="window.location.assign($el.dataset.href)">
                     {{-- Status as clickable icon — opens hierarchical picker --}}
                     <div class="cu-col-status">
                         <div x-data="{ open: false }" class="cu-pill-wrap">
@@ -569,9 +586,7 @@
                     </div>
 
                     <div class="cu-col-name">
-                        <button type="button"
-                                wire:click="openProjectView({{ $project->id }})"
-                                class="cu-project-name">{{ $project->name }}</button>
+                        <a href="{{ $projectUrl }}" class="cu-project-name">{{ $project->name }}</a>
 
                         {{-- Indikator inline: icon + angka. Alpine tooltip terjamin tampil saat hover. --}}
                         @if (($project->notes_count ?? 0) > 0 || ($project->uploaded_documents_count ?? 0) > 0)
@@ -894,8 +909,15 @@
                                     @dragend="draggedId = null; draggedFrom = null; hoverCol = null;"
                                     :class="draggedId === {{ $project->id }} ? 'is-dragging' : ''"
                                  @endif
-                                 wire:click="openProjectView({{ $project->id }})"
-                                 role="button"
+                                 data-href="{{ $this->viewUrl($project) }}"
+                                 @click="
+                                    if ($event.target.closest('a, button')) return;
+                                    ($event.ctrlKey || $event.metaKey)
+                                        ? window.open($el.dataset.href, '_blank')
+                                        : window.location.assign($el.dataset.href);
+                                 "
+                                 @keydown.enter.self.prevent="window.location.assign($el.dataset.href)"
+                                 role="link"
                                  tabindex="0">
                             <div class="cu-kb-card-top">
                                 {{-- When grouped by something other than status, show a small status dot so context isn't lost --}}
@@ -1992,76 +2014,129 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        height: 32px;
-        padding: 0 13px;
-        max-width: 240px;
-        background: var(--cu-bg-soft);
+        height: 34px;
+        padding: 0 6px 0 12px;
+        max-width: 260px;
+        background: var(--cu-bg);
         border: 0;
         border-radius: 99px;
         font: inherit;
         font-size: 12.5px;
         font-weight: 500;
-        color: var(--cu-muted);
+        color: var(--cu-ink);
         cursor: pointer;
-        transition: background .12s, color .12s, box-shadow .12s;
+        box-shadow:
+            inset 0 0 0 1px var(--cu-line-strong),
+            0 1px 2px rgba(15, 23, 42, .04);
+        transition: background .12s, color .12s, box-shadow .12s, transform .08s;
     }
     .cu-sop-pill:hover {
-        background: var(--cu-bg-hover);
-        color: var(--cu-ink);
+        box-shadow:
+            inset 0 0 0 1px var(--cu-muted),
+            0 2px 6px rgba(15, 23, 42, .08);
     }
+    .cu-sop-pill:active { transform: translateY(1px); }
     .cu-sop-pill:focus-visible {
         outline: 2px solid rgb(var(--primary-500));
         outline-offset: 2px;
     }
-    .cu-sop-pill-ico { flex-shrink: 0; opacity: .75; }
+    .dark .cu-sop-pill {
+        background: var(--cu-bg-soft);
+        box-shadow: inset 0 0 0 1px var(--cu-line-strong);
+    }
+    .dark .cu-sop-pill:hover { box-shadow: inset 0 0 0 1px var(--cu-muted); }
+    .cu-sop-pill-ico { flex-shrink: 0; color: var(--cu-muted); }
     .cu-sop-pill-label {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
     .cu-sop-pill-count {
-        font-size: 11.5px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 7px;
+        border-radius: 99px;
+        background: var(--cu-bg-soft);
+        font-size: 11px;
         font-weight: 600;
         font-variant-numeric: tabular-nums;
-        color: var(--cu-subtle);
+        color: var(--cu-muted);
         line-height: 1;
+        transition: background .12s, color .12s;
     }
-    .cu-sop-pill.is-on {
-        background: rgba(var(--primary-500), .12);
-        color: rgb(var(--primary-700));
-        box-shadow: inset 0 0 0 1px rgba(var(--primary-500), .35);
-    }
-    .cu-sop-pill.is-on:hover { background: rgba(var(--primary-500), .16); }
-    .cu-sop-pill.is-on .cu-sop-pill-ico { opacity: 1; }
-    .cu-sop-pill.is-on .cu-sop-pill-count { color: rgba(var(--primary-700), .75); }
-    .dark .cu-sop-pill.is-on {
-        background: rgba(var(--primary-400), .14);
-        color: rgb(var(--primary-300));
-        box-shadow: inset 0 0 0 1px rgba(var(--primary-400), .35);
-    }
-    .dark .cu-sop-pill.is-on .cu-sop-pill-count { color: rgba(var(--primary-300), .75); }
-    .cu-sop-pill-ghost { background: transparent; box-shadow: inset 0 0 0 1px var(--cu-line); }
-    .cu-sop-pill-ghost:hover { background: var(--cu-bg-soft); }
+    .dark .cu-sop-pill-count { background: var(--cu-bg-hover); }
 
-    /* "N lainnya" toggle: text-only so it does not compete with chips. */
+    /* Selected: solid primary fill, same voice as Filament's primary button. */
+    .cu-sop-pill.is-on {
+        background: rgb(var(--primary-600));
+        color: #fff;
+        box-shadow:
+            0 1px 2px rgba(var(--primary-700), .35),
+            0 2px 8px rgba(var(--primary-600), .25);
+    }
+    .cu-sop-pill.is-on:hover {
+        background: rgb(var(--primary-700));
+        box-shadow:
+            0 1px 2px rgba(var(--primary-700), .4),
+            0 3px 10px rgba(var(--primary-600), .3);
+    }
+    .cu-sop-pill.is-on .cu-sop-pill-ico { color: rgba(255, 255, 255, .85); }
+    .cu-sop-pill.is-on .cu-sop-pill-count {
+        background: rgba(255, 255, 255, .2);
+        color: #fff;
+    }
+    .dark .cu-sop-pill.is-on {
+        background: rgb(var(--primary-500));
+        color: #08131a;
+        box-shadow: 0 2px 8px rgba(var(--primary-500), .3);
+    }
+    .dark .cu-sop-pill.is-on:hover { background: rgb(var(--primary-400)); }
+    .dark .cu-sop-pill.is-on .cu-sop-pill-ico { color: rgba(8, 19, 26, .75); }
+    .dark .cu-sop-pill.is-on .cu-sop-pill-count {
+        background: rgba(8, 19, 26, .16);
+        color: #08131a;
+    }
+
+    /* "Tanpa SOP": dashed outline so it reads as the odd one out. */
+    .cu-sop-pill-ghost {
+        background: transparent;
+        color: var(--cu-muted);
+        box-shadow: none;
+        border: 1px dashed var(--cu-line-strong);
+    }
+    .cu-sop-pill-ghost:hover { background: var(--cu-bg-soft); color: var(--cu-ink); box-shadow: none; }
+    .dark .cu-sop-pill-ghost { background: transparent; box-shadow: none; }
+    .cu-sop-pill-ghost.is-on { border-color: transparent; }
+
+    /* "N lainnya" toggle: quiet pill, primary text. */
     .cu-sop-more {
         display: inline-flex;
         align-items: center;
         gap: 5px;
-        height: 32px;
-        padding: 0 8px;
+        height: 34px;
+        padding: 0 12px;
         background: transparent;
-        border: 0;
-        border-radius: 8px;
+        border: 1px dashed rgba(var(--primary-600), .45);
+        border-radius: 99px;
         font: inherit;
         font-size: 12.5px;
-        font-weight: 500;
-        color: rgb(var(--primary-600));
+        font-weight: 600;
+        color: rgb(var(--primary-700));
         cursor: pointer;
-        transition: background .12s;
+        transition: background .12s, border-color .12s;
     }
-    .cu-sop-more:hover { background: rgba(var(--primary-500), .08); }
-    .dark .cu-sop-more { color: rgb(var(--primary-400)); }
+    .cu-sop-more:hover {
+        background: rgba(var(--primary-500), .08);
+        border-color: rgb(var(--primary-600));
+    }
+    .dark .cu-sop-more {
+        color: rgb(var(--primary-300));
+        border-color: rgba(var(--primary-400), .45);
+    }
+    .dark .cu-sop-more:hover { background: rgba(var(--primary-400), .12); }
     .cu-sop-more-caret { transition: transform .15s; }
     .cu-sop-more-caret.is-open { transform: rotate(180deg); }
 
@@ -2822,6 +2897,12 @@
     .cu-table-head > *,
     .cu-subrow > * { min-width: 0; }
     .cu-row:hover { background: var(--cu-bg-hover); }
+    .cu-row-link { cursor: pointer; }
+    .cu-row-link:focus-visible {
+        outline: 2px solid var(--cu-accent);
+        outline-offset: -2px;
+        border-radius: 6px;
+    }
     .cu-row.expanded { background: var(--cu-bg-hover); }
 
     .cu-col-expand { display: flex; justify-content: center; }

@@ -77,6 +77,12 @@
                 @livewire('client.management.projek-tab', ['client' => $record], key('projek-tab-'.$record->id))
             </div>
             @break
+
+            @case('surat')
+            <div x-data x-init="$el.style.opacity = 0; setTimeout(() => $el.style.opacity = 1, 10)" class="">
+                @livewire('client.management.surat-tab', ['client' => $record], key('surat-tab-'.$record->id))
+            </div>
+            @break
             @endswitch
         </div>
     </div>

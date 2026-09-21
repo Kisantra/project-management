@@ -1,108 +1,49 @@
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-full bg-info-100 dark:bg-info-900 flex items-center justify-center">
-            <x-heroicon-o-user class="w-6 h-6 text-info-600 dark:text-info-400" />
-        </div>
-        <div>
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                Penanggung Jawab (PIC)
-            </h2>
-            <p class="text-sm text-gray-500 dark:text-gray-400">
-                Kelola orang yang bertanggung jawab untuk proyek ini
-            </p>
-        </div>
-    </div>
-
-    <!-- Current PIC -->
-    @if($project->pic)
-    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <img src="https://ui-avatars.com/api/?name={{ urlencode($project->pic->name) }}&background=f59e0b&color=fff"
-                    alt="{{ $project->pic->name }}"
-                    class="w-12 h-12 rounded-full object-cover ring-2 ring-white dark:ring-gray-800">
-                <div>
-                    <h3 class="font-medium text-gray-900 dark:text-white">
-                        {{ $project->pic->name }}
-                    </h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                        {{ $project->pic->email }}
-                    </p>
-                    @if($project->pic->userClients->count() > 0)
-                    <div class="flex items-center gap-1 mt-1">
-                        <x-heroicon-m-building-office-2 class="w-3 h-3 text-gray-400" />
-                        <span class="text-xs text-gray-500 dark:text-gray-400">
-                            Ditugaskan ke {{ $project->pic->userClients->count() }} klien
-                        </span>
-                    </div>
+{{-- PIC strip for the project detail "Tim & PIC" tab: one compact row, no card. --}}
+@php $canManagePic = ! auth()->user()->hasRole(['staff', 'client']); @endphp
+<div>
+    @if ($project->pic)
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <img src="https://ui-avatars.com/api/?name={{ urlencode($project->pic->name) }}&background=f59e0b&color=fff"
+                 alt="" class="h-10 w-10 shrink-0 rounded-full object-cover">
+            <div class="min-w-0 flex-1">
+                <p class="text-xs text-gray-500 dark:text-gray-400">Penanggung jawab (PIC)</p>
+                <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">{{ $project->pic->name }}</p>
+                <p class="truncate text-xs text-gray-500 dark:text-gray-400">
+                    {{ $project->pic->email }}
+                    @if ($project->pic->userClients->count() > 0)
+                        <span class="mx-1 text-gray-300 dark:text-gray-600">&middot;</span>
+                        menangani {{ $project->pic->userClients->count() }} klien
                     @endif
+                </p>
+            </div>
+            @if ($canManagePic)
+                <div class="flex items-center gap-1">
+                    <x-filament::button size="xs" color="gray" icon="heroicon-m-arrow-path" wire:click="openChangePicModal">
+                        Ubah
+                    </x-filament::button>
+                    <x-filament::button size="xs" color="gray" icon="heroicon-m-x-mark" wire:click="removePic"
+                                        wire:confirm="Hapus PIC dari proyek ini?">
+                        Hapus
+                    </x-filament::button>
                 </div>
-            </div>
-
-            @if(!auth()->user()->hasRole(['staff', 'client']))
-            <div class="flex items-center gap-2">
-                <button wire:click="openChangePicModal"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900 hover:bg-amber-100 dark:hover:bg-amber-800 rounded-lg transition-colors">
-                    <x-heroicon-m-arrow-path class="w-4 h-4" />
-                    Ubah
-                </button>
-                <button wire:click="removePic" wire:confirm="Apakah Anda yakin ingin menghapus PIC dari proyek ini?"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900 hover:bg-red-100 dark:hover:bg-red-800 rounded-lg transition-colors">
-                    <x-heroicon-m-x-mark class="w-4 h-4" />
-                    Hapus
-                </button>
-            </div>
             @endif
         </div>
-    </div>
     @else
-    <!-- No PIC Assigned -->
-    <div class="text-center py-8">
-        <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-4">
-            <x-heroicon-o-user-plus class="w-8 h-8 text-gray-400" />
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-gray-300 text-gray-400 dark:border-gray-600">
+                <x-heroicon-m-user class="h-5 w-5" />
+            </span>
+            <div class="min-w-0 flex-1">
+                <p class="text-xs text-gray-500 dark:text-gray-400">Penanggung jawab (PIC)</p>
+                <p class="text-sm font-medium text-gray-900 dark:text-white">Belum ditentukan</p>
+            </div>
+            @if ($canManagePic)
+                <x-filament::button size="xs" icon="heroicon-m-user-plus" wire:click="openChangePicModal">
+                    Tugaskan PIC
+                </x-filament::button>
+            @endif
         </div>
-        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            Belum Ada PIC yang Ditugaskan
-        </h3>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
-            Proyek ini belum memiliki Penanggung Jawab yang ditugaskan.
-        </p>
-
-        @if(!auth()->user()->hasRole(['staff', 'client']))
-        <button wire:click="openChangePicModal"
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors">
-            <x-heroicon-m-user-plus class="w-4 h-4" />
-            Tugaskan PIC
-        </button>
-        @endif
-    </div>
     @endif
-
-    <!-- PIC Responsibilities -->
-    <div class="border-t border-gray-200 dark:border-gray-700 pt-6">
-        <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-3">
-            Tanggung Jawab PIC
-        </h4>
-        <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-            <li class="flex items-start gap-2">
-                <x-heroicon-m-check-circle class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <span>Akuntabilitas keseluruhan proyek dan pemantauan kemajuan</span>
-            </li>
-            <li class="flex items-start gap-2">
-                <x-heroicon-m-check-circle class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <span>Koordinasi anggota tim dan penugasan tugas</span>
-            </li>
-            <li class="flex items-start gap-2">
-                <x-heroicon-m-check-circle class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <span>Meninjau dan menyetujui dokumen yang disubmit</span>
-            </li>
-            <li class="flex items-start gap-2">
-                <x-heroicon-m-check-circle class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                <span>Mengkomunikasikan status proyek kepada stakeholder</span>
-            </li>
-        </ul>
-    </div>
 
     <!-- Change PIC Modal -->
     @if($showChangePicModal)

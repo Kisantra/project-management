@@ -58,6 +58,7 @@ class AdminPanelProvider extends PanelProvider
                 'Tax Management',
                 'Tugas Harian',
                 'Client Management',
+                'Penyuratan',
                 'Standard Operating Procedures',
                 'Master Data',
                 'Administration',

@@ -43,6 +43,6 @@ class ViewClient extends ViewRecord
             'compliance' => 'Compliance',
             'karyawan' => 'Karyawan',
             'tim' => 'Tim',
-        ];
+        ] + (auth()->user()->can('surat.*') ? ['surat' => 'Surat'] : []);
     }
 }

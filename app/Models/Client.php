@@ -49,6 +49,12 @@ class Client extends Model
         return $this->hasMany(TaxReport::class);
     }
 
+    /** Surat & berita acara issued for this client. */
+    public function letters(): HasMany
+    {
+        return $this->hasMany(Letter::class);
+    }
+
     /**
      * Get the PIC that manages this client
      */

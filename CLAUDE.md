@@ -102,7 +102,7 @@ routes/
 ## Conventions & patterns
 
 ### Filament resources
-- Navigation groups are fixed in [AdminPanelProvider.php:57-65](app/Providers/Filament/AdminPanelProvider.php#L57-L65): `Project Management`, `Tax Management`, `Tugas Harian`, `Client Management`, `Standard Operating Procedures`, `Master Data`, `Administration`. Pick one — don't invent new groups.
+- Navigation groups are fixed in [AdminPanelProvider.php:57-65](app/Providers/Filament/AdminPanelProvider.php#L57-L65): `Project Management`, `Tax Management`, `Tugas Harian` (menus currently hidden), `Client Management`, `Penyuratan` (letters module), `Standard Operating Procedures`, `Master Data`, `Administration`. Pick one — don't invent new groups.
 - Access control uses **Filament Access Management** permissions, e.g. `auth()->user()->can('clients.*')`. Both `shouldRegisterNavigation()` and `canAccess()` should be set on each resource.
 - Primary color is **Cyan** (overridden from Amber later in the provider).
 

@@ -1,166 +1,128 @@
-<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-    <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
-        <div class="flex items-center gap-4">
-            <div class="w-12 h-12 bg-primary-50 dark:bg-primary-900/50 rounded-xl flex items-center justify-center">
-                <x-heroicon-o-user-group class="w-6 h-6 text-primary-600 dark:text-primary-400" />
-            </div>
-            <div>
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Tim Proyek</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{{ $users->count() }} anggota</p>
-            </div>
-        </div>
+{{-- Team roster for the project detail "Tim & PIC" tab. Rendered inside the page's
+     panel, so it carries no card chrome of its own. --}}
+@php
+    $canManage = ! auth()->user()->hasRole('staff');
+@endphp
+<div x-data="{ adding: false }">
+    {{-- Section head --}}
+    <div class="flex items-center justify-between gap-4 px-4 py-3 sm:px-5">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+            Anggota tim
+            <span class="ml-1 font-normal tabular-nums text-gray-500 dark:text-gray-400">{{ $users->count() }}</span>
+        </h3>
+        @if ($canManage)
+            <button type="button" x-on:click="adding = !adding" :aria-expanded="adding"
+                    class="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-50 dark:text-primary-400 dark:hover:bg-primary-400/10">
+                <x-heroicon-m-plus class="h-4 w-4" />
+                <span x-text="adding ? 'Tutup' : 'Tambah anggota'">Tambah anggota</span>
+            </button>
+        @endif
     </div>
 
-    <div class="divide-y divide-gray-50 dark:divide-gray-700">
-        @foreach($users as $user)
-        <div class="p-5 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-all duration-200">
-            <div class="flex items-start gap-4">
-                <div class="relative flex-shrink-0 group">
-                    <img src="{{ $user['avatar'] }}" alt="{{ $user['name'] }}"
-                        class="w-12 h-12 rounded-xl object-cover ring-2 ring-white dark:ring-gray-700 shadow-sm transition-transform group-hover:scale-105">
-                    <div class="absolute -bottom-1 -right-1 h-4 w-4 bg-green-400 rounded-full ring-2 ring-white dark:ring-gray-700"></div>
-                </div>
+    {{-- Add-member panel (managers only) --}}
+    @if ($canManage)
+        <div x-show="adding" x-cloak
+             x-transition:enter="transition duration-150 ease-out motion-reduce:transition-none"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             class="border-y border-gray-100 bg-gray-50/70 px-4 py-4 dark:border-white/5 dark:bg-white/[.02] sm:px-5">
+            <div class="relative max-w-md">
+                <x-heroicon-m-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input type="search"
+                       wire:model.live.debounce.300ms="search"
+                       placeholder="Cari nama atau email…"
+                       class="block w-full rounded-lg border-0 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-500 focus:ring-2 focus:ring-inset focus:ring-primary-500 dark:bg-gray-900 dark:text-white dark:ring-white/10 dark:placeholder:text-gray-400">
+            </div>
 
-                <div class="flex-1 min-w-0">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div>
-                            <h3 class="text-sm font-medium text-gray-900 dark:text-white">{{ $user['name'] }}</h3>
-                            <p class="text-sm text-gray-500 dark:text-gray-400">{{ $user['email'] }}</p>
+            <ul class="mt-3 max-h-72 divide-y divide-gray-100 overflow-y-auto rounded-lg bg-white ring-1 ring-gray-950/5 dark:divide-white/5 dark:bg-gray-900 dark:ring-white/10">
+                @forelse ($availableUsers as $availableUser)
+                    <li class="flex items-center gap-3 px-3 py-2" wire:key="avail-{{ $availableUser->id }}">
+                        <img src="https://ui-avatars.com/api/?name={{ urlencode($availableUser->name) }}&color=7F9CF5&background=EBF4FF"
+                             alt="" class="h-8 w-8 shrink-0 rounded-full object-cover">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $availableUser->name }}</p>
+                            <p class="truncate text-xs text-gray-500 dark:text-gray-400">{{ $availableUser->email }}</p>
                         </div>
+                        <x-filament::button size="xs" color="gray" wire:click="addUserToProject({{ $availableUser->id }})" wire:loading.attr="disabled">
+                            Tambah
+                        </x-filament::button>
+                    </li>
+                @empty
+                    <li class="px-3 py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+                        Tidak ada pengguna yang cocok.
+                    </li>
+                @endforelse
+            </ul>
+        </div>
+    @endif
 
-                        @if(!auth()->user()->hasRole('staff'))
+    {{-- Roster: dense rows, two columns on wide screens --}}
+    @if ($users->isEmpty())
+        <div class="px-4 py-10 text-center sm:px-5">
+            <x-heroicon-o-user-group class="mx-auto h-7 w-7 text-gray-400" />
+            <p class="mt-2 text-sm font-medium text-gray-900 dark:text-white">Belum ada anggota tim</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Tambahkan anggota agar mereka bisa mengerjakan tugas proyek ini.</p>
+        </div>
+    @else
+        <ul class="grid border-t border-gray-100 dark:border-white/5 lg:grid-cols-2">
+            @foreach ($users as $user)
+                <li class="flex items-center gap-3 border-b border-gray-100 px-4 py-2.5 dark:border-white/5 sm:px-5 lg:odd:border-r"
+                    wire:key="member-{{ $user['id'] }}">
+                    <img src="{{ $user['avatar'] }}" alt="" class="h-9 w-9 shrink-0 rounded-full object-cover">
+
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ $user['name'] }}</p>
+                        <p class="truncate text-xs text-gray-500 dark:text-gray-400">
+                            {{ $user['email'] }}
+                            <span class="mx-1 text-gray-300 dark:text-gray-600">&middot;</span>
+                            <span class="tabular-nums">{{ $user['comments_count'] }} komentar</span>
+                            <span class="mx-1 text-gray-300 dark:text-gray-600">&middot;</span>
+                            <span class="tabular-nums">{{ $user['documents_count'] }} dokumen</span>
+                            @if ($user['last_active'])
+                                <span class="mx-1 text-gray-300 dark:text-gray-600">&middot;</span>
+                                aktif {{ $user['last_active'] }}
+                            @endif
+                        </p>
+                    </div>
+
+                    @if ($canManage)
                         <x-filament::dropdown placement="bottom-end">
                             <x-slot name="trigger">
-                                <button class="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 rounded-lg transition-colors">
-                                    <x-heroicon-m-ellipsis-horizontal class="w-5 h-5" />
+                                <button type="button" aria-label="Aksi untuk {{ $user['name'] }}"
+                                        class="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-white/5 dark:hover:text-gray-200">
+                                    <x-heroicon-m-ellipsis-horizontal class="h-5 w-5" />
                                 </button>
                             </x-slot>
-
                             <x-filament::dropdown.list>
                                 <x-filament::dropdown.list.item
                                     x-on:click="$dispatch('open-modal', { id: 'confirm-remove-{{ $user['id'] }}' })"
                                     icon="heroicon-m-trash" color="danger">
-                                    Hapus
+                                    Keluarkan dari tim
                                 </x-filament::dropdown.list.item>
                             </x-filament::dropdown.list>
                         </x-filament::dropdown>
-                        @endif
-                    </div>
 
-                    <div class="flex flex-wrap items-center gap-4 mt-3">
-                        <div class="inline-flex items-center gap-2">
-                            <div class="p-1.5 rounded-full bg-gray-50 dark:bg-gray-700">
-                                <x-heroicon-m-chat-bubble-left-right class="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                            </div>
-                            <span class="text-sm text-gray-600 dark:text-gray-300">{{ $user['comments_count'] }} komentar</span>
-                        </div>
-
-                        <div class="inline-flex items-center gap-2">
-                            <div class="p-1.5 rounded-full bg-gray-50 dark:bg-gray-700">
-                                <x-heroicon-m-document class="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                            </div>
-                            <span class="text-sm text-gray-600 dark:text-gray-300">{{ $user['documents_count'] }} dokumen</span>
-                        </div>
-
-                        <div class="inline-flex items-center gap-2">
-                            <div class="p-1.5 rounded-full bg-gray-50 dark:bg-gray-700">
-                                <x-heroicon-m-clock class="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                            </div>
-                            <span class="text-sm text-gray-600 dark:text-gray-300">Aktif {{ $user['last_active'] }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <x-filament::modal id="confirm-remove-{{ $user['id'] }}">
-            <div class="p-6">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">Hapus Anggota Tim</h3>
-                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Apakah Anda yakin ingin menghapus {{ $user['name'] }} dari proyek ini?
-                </p>
-
-                <div class="mt-6 flex justify-end gap-3">
-                    <x-filament::button color="gray"
-                        x-on:click="$dispatch('close-modal', { id: 'confirm-remove-{{ $user['id'] }}' })">
-                        Batal
-                    </x-filament::button>
-                    <x-filament::button color="danger" wire:click="removeMember({{ $user['id'] }})">
-                        Hapus
-                    </x-filament::button>
-                </div>
-            </div>
-        </x-filament::modal>
-        @endforeach
-    </div>
-
-    @if(!auth()->user()->hasRole('staff'))
-    <div x-data="{ open: false }" class="border-t border-gray-100 dark:border-gray-700">
-        <button @click="open = !open"
-            class="w-full px-6 py-4 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 flex items-center justify-center gap-2 transition-colors {{ auth()->user()->hasRole('staff') ? 'hidden' : '' }}">
-            <x-heroicon-m-plus-circle class="w-5 h-5" />
-            <span>Tambah Anggota Tim</span>
-        </button>
-
-        <div x-show="open" x-transition:enter="transition ease-out duration-200"
-            x-transition:enter-start="opacity-0 transform translate-y-4"
-            x-transition:enter-end="opacity-100 transform translate-y-0" 
-            class="border-t border-gray-100 dark:border-gray-700 p-6 bg-gray-50/30 dark:bg-gray-800/50">
-
-            <div class="space-y-6">
-                <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <x-heroicon-m-magnifying-glass class="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                    </div>
-                    <x-filament::input type="text" wire:model.debounce.300ms="search" placeholder="Cari pengguna..."
-                        class="pl-10 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" />
-                </div>
-
-                <div class="space-y-2 max-h-[400px] overflow-y-auto px-1">
-                    @forelse($availableUsers as $availableUser)
-                    <div
-                        class="group p-4 bg-gray-50 dark:bg-gray-700/50 hover:bg-white dark:hover:bg-gray-700 rounded-xl transition-all duration-200 border border-gray-100 dark:border-gray-600">
-                        <div class="flex items-center gap-4">
-                            <img src="https://ui-avatars.com/api/?name={{ urlencode($availableUser->name) }}"
-                                class="w-10 h-10 rounded-lg object-cover ring-1 ring-gray-200 dark:ring-gray-600">
-
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div>
-                                        <h4 class="text-sm font-medium text-gray-900 dark:text-white">{{ $availableUser->name }}</h4>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $availableUser->email }}</p>
+                        <div class="[&>.fi-modal]:block [&>.fi-modal]:h-0">
+                            <x-filament::modal id="confirm-remove-{{ $user['id'] }}" width="md">
+                                <div class="space-y-4">
+                                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Keluarkan anggota tim</h3>
+                                    <p class="text-sm text-gray-600 dark:text-gray-300">
+                                        {{ $user['name'] }} akan dikeluarkan dari proyek ini. Tugas yang sudah dikerjakan tetap tersimpan.
+                                    </p>
+                                    <div class="flex justify-end gap-3">
+                                        <x-filament::button color="gray" x-on:click="$dispatch('close-modal', { id: 'confirm-remove-{{ $user['id'] }}' })">
+                                            Batal
+                                        </x-filament::button>
+                                        <x-filament::button color="danger" wire:click="removeMember({{ $user['id'] }})">
+                                            Keluarkan
+                                        </x-filament::button>
                                     </div>
-
-                                    <x-filament::button wire:click="addUserToProject({{ $availableUser->id }})"
-                                        size="sm" class="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        Tambah Anggota
-                                    </x-filament::button>
                                 </div>
-                            </div>
+                            </x-filament::modal>
                         </div>
-                    </div>
-                    @empty
-                    <div class="text-center py-8">
-                        <div class="w-12 h-12 mx-auto bg-gray-50 dark:bg-gray-700 rounded-xl flex items-center justify-center mb-4">
-                            <x-heroicon-o-user-plus class="w-6 h-6 text-gray-400 dark:text-gray-500" />
-                        </div>
-                        <h4 class="text-sm font-medium text-gray-900 dark:text-white">Tidak ada pengguna ditemukan</h4>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Coba cari dengan kata kunci yang berbeda</p>
-                    </div>
-                    @endforelse
-                </div>
-            </div>
-        </div>
-    </div>
-    @endif
-
-    @if($users->isEmpty())
-    <div class="p-12 text-center">
-        <div class="w-16 h-16 mx-auto bg-gray-50 dark:bg-gray-700 rounded-xl flex items-center justify-center mb-4">
-            <x-heroicon-o-user-group class="w-8 h-8 text-gray-400 dark:text-gray-500" />
-        </div>
-        <h3 class="text-base font-medium text-gray-900 dark:text-white">Belum ada anggota tim</h3>
-        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Mulai bangun tim Anda dengan menambahkan anggota</p>
-    </div>
+                    @endif
+                </li>
+            @endforeach
+        </ul>
     @endif
 </div>

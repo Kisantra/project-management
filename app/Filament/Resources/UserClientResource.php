@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Models\Client;
 
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Filament\Forms\Components\Section;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Notifications\Notification;
@@ -45,6 +46,25 @@ class UserClientResource extends Resource
 
     protected static ?string $navigationGroup = 'Master Data';
 
+    /**
+     * Upload field for the handwritten signature used on letters. Shared by the
+     * create/edit form and the table action so the rules stay in one place.
+     */
+    public static function signatureUpload(string $name = 'signature_path'): Forms\Components\FileUpload
+    {
+        return Forms\Components\FileUpload::make($name)
+            ->label('Tanda Tangan')
+            ->image()
+            ->disk('public')
+            ->directory('signatures')
+            ->visibility('public')
+            ->acceptedFileTypes(['image/png', 'image/webp'])
+            ->maxSize(1024)
+            ->imagePreviewHeight('96')
+            ->panelAspectRatio('3:1')
+            ->helperText('PNG berlatar transparan, maksimal 1MB. Dicetak di atas nama saat pengguna ditunjuk sebagai penandatangan surat.');
+    }
+
     public static function form(Form $form): Form
     {
         return $form->schema([
@@ -61,7 +81,8 @@ class UserClientResource extends Resource
                     Forms\Components\TextInput::make('user.email')
                         ->email()
                         ->required()
-                        ->unique('users', 'email', ignoreRecord: true)
+                        // The page record is a UserClient row, so ignore the linked user's id, not the pivot id.
+                        ->unique('users', 'email', ignorable: fn(?UserClient $record) => $record?->user)
                         ->placeholder('email@contoh.com')
                         ->label('Email'),
 
@@ -87,7 +108,13 @@ class UserClientResource extends Resource
                         ->native(false)
                         ->searchable()
                         ->placeholder('Pilih jabatan')
-                        ->helperText('Jabatan karyawan di perusahaan'),
+                        ->helperText('Tingkatan jabatan, dipakai untuk filter'),
+
+                    Forms\Components\TextInput::make('user.job_title')
+                        ->label('Jabatan di surat')
+                        ->maxLength(100)
+                        ->placeholder('mis. Tax Manager')
+                        ->helperText('Dicetak di bawah nama pada blok tanda tangan surat. Bila kosong, dipakai gabungan departemen + jabatan (Tax + Manager = Tax Manager).'),
 
                     Forms\Components\Select::make('user.status')
                         ->label('Status')
@@ -120,6 +147,8 @@ class UserClientResource extends Resource
                         ->url()
                         ->placeholder('https://contoh.com/avatar.jpg')
                         ->helperText('Atau masukkan URL jika Anda tidak ingin mengunggah file'),
+
+                    static::signatureUpload('user.signature_path'),
 
                     Forms\Components\TextInput::make('user.password')
                         ->password()
@@ -203,10 +232,20 @@ class UserClientResource extends Resource
                     ->defaultImageUrl(fn($record) => 'https://ui-avatars.com/api/?name=' . urlencode($record->name) . '&color=7F9CF5&background=EBF4FF')
                     ->size(60),
 
+                ImageColumn::make('signature_path')
+                    ->label('Tanda Tangan')
+                    ->getStateUsing(fn(User $record) => $record->signatureUrl() ? url($record->signatureUrl()) : null)
+                    ->height(36)
+                    ->width(96)
+                    ->extraImgAttributes(['style' => 'object-fit: contain; object-position: left center;'])
+                    ->tooltip(fn(User $record) => $record->signatureUrl() ? 'Tanda tangan tersimpan' : 'Belum ada tanda tangan')
+                    ->toggleable(),
+
                 TextColumn::make('name')
                     ->label('Nama')
                     ->searchable(['users.name'])
-                    ->sortable(),
+                    ->sortable()
+                    ->description(fn(User $record) => $record->signatureTitle()),
 
                 TextColumn::make('email')
                     ->label('Email')
@@ -331,6 +370,18 @@ class UserClientResource extends Resource
                     ])
                     ->searchable(),
 
+                Tables\Filters\TernaryFilter::make('has_signature')
+                    ->label('Tanda tangan')
+                    ->native(false)
+                    ->placeholder('Semua')
+                    ->trueLabel('Sudah ada')
+                    ->falseLabel('Belum ada')
+                    ->queries(
+                        true: fn(Builder $query) => $query->whereNotNull('users.signature_path')->where('users.signature_path', '!=', ''),
+                        false: fn(Builder $query) => $query->where(fn(Builder $q) => $q->whereNull('users.signature_path')->orWhere('users.signature_path', '')),
+                        blank: fn(Builder $query) => $query,
+                    ),
+
                 Tables\Filters\SelectFilter::make('status')
                     ->label('Status')
                     ->native(false)
@@ -358,6 +409,7 @@ class UserClientResource extends Resource
                                 'email' => $record->email,
                                 'department_id' => $record->department_id,
                                 'position' => $record->position,
+                                'job_title' => $record->job_title,
                                 'status' => $record->status,
                                 'avatar_path' => $record->avatar_path,
                                 'avatar_url' => $record->avatar_url,
@@ -403,7 +455,13 @@ class UserClientResource extends Resource
                                         ->native(false)
                                         ->searchable()
                                         ->placeholder('Pilih jabatan')
-                                        ->helperText('Jabatan karyawan di perusahaan'),
+                                        ->helperText('Tingkatan jabatan, dipakai untuk filter'),
+
+                                    Forms\Components\TextInput::make('job_title')
+                                        ->label('Jabatan di surat')
+                                        ->maxLength(100)
+                                        ->placeholder('mis. Tax Manager')
+                                        ->helperText('Dicetak di bawah nama pada tanda tangan surat. Kosong = departemen + jabatan.'),
 
                                     Forms\Components\Select::make('status')
                                         ->label('Status')
@@ -455,6 +513,7 @@ class UserClientResource extends Resource
                                 'email' => $data['email'],
                                 'department_id' => $data['department_id'] ?? null,
                                 'position' => $data['position'] ?? null,
+                                'job_title' => filled($data['job_title'] ?? null) ? trim($data['job_title']) : null,
                                 'status' => $data['status'] ?? 'active',
                             ];
 
@@ -664,6 +723,96 @@ class UserClientResource extends Resource
                                 ->title('Tidak Ada Perubahan')
                                 ->warning()
                                 ->body('Tidak ada perubahan avatar yang dilakukan.')
+                                ->send();
+                        }),
+
+                    Tables\Actions\Action::make('signature')
+                        ->label('Tanda Tangan')
+                        ->icon('heroicon-m-pencil-square')
+                        ->color('gray')
+                        ->modalHeading(fn($record) => "Tanda tangan {$record->name}")
+                        ->modalDescription('Gambar ini dicetak di blok tanda tangan surat saat pengguna ditunjuk sebagai penandatangan.')
+                        ->modalWidth('lg')
+                        ->modalSubmitActionLabel('Simpan')
+                        ->modalCancelActionLabel('Batal')
+                        ->fillForm(fn(User $record) => [
+                            'signature_path' => $record->signature_path && Storage::disk('public')->exists($record->signature_path)
+                                ? $record->signature_path
+                                : null,
+                        ])
+                        ->form([
+                            Forms\Components\Placeholder::make('current_signature')
+                                ->label('Saat ini')
+                                ->content(function (User $record) {
+                                    $url = $record->signatureUrl();
+
+                                    if (! $url) {
+                                        return new \Illuminate\Support\HtmlString(
+                                            '<p class="text-sm text-gray-500 dark:text-gray-400">Belum ada tanda tangan. Unggah gambar di bawah.</p>'
+                                        );
+                                    }
+
+                                    return new \Illuminate\Support\HtmlString(
+                                        '<div class="rounded-lg border border-gray-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5">'
+                                        . '<img src="' . e(url($url)) . '?v=' . ($record->updated_at?->timestamp ?? 0) . '" alt="Tanda tangan ' . e($record->name) . '" class="h-16 w-auto max-w-full">'
+                                        . '<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">' . e($record->signature_path) . '</p>'
+                                        . '</div>'
+                                    );
+                                }),
+
+                            static::signatureUpload('signature_path')
+                                ->label('Unggah tanda tangan baru')
+                                ->helperText('PNG berlatar transparan, maksimal 1MB. Mengunggah file baru menggantikan yang lama.'),
+
+                            Forms\Components\Checkbox::make('remove_signature')
+                                ->label('Hapus tanda tangan saat ini')
+                                ->visible(fn(User $record) => filled($record->signature_path)),
+                        ])
+                        ->action(function (array $data, User $record): void {
+                            if (! empty($data['remove_signature'])) {
+                                $record->deleteOldSignature();
+                                $record->update(['signature_path' => null]);
+
+                                Notification::make()
+                                    ->title('Tanda tangan dihapus')
+                                    ->body("Tanda tangan {$record->name} dihapus.")
+                                    ->success()
+                                    ->send();
+
+                                return;
+                            }
+
+                            $new = $data['signature_path'] ?? null;
+
+                            if ($new && $new !== $record->signature_path) {
+                                $record->deleteOldSignature();
+                                $record->update(['signature_path' => $new]);
+
+                                Notification::make()
+                                    ->title('Tanda tangan disimpan')
+                                    ->body("Tanda tangan {$record->name} diperbarui.")
+                                    ->success()
+                                    ->send();
+
+                                return;
+                            }
+
+                            if (! $new && $record->signature_path && Storage::disk('public')->exists($record->signature_path)) {
+                                // File removed from the uploader without ticking the checkbox: treat as removal.
+                                $record->deleteOldSignature();
+                                $record->update(['signature_path' => null]);
+
+                                Notification::make()
+                                    ->title('Tanda tangan dihapus')
+                                    ->success()
+                                    ->send();
+
+                                return;
+                            }
+
+                            Notification::make()
+                                ->title('Tidak ada perubahan')
+                                ->warning()
                                 ->send();
                         }),
 

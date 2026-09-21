@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use App\Models\UserClient;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
 
 class EditUserClient extends EditRecord
@@ -32,14 +33,23 @@ class EditUserClient extends EditRecord
         $user = User::find($this->record->user_id);
         
         if ($user) {
-            // Fill user fields with dot notation
-            $data['user.name'] = $user->name;
-            $data['user.email'] = $user->email;
-            $data['user.department_id'] = $user->department_id;
-            $data['user.position'] = $user->position;
-            $data['user.status'] = $user->status;
-            $data['user.avatar_path'] = $user->avatar_path;
-            $data['user.avatar_url'] = $user->avatar_url;
+            // Nested array, not dot keys: Filament fills `user.name` fields from $data['user']['name'].
+            $data['user'] = [
+                'name'          => $user->name,
+                'email'         => $user->email,
+                'department_id' => $user->department_id,
+                'position'      => $user->position,
+                'job_title'     => $user->job_title,
+                'status'        => $user->status,
+                'avatar_path'   => $user->avatar_path,
+                // avatar_url mirrors the upload ('storage/...') when a file exists; only an external URL belongs in the field.
+                'avatar_url'    => $user->avatar_path ? null : $user->avatar_url,
+                // Only files on the public disk can be shown in the uploader; hand-placed
+                // files under public/images are kept as-is unless replaced.
+                'signature_path' => $user->signature_path && Storage::disk('public')->exists($user->signature_path)
+                    ? $user->signature_path
+                    : null,
+            ];
         }
 
         // Get all client IDs for this user
@@ -58,20 +68,33 @@ class EditUserClient extends EditRecord
             'email' => $data['user']['email'],
             'department_id' => $data['user']['department_id'] ?? null,
             'position' => $data['user']['position'] ?? null,
+            'job_title' => filled($data['user']['job_title'] ?? null) ? trim($data['user']['job_title']) : null,
             'status' => $data['user']['status'] ?? 'active',
         ];
 
-        // Handle avatar_path
-        if (isset($data['user']['avatar_path'])) {
-            $record->user->deleteOldAvatar();
+        // Handle avatar_path (only delete the old file when a different one was uploaded)
+        if (!empty($data['user']['avatar_path'])) {
+            if ($data['user']['avatar_path'] !== $record->user->avatar_path) {
+                $record->user->deleteOldAvatar();
+            }
             $updateData['avatar_path'] = $data['user']['avatar_path'];
             $updateData['avatar_url'] = 'storage/' . $data['user']['avatar_path'];
         }
 
         // Handle avatar_url only if no file uploaded
-        if (isset($data['user']['avatar_url']) && !isset($data['user']['avatar_path'])) {
+        if (!empty($data['user']['avatar_url']) && empty($data['user']['avatar_path'])) {
             $updateData['avatar_url'] = $data['user']['avatar_url'];
             $updateData['avatar_path'] = null;
+        }
+
+        // Handle signature: a new upload replaces; a cleared uploader removes a disk-stored file.
+        $newSignature = $data['user']['signature_path'] ?? null;
+        if ($newSignature && $newSignature !== $record->user->signature_path) {
+            $record->user->deleteOldSignature();
+            $updateData['signature_path'] = $newSignature;
+        } elseif (! $newSignature && $record->user->signature_path && Storage::disk('public')->exists($record->user->signature_path)) {
+            $record->user->deleteOldSignature();
+            $updateData['signature_path'] = null;
         }
 
         // Update password if provided

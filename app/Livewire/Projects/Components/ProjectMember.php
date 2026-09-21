@@ -24,6 +24,8 @@ class ProjectMember extends Component
         return $this->project->userProject()
             ->with(['user'])
             ->get()
+            ->unique('user_id') // the pivot can hold the same user twice; show each person once
+            ->values()
             ->map(function ($userProject) {
                 $user = $userProject->user;
                 return [
@@ -44,7 +46,7 @@ class ProjectMember extends Component
                             $query->whereIn('project_step_id', $this->project->steps->pluck('id'));
                         })
                         ->latest()
-                        ->first()?->created_at?->diffForHumans() ?? 'Tidak Pernah',
+                        ->first()?->created_at?->locale('id')->diffForHumans(),
                 ];
             });
     }

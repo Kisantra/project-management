@@ -76,6 +76,11 @@ class Project extends Model
         });
     }
 
+    public function calendarEvents(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CalendarEvent::class);
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

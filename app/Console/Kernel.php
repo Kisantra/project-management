@@ -14,6 +14,8 @@ class Kernel extends ConsoleKernel
     {
         // $schedule->command('inspire')->hourly();
         $schedule->command('backup:discord-db')->weeklyOn(1, '08:00'); // Every Monday at 08:00
+        // Calendar reminders: due rows are picked up within a minute of their time.
+        $schedule->command('calendar:send-reminders')->everyMinute()->withoutOverlapping();
     }
 
     /**

@@ -50,6 +50,11 @@ class Client extends Model
     }
 
     /** Surat & berita acara issued for this client. */
+    public function calendarEvents(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\CalendarEvent::class);
+    }
+
     public function letters(): HasMany
     {
         return $this->hasMany(Letter::class);

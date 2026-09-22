@@ -16,8 +16,8 @@
         .au-row { animation: au-in .45s cubic-bezier(.22, 1, .36, 1) both; }
         .au-bar { transform-origin: left; animation: au-grow .7s cubic-bezier(.22, 1, .36, 1) both; }
         /* Medals pop in; the crown lands tilted on the rim and keeps a slow, gentle sway. */
-        @keyframes au-pop { from { opacity: 0; transform: scale(.4) rotate(-40deg); } to { opacity: 1; transform: rotate(-8deg); } }
-        .au-medal { transform-origin: bottom left; animation: au-pop .45s cubic-bezier(.22, 1, .36, 1) both; }
+        @keyframes au-pop { from { opacity: 0; transform: scale(.3) rotate(-30deg); } to { opacity: 1; transform: none; } }
+        .au-medal { transform-origin: center; animation: au-pop .5s cubic-bezier(.34, 1.56, .64, 1) both; }
         @keyframes au-crown-in { from { opacity: 0; transform: translateY(-8px) scale(.4) rotate(-60deg); } to { opacity: 1; transform: translateY(0) scale(1) rotate(-24deg); } }
         @keyframes au-crown-sway { 0%, 100% { transform: rotate(-24deg); } 50% { transform: rotate(-16deg) translateY(-1px); } }
         .au-crown { transform-origin: bottom right; animation: au-crown-in .55s cubic-bezier(.34, 1.56, .64, 1) both, au-crown-sway 3.2s ease-in-out .6s infinite; filter: drop-shadow(0 2px 3px rgba(217, 119, 6, .35)); }
@@ -50,8 +50,16 @@
             <li class="au-row rounded-xl px-3 py-2.5 {{ $s['row'] }}" style="animation-delay: {{ $i * 70 }}ms" wire:key="au-{{ $range }}-{{ $r['rank'] }}">
                 <div class="flex items-center gap-3">
                     <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold tabular-nums {{ $s['badge'] }}">{{ $r['rank'] }}</span>
-                    {{-- Avatar with a medal for the top three: crown, silver, bronze --}}
-                    @php $medal = [1 => '👑', 2 => '🥈', 3 => '🥉'][$r['rank']] ?? null; @endphp
+                    {{-- Medal image by rank, shown at the right edge at avatar size:
+                         MVP (1), gold (2–3), silver (4–5), bronze (rest). Rank 1 keeps the crown. --}}
+                    @php
+                        $medal = match (true) {
+                            $r['rank'] === 1 => ['file' => 'mvp',    'size' => 'h-12 w-12', 'alt' => 'MVP'],
+                            $r['rank'] <= 3  => ['file' => 'gold',   'size' => 'h-10 w-10', 'alt' => 'Medali emas'],
+                            $r['rank'] <= 5  => ['file' => 'silver', 'size' => 'h-9 w-9',   'alt' => 'Medali perak'],
+                            default          => ['file' => 'bronze', 'size' => 'h-9 w-9',   'alt' => 'Medali perunggu'],
+                        };
+                    @endphp
                     <span class="relative shrink-0">
                         @if ($r['avatar'])
                             <img src="{{ $r['avatar'] }}" alt="" class="block rounded-full object-cover {{ $s['avatar'] }}">
@@ -64,9 +72,6 @@
                                   style="animation-delay: {{ $i * 70 + 250 }}ms, 0s" aria-label="Peringkat 1" role="img">👑</span>
                             <span class="au-sparkle absolute -right-2 -top-1 select-none text-[11px] leading-none" style="animation-delay: .2s" aria-hidden="true">✨</span>
                             <span class="au-sparkle absolute -bottom-1 -right-2.5 select-none text-[9px] leading-none" style="animation-delay: 1.3s" aria-hidden="true">✨</span>
-                        @elseif ($medal)
-                            <span class="au-medal absolute -right-2 -top-2 select-none text-base leading-none"
-                                  style="animation-delay: {{ $i * 70 + 250 }}ms" aria-label="Peringkat {{ $r['rank'] }}" role="img">{{ $medal }}</span>
                         @endif
                     </span>
                     <span class="min-w-0 flex-1">
@@ -77,6 +82,9 @@
                         <span class="block text-sm font-semibold tabular-nums text-gray-900 dark:text-gray-100">{{ number_format($r['total'], 0, ',', '.') }}</span>
                         <span class="block text-[11px] text-gray-400">{{ $r['share'] }}%</span>
                     </span>
+                    <img src="{{ asset('images/medal/optimized/' . $medal['file'] . '.webp') }}" alt="{{ $medal['alt'] }}"
+                         class="au-medal {{ $medal['size'] }} shrink-0 select-none object-contain drop-shadow-sm"
+                         style="animation-delay: {{ $i * 70 + 250 }}ms" title="{{ $medal['alt'] }} · peringkat {{ $r['rank'] }}">
                 </div>
                 <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100 pl-0 dark:bg-gray-800" aria-hidden="true">
                     <span class="au-bar block h-full rounded-full {{ $s['bar'] }}" style="width: {{ $r['total'] / $max * 100 }}%; animation-delay: {{ $i * 70 + 120 }}ms"></span>

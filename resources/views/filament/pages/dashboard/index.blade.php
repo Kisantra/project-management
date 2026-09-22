@@ -116,6 +116,11 @@
         </div>
     </div>
 
+    {{-- Tax filing status per masa pajak, 12 periods --}}
+    <div class="mt-6">
+        @livewire('dashboard.widgets.report-status-trend')
+    </div>
+
     {{-- Recent Activity Feed - Full Width --}}
     <div class="mt-6">
         @livewire('dashboard.widgets.recent-activity-feed')

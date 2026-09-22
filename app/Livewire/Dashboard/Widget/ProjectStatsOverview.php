@@ -7,157 +7,161 @@ use App\Filament\Resources\ProjectResource;
 use App\Filament\Resources\RequiredDocumentResource;
 use App\Models\Letter;
 use App\Models\Project;
-use App\Models\RequiredDocument;
+use App\Models\SubmittedDocument;
+use App\Models\UserActivity;
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\Component;
 use Spatie\Activitylog\Models\Activity;
 
 /**
- * Four headline cards at the top of the dashboard. Each card is one number the
- * reader can act on, a pill that says whether it needs attention, a one-line
- * context, and a link to the filtered list behind it.
+ * KPI row at the top of the dashboard: four stat tiles, each a 30-day flow
+ * (how much happened) with a delta against the previous 30 days and a daily
+ * sparkline. The whole tile links to the list behind it.
  */
 class ProjectStatsOverview extends Component
 {
-    protected const OPEN_STATUSES_EXCLUDED = ['completed', 'canceled'];
+    public const WINDOW_DAYS = 30;
 
     public function render(): View
     {
         return view('livewire.dashboard.widget.project-stats-overview', [
-            'cards' => $this->cards(),
+            'tiles' => $this->tiles(),
         ]);
     }
 
     /** @return array<int, array<string, mixed>> */
-    protected function cards(): array
+    protected function tiles(): array
     {
-        $user = auth()->user();
-
-        $cards = [
-            $this->activeProjectsCard(),
-            $this->completedProjectsCard(),
-            $this->pendingDocumentsCard(),
+        $tiles = [
+            $this->newProjectsTile(),
+            $this->completedProjectsTile(),
+            $this->documentsTile(),
         ];
 
-        $cards[] = $user->can('surat.*') ? $this->lettersCard() : $this->urgentProjectsCard();
+        $tiles[] = auth()->user()->can('surat.*') ? $this->lettersTile() : $this->activityTile();
 
-        return $cards;
+        return $tiles;
     }
 
     /* ------------------------------------------------------------------ */
-    /* Cards                                                               */
+    /* Tiles                                                               */
     /* ------------------------------------------------------------------ */
 
-    protected function activeProjectsCard(): array
+    protected function newProjectsTile(): array
     {
-        $open = $this->projects()->whereNotIn('status', self::OPEN_STATUSES_EXCLUDED);
-        $active = (clone $open)->count();
-        $overdue = (clone $open)->whereDate('due_date', '<', today())->count();
-        $dueSoon = (clone $open)->whereBetween('due_date', [today(), today()->addDays(7)])->count();
-
-        return [
-            'label' => 'Proyek Aktif',
-            'icon'  => 'heroicon-o-folder-open',
-            'value' => $active,
-            'pill'  => $overdue > 0
-                ? ['tone' => 'danger', 'icon' => 'heroicon-m-exclamation-triangle', 'text' => $this->n($overdue) . ' lewat tenggat']
-                : ['tone' => 'success', 'icon' => 'heroicon-m-check', 'text' => 'sesuai jadwal'],
-            'note'  => $dueSoon > 0
-                ? $this->n($dueSoon) . ' jatuh tempo dalam 7 hari'
-                : 'tidak ada tenggat dalam 7 hari',
-            'href'  => ProjectResource::getUrl('index') . ($overdue > 0 ? '?due=overdue' : ''),
-        ];
+        return $this->tile(
+            label: 'Proyek baru',
+            unit: 'proyek',
+            query: $this->projects(),
+            column: 'projects.created_at',
+            href: ProjectResource::getUrl('index'),
+        );
     }
 
-    protected function completedProjectsCard(): array
+    protected function completedProjectsTile(): array
     {
-        $thisMonth = $this->completedBetween(now()->startOfMonth(), now());
-        $lastMonth = $this->completedBetween(now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth());
-        $allTime = $this->projects()->where('status', 'completed')->count();
+        // The projects table has no completed_at; the status flip lives in the activity log.
+        $query = Activity::query()
+            ->where('subject_type', Project::class)
+            ->whereIn('subject_id', $this->projects()->select('projects.id'))
+            ->where('properties->attributes->status', 'completed');
 
-        return [
-            'label' => 'Selesai Bulan Ini',
-            'icon'  => 'heroicon-o-check-circle',
-            'value' => $thisMonth,
-            'pill'  => $this->deltaPill($thisMonth, $lastMonth),
-            'note'  => $this->n($lastMonth) . ' bulan lalu · ' . $this->n($allTime) . ' total',
-            'href'  => ProjectResource::getUrl('index') . '?status[0]=completed',
-        ];
+        return $this->tile(
+            label: 'Proyek selesai',
+            unit: 'proyek',
+            query: $query,
+            column: 'activity_log.created_at',
+            href: ProjectResource::getUrl('index') . '?status[0]=completed',
+        );
     }
 
-    protected function pendingDocumentsCard(): array
+    protected function documentsTile(): array
     {
-        $pending = $this->documents()->whereIn('status', ['pending_review', 'uploaded']);
-        $count = (clone $pending)->count();
-        $newThisWeek = (clone $pending)->where('updated_at', '>=', now()->subDays(7))->count();
-        $oldest = (clone $pending)->min('updated_at');
-        $waitingDays = $oldest ? (int) now()->diffInDays($oldest) : 0;
+        $query = SubmittedDocument::query()
+            ->whereHas('requiredDocument.projectStep.project', fn ($q) => $q->whereIn('id', $this->projects()->select('projects.id')));
 
-        return [
-            'label' => 'Dokumen Menunggu Review',
-            'icon'  => 'heroicon-o-document-magnifying-glass',
-            'value' => $count,
-            'pill'  => $newThisWeek > 0
-                ? ['tone' => 'warning', 'icon' => 'heroicon-m-arrow-down-tray', 'text' => $this->n($newThisWeek) . ' masuk minggu ini']
-                : ['tone' => 'gray', 'icon' => null, 'text' => 'tidak ada yang baru'],
-            'note'  => $count > 0
-                ? 'terlama menunggu ' . $this->n($waitingDays) . ' hari'
-                : 'semua dokumen sudah ditinjau',
-            'href'  => RequiredDocumentResource::getUrl('index'),
-        ];
+        return $this->tile(
+            label: 'Dokumen masuk',
+            unit: 'dokumen',
+            query: $query,
+            column: 'submitted_documents.created_at',
+            href: RequiredDocumentResource::getUrl('index'),
+        );
     }
 
-    protected function lettersCard(): array
+    protected function lettersTile(): array
     {
-        $user = auth()->user();
-
-        $awaiting = Letter::query()
-            ->with('signatures')
-            ->where('status', Letter::STATUS_SUBMITTED)
-            ->get();
-        $mine = $awaiting->filter(fn (Letter $l) => $l->canBeSignedBy($user))->count();
-        $drafts = Letter::query()->where('status', Letter::STATUS_DRAFT)->where('created_by', $user->id)->count();
-
-        return [
-            'label' => 'Surat Menunggu Tanda Tangan',
-            'icon'  => 'heroicon-o-pencil-square',
-            'value' => $awaiting->count(),
-            'pill'  => $mine > 0
-                ? ['tone' => 'warning', 'icon' => 'heroicon-m-hand-raised', 'text' => $this->n($mine) . ' giliran Anda']
-                : ['tone' => 'gray', 'icon' => null, 'text' => 'bukan giliran Anda'],
-            'note'  => $drafts > 0
-                ? $this->n($drafts) . ' draft Anda belum diajukan'
-                : 'tidak ada draft tertunda',
-            'href'  => LettersIndex::getUrl() . '?tab=surat',
-        ];
+        return $this->tile(
+            label: 'Surat diajukan',
+            unit: 'surat',
+            query: Letter::query()->whereNotNull('submitted_at'),
+            column: 'letters.submitted_at',
+            href: LettersIndex::getUrl() . '?tab=surat',
+        );
     }
 
-    protected function urgentProjectsCard(): array
+    protected function activityTile(): array
     {
-        $open = $this->projects()->whereNotIn('status', self::OPEN_STATUSES_EXCLUDED);
-        $urgent = (clone $open)->where('priority', 'urgent');
-        $count = (clone $urgent)->count();
-        $overdue = (clone $urgent)->whereDate('due_date', '<', today())->count();
-        $active = (clone $open)->count();
+        $query = UserActivity::query();
 
-        return [
-            'label' => 'Proyek Mendesak',
-            'icon'  => 'heroicon-o-bolt',
-            'value' => $count,
-            'pill'  => $overdue > 0
-                ? ['tone' => 'danger', 'icon' => 'heroicon-m-exclamation-triangle', 'text' => $this->n($overdue) . ' lewat tenggat']
-                : ['tone' => 'success', 'icon' => 'heroicon-m-check', 'text' => 'sesuai jadwal'],
-            'note'  => 'dari ' . $this->n($active) . ' proyek aktif',
-            'href'  => ProjectResource::getUrl('index') . '?priority[0]=urgent',
-        ];
+        if (! auth()->user()->hasRole('super-admin')) {
+            $query->whereIn('client_id', fn ($q) => $q->select('client_id')->from('user_clients')->where('user_id', auth()->id()));
+        }
+
+        return $this->tile(
+            label: 'Aktivitas tim',
+            unit: 'aktivitas',
+            query: $query,
+            column: 'user_activities.created_at',
+            href: ProjectResource::getUrl('index'),
+        );
     }
 
     /* ------------------------------------------------------------------ */
-    /* Helpers                                                             */
+    /* Building blocks                                                     */
     /* ------------------------------------------------------------------ */
 
-    /** Projects the current user is allowed to see (super-admin: all; others: their clients). */
+    /**
+     * One stat tile: count in the last 30 days, the count in the 30 days before
+     * that, the signed delta, and one value per day for the sparkline.
+     */
+    protected function tile(string $label, string $unit, Builder $query, string $column, string $href): array
+    {
+        $today = CarbonImmutable::today();
+        $windowStart = $today->subDays(self::WINDOW_DAYS - 1);
+        $previousStart = $windowStart->subDays(self::WINDOW_DAYS);
+
+        $perDay = (clone $query)
+            ->whereBetween($column, [$windowStart->startOfDay(), $today->endOfDay()])
+            ->selectRaw("DATE({$column}) AS d, COUNT(*) AS c")
+            ->groupBy('d')
+            ->pluck('c', 'd');
+
+        $series = [];
+        for ($day = $windowStart; $day->lte($today); $day = $day->addDay()) {
+            $series[] = (int) ($perDay[$day->toDateString()] ?? 0);
+        }
+
+        $current = array_sum($series);
+        $previous = (clone $query)
+            ->whereBetween($column, [$previousStart->startOfDay(), $windowStart->subDay()->endOfDay()])
+            ->count();
+
+        return [
+            'label'    => $label,
+            'unit'     => $unit,
+            'value'    => $current,
+            'previous' => $previous,
+            'delta'    => $this->delta($current, $previous),
+            'series'   => $series,
+            'days'     => $this->dayLabels($windowStart, $today),
+            'href'     => $href,
+        ];
+    }
+
+    /** Projects the current user may see (super-admin: all; others: their clients). */
     protected function projects(): Builder
     {
         $query = Project::query();
@@ -169,53 +173,83 @@ class ProjectStatsOverview extends Component
         return $query;
     }
 
-    protected function documents(): Builder
-    {
-        $projects = $this->projects();
-
-        return RequiredDocument::query()
-            ->whereHas('projectStep.project', fn ($q) => $q->whereIn('id', $projects->select('id')));
-    }
-
     /**
-     * Projects whose status flipped to "completed" in the window, read from the
-     * Spatie activity log because the projects table has no completed_at.
+     * Direction and label for the delta pill.
+     * tone: up | down | flat. text: "+28%", "-12%", "+6" (no base to compare), "0%".
      */
-    protected function completedBetween($from, $to): int
+    protected function delta(int $current, int $previous): array
     {
-        return Activity::query()
-            ->where('subject_type', Project::class)
-            ->whereIn('subject_id', $this->projects()->select('id'))
-            ->where('properties->attributes->status', 'completed')
-            ->whereBetween('created_at', [$from, $to])
-            ->distinct('subject_id')
-            ->count('subject_id');
-    }
-
-    /** "+25%" style pill against last period; falls back to plain counts when there is no base. */
-    protected function deltaPill(int $current, int $previous): array
-    {
-        if ($previous === 0 && $current === 0) {
-            return ['tone' => 'gray', 'icon' => null, 'text' => 'sama seperti bulan lalu'];
-        }
-
         if ($previous === 0) {
-            return ['tone' => 'success', 'icon' => 'heroicon-m-arrow-trending-up', 'text' => '+' . $this->n($current) . ' proyek'];
+            return $current > 0
+                ? ['tone' => 'up', 'text' => '+' . number_format($current, 0, ',', '.')]
+                : ['tone' => 'flat', 'text' => '0%'];
         }
 
         $pct = (int) round(($current - $previous) / $previous * 100);
 
-        if ($pct === 0) {
-            return ['tone' => 'gray', 'icon' => null, 'text' => 'sama seperti bulan lalu'];
-        }
-
-        return $pct > 0
-            ? ['tone' => 'success', 'icon' => 'heroicon-m-arrow-trending-up', 'text' => '+' . $pct . '%']
-            : ['tone' => 'danger', 'icon' => 'heroicon-m-arrow-trending-down', 'text' => $pct . '%'];
+        return [
+            'tone' => $pct > 0 ? 'up' : ($pct < 0 ? 'down' : 'flat'),
+            'text' => ($pct > 0 ? '+' : '') . $pct . '%',
+        ];
     }
 
-    protected function n(int|float $value): string
+    /** @return string[] one short label per day, e.g. "21 Sep" */
+    protected function dayLabels(CarbonImmutable $from, CarbonImmutable $to): array
     {
-        return number_format($value, 0, ',', '.');
+        $labels = [];
+        for ($day = $from; $day->lte($to); $day = $day->addDay()) {
+            $labels[] = $day->locale('id')->translatedFormat('j M');
+        }
+
+        return $labels;
+    }
+
+    /**
+     * SVG path data for a smooth sparkline. Returns the stroke path and the
+     * closed area path in a viewBox of $width x $height with $pad top/bottom.
+     *
+     * @param  int[]  $values
+     * @return array{line: string, area: string, last: array{x: float, y: float}}
+     */
+    public static function sparkline(array $values, int $width = 120, int $height = 40, float $pad = 3): array
+    {
+        $n = count($values);
+        if ($n < 2) {
+            $values = array_pad($values, 2, $values[0] ?? 0);
+            $n = 2;
+        }
+
+        $max = max(max($values), 1);
+        $stepX = $width / ($n - 1);
+        $usable = $height - 2 * $pad;
+
+        $points = [];
+        foreach ($values as $i => $v) {
+            $points[] = [
+                round($i * $stepX, 2),
+                round($height - $pad - ($v / $max) * $usable, 2),
+            ];
+        }
+
+        // Catmull-Rom -> cubic Bézier, so the line bends softly instead of zig-zagging.
+        $d = 'M' . $points[0][0] . ',' . $points[0][1];
+        for ($i = 0; $i < $n - 1; $i++) {
+            $p0 = $points[max($i - 1, 0)];
+            $p1 = $points[$i];
+            $p2 = $points[$i + 1];
+            $p3 = $points[min($i + 2, $n - 1)];
+
+            $c1x = round($p1[0] + ($p2[0] - $p0[0]) / 6, 2);
+            $c1y = round($p1[1] + ($p2[1] - $p0[1]) / 6, 2);
+            $c2x = round($p2[0] - ($p3[0] - $p1[0]) / 6, 2);
+            $c2y = round($p2[1] - ($p3[1] - $p1[1]) / 6, 2);
+
+            $d .= " C{$c1x},{$c1y} {$c2x},{$c2y} {$p2[0]},{$p2[1]}";
+        }
+
+        $last = end($points);
+        $area = $d . " L{$last[0]},{$height} L0,{$height} Z";
+
+        return ['line' => $d, 'area' => $area, 'last' => ['x' => $last[0], 'y' => $last[1]]];
     }
 }

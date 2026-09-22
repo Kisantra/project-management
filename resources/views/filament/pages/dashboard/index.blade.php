@@ -106,13 +106,13 @@
         @livewire('dashboard.widget.project-stats-overview')
     </div>
 
-    {{-- Project Command Center + Daily Tasks --}}
-    <div class="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-        <div class="lg:col-span-2 h-full">
-            @livewire('dashboard.widgets.project-command-center')
+    {{-- Completed projects per month + most active users --}}
+    <div class="mt-6 grid grid-cols-1 gap-6 items-stretch lg:grid-cols-3">
+        <div class="h-full lg:col-span-2">
+            @livewire('dashboard.widgets.completed-chart')
         </div>
-        <div class="lg:col-span-1 h-full">
-            @livewire('dashboard.widgets.daily-task-widget')
+        <div class="h-full lg:col-span-1">
+            @livewire('dashboard.widgets.active-users')
         </div>
     </div>
 

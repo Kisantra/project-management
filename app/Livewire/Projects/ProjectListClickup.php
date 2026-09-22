@@ -58,6 +58,10 @@ class ProjectListClickup extends Component implements HasActions, HasForms
     #[Url(as: 'client')]
     public array $clientFilter = [];
 
+    /** Department id, 'none' for projects without one, or '' for all. Set by the sidebar sub-menu. */
+    #[Url(as: 'dept')]
+    public string $departmentFilter = '';
+
     /**
      * Quick SOP filter driven by the pill row under the toolbar.
      * Empty = all. Otherwise a list of SOP ids (as strings) and/or the
@@ -397,6 +401,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
             'dueDateFilter',
             'picFilter',
             'clientFilter',
+            'departmentFilter',
             'assigneeFilter',
             'sopFilter',
         ]);
@@ -489,6 +494,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
             || !empty($this->priorityFilter)
             || !empty($this->picFilter)
             || !empty($this->clientFilter)
+            || $this->departmentFilter !== ''
             || !empty($this->assigneeFilter)
             || !empty($this->sopSelection());
     }
@@ -503,6 +509,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
         $count += \count($this->assigneeFilter);
         if ($this->typeFilter !== 'all') $count++;
         if ($this->dueDateFilter !== 'any') $count++;
+        if ($this->departmentFilter !== '') $count++;
         return $count;
     }
 
@@ -788,6 +795,12 @@ class ProjectListClickup extends Component implements HasActions, HasForms
 
         if (!empty($this->clientFilter)) {
             $query->whereIn('client_id', $this->clientFilter);
+        }
+
+        if ($this->departmentFilter === 'none') {
+            $query->whereNull('department_id');
+        } elseif ($this->departmentFilter !== '' && ctype_digit($this->departmentFilter)) {
+            $query->where('department_id', (int) $this->departmentFilter);
         }
 
         $selection = $this->sopSelection();

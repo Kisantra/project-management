@@ -906,9 +906,54 @@ class ProjectResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        return static::getModel()::whereHas('client', function ($query) {
-            $query->where('status', 'Active');
-        })->where('status', '!=', 'completed')->count();
+        return (string) static::openProjectsQuery()->count();
+    }
+
+    /** Projects counted in the sidebar badges: not completed, for active clients. */
+    protected static function openProjectsQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return static::getModel()::query()
+            ->whereHas('client', fn ($query) => $query->where('status', 'Active'))
+            ->where('status', '!=', 'completed');
+    }
+
+    /**
+     * "Projects" plus one child item per department (and "Tanpa Departemen"),
+     * each linking to the list pre-filtered with ?dept=. Filament shows the
+     * children while the Projects section is the active one.
+     */
+    public static function getNavigationItems(): array
+    {
+        $items = parent::getNavigationItems();
+        $parent = $items[0];
+
+        $counts = static::openProjectsQuery()
+            ->selectRaw('department_id, COUNT(*) AS total')
+            ->groupBy('department_id')
+            ->pluck('total', 'department_id');
+
+        $isIndex = fn () => request()->routeIs(static::getRouteBaseName() . '.index');
+        $baseUrl = static::getUrl('index');
+
+        $children = \App\Models\Department::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn ($dept) => \Filament\Navigation\NavigationItem::make($dept->name)
+                ->url($baseUrl . '?dept=' . $dept->id)
+                ->badge(($counts[$dept->id] ?? 0) > 0 ? (string) $counts[$dept->id] : null, color: 'gray')
+                ->isActiveWhen(fn () => $isIndex() && request()->query('dept') === (string) $dept->id))
+            ->all();
+
+        if (($counts[null] ?? $counts[''] ?? 0) > 0) {
+            $children[] = \Filament\Navigation\NavigationItem::make('Tanpa Departemen')
+                ->url($baseUrl . '?dept=none')
+                ->badge((string) ($counts[null] ?? $counts['']), color: 'gray')
+                ->isActiveWhen(fn () => $isIndex() && request()->query('dept') === 'none');
+        }
+
+        $parent->childItems($children);
+
+        return $items;
     }
 
     public static function getGloballySearchableAttributes(): array

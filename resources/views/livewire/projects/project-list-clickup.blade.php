@@ -97,7 +97,7 @@
         @endphp
 
         <div class="cu-filter cu-dropdown {{ $activeCount > 0 ? 'is-active' : '' }}"
-             x-data="{ open: false, loaded: @js($filterOptionsLoaded), sections: { status: true, priority: true, type: false, due: false, pic: false, client: false, assignee: false } }">
+             x-data="{ open: false, loaded: @js($filterOptionsLoaded), sections: { status: true, priority: true, type: false, due: false, dept: false, pic: false, client: false, assignee: false } }">
             <button type="button"
                     @click="open = !open; if (open && !loaded) { $wire.loadFilterOptions(); loaded = true; }"
                     class="cu-filter-btn">
@@ -196,6 +196,35 @@
                             @endforeach
                         </div>
                     </div>
+
+                    {{-- Departemen (single choice; the sidebar sub-menu sets the same filter via ?dept=) --}}
+                    @if ($this->departmentOptions->isNotEmpty())
+                        <div class="cu-fs">
+                            <button type="button" @click="sections.dept = !sections.dept" class="cu-fs-head">
+                                <span class="cu-fs-name">Departemen</span>
+                                @if ($departmentFilter !== '')
+                                    <span class="cu-fs-count">1</span>
+                                @endif
+                                <svg class="cu-fs-caret" :class="{ 'is-open': sections.dept }" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </button>
+                            <div x-show="sections.dept" class="cu-fs-body cu-fs-body-scroll">
+                                <label class="cu-dropdown-item">
+                                    <input type="radio" name="departmentFilter" wire:model.live="departmentFilter" value="" class="cu-radio">
+                                    <span class="cu-fs-option">Semua departemen</span>
+                                </label>
+                                @foreach ($this->departmentOptions as $dept)
+                                    <label class="cu-dropdown-item">
+                                        <input type="radio" name="departmentFilter" wire:model.live="departmentFilter" value="{{ $dept->id }}" class="cu-radio">
+                                        <span class="cu-fs-option">{{ $dept->name }}</span>
+                                    </label>
+                                @endforeach
+                                <label class="cu-dropdown-item">
+                                    <input type="radio" name="departmentFilter" wire:model.live="departmentFilter" value="none" class="cu-radio">
+                                    <span class="cu-fs-option">Tanpa departemen</span>
+                                </label>
+                            </div>
+                        </div>
+                    @endif
 
                     {{-- PIC --}}
                     @if ($picOptions->isNotEmpty())

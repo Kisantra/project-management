@@ -783,15 +783,49 @@
                     </div>
                     @endif
 
+                    {{-- Department — inline editable like priority/status --}}
                     <div class="cu-col-department">
-                        @if ($project->department)
-                            <span class="cu-dept-pill" title="{{ $project->department->name }}">
-                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
-                                <span class="cu-dept-pill-label">{{ $project->department->name }}</span>
-                            </span>
-                        @else
-                            <span class="cu-empty-cell">—</span>
-                        @endif
+                        <div x-data="{ open: false }" class="cu-pill-wrap">
+                            <button type="button" @click="open = !open"
+                                    class="cu-dept-trigger {{ $project->department ? '' : 'is-empty' }}"
+                                    title="{{ $project->department ? 'Departemen: ' . $project->department->name : 'Pilih departemen' }}">
+                                @if ($project->department)
+                                    <span class="cu-dept-pill">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+                                        <span class="cu-dept-pill-label">{{ $project->department->name }}</span>
+                                    </span>
+                                @else
+                                    <span class="cu-dept-placeholder">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                        Departemen
+                                    </span>
+                                @endif
+                            </button>
+                            <div x-show="open" @click.outside="open = false" @keydown.escape.window="open = false" x-cloak class="cu-dropdown-panel cu-pill-menu cu-dept-menu">
+                                @forelse ($this->departmentOptions as $dept)
+                                    @php $isCurrent = (int) $project->department_id === (int) $dept->id; @endphp
+                                    <button type="button"
+                                            wire:click="updateProjectDepartment({{ $project->id }}, {{ $dept->id }})"
+                                            @click="open = false"
+                                            class="cu-status-option {{ $isCurrent ? 'is-current' : '' }}">
+                                        <span class="cu-status-option-label">{{ $dept->name }}</span>
+                                        @if ($isCurrent)
+                                            <svg class="cu-status-option-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                        @endif
+                                    </button>
+                                @empty
+                                    <div class="cu-assignee-empty">Belum ada departemen terdaftar.</div>
+                                @endforelse
+                                @if ($project->department_id)
+                                    <button type="button"
+                                            wire:click="updateProjectDepartment({{ $project->id }}, null)"
+                                            @click="open = false"
+                                            class="cu-status-option cu-dept-clear">
+                                        <span class="cu-status-option-label">Lepaskan departemen</span>
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
                     </div>
 
                     @if ($this->isColumnVisible('progress'))
@@ -3296,6 +3330,39 @@
         white-space: nowrap;
     }
     .cu-dept-pill svg { color: var(--cu-subtle); flex-shrink: 0; }
+    .cu-dept-trigger {
+        display: inline-flex;
+        align-items: center;
+        max-width: 100%;
+        padding: 0;
+        background: none;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+        text-align: left;
+    }
+    .cu-dept-trigger:hover .cu-dept-pill,
+    .cu-dept-trigger:focus-visible .cu-dept-pill { border-color: var(--cu-line-strong); color: var(--cu-ink); }
+    .cu-dept-trigger:focus-visible { outline: 2px solid var(--cu-accent); outline-offset: 2px; }
+    /* Empty state reads as an affordance only on row hover, so the column stays quiet */
+    .cu-dept-placeholder {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border: 1px dashed transparent;
+        border-radius: 6px;
+        color: var(--cu-subtle);
+        font-size: 11.5px;
+        font-weight: 500;
+        white-space: nowrap;
+        transition: color .15s ease, border-color .15s ease;
+    }
+    .cu-row:hover .cu-dept-placeholder,
+    .cu-dept-trigger:focus-visible .cu-dept-placeholder { color: var(--cu-muted); border-color: var(--cu-line); }
+    .cu-dept-menu { min-width: 190px; }
+    .cu-dept-menu .cu-status-option { font-size: 12.5px; }
+    .cu-dept-clear { border-top: 1px solid var(--cu-line); margin-top: 4px; padding-top: 8px; color: var(--cu-muted); }
     .cu-dept-pill-label {
         overflow: hidden;
         text-overflow: ellipsis;

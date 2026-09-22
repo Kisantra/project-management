@@ -1,0 +1,8 @@
+# Only the four source Arial files are tracked. Everything dompdf generates
+# (metric caches, hashed copies, its font registry) is rebuilt at runtime.
+*
+!.gitignore
+!arial.ttf
+!arialbd.ttf
+!ariali.ttf
+!arialbi.ttf

@@ -11,8 +11,9 @@ use App\Models\LetterSignature;
 use App\Models\LetterTemplate;
 use App\Models\RequestedDocumentType;
 use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -675,7 +676,27 @@ class LetterService
             'letterhead' => $letterheadPath,
         ])->render();
 
-        $pdf = Pdf::loadHTML($html)->setPaper('a4', 'portrait')->setOption('isFontSubsettingEnabled', true);
+        // dompdf writes font metrics (*.ufm, installed-fonts.json) into its font dir on first use.
+        // Keep that cache under storage/app, which PHP always owns, instead of the git-tracked
+        // storage/fonts folder that a deploy may leave read-only for the web user. The cache
+        // path is captured when the PDF canvas is built inside the Dompdf constructor, so the
+        // options have to be final before `new Dompdf` (the facade builds it too early).
+        $fontCache = storage_path('app/dompdf');
+        if (! is_dir($fontCache)) {
+            @mkdir($fontCache, 0775, true);
+        }
+
+        $options = new Options((array) config('dompdf.options', []));
+        $options->setFontDir($fontCache);
+        $options->setFontCache($fontCache);
+        $options->setIsFontSubsettingEnabled(true);
+
+        $pdf = new Dompdf($options);
+        $pdf->setBasePath(public_path());
+        $pdf->setPaper('a4', 'portrait');
+        $pdf->loadHtml($html);
+        $pdf->render();
+
         $name = Str::slug($letter->number ?: 'draft-' . $letter->id) . '.pdf';
         $path = trim(config('letter.pdf_dir'), '/') . '/' . ($letter->year ?: now()->year) . '/' . $name;
 

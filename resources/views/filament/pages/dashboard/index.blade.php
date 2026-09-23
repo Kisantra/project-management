@@ -111,7 +111,8 @@
         <div class="h-full lg:col-span-2">
             @livewire('dashboard.widgets.completed-chart')
         </div>
-        <div class="h-full lg:col-span-1">
+        <div class="flex h-full flex-col gap-6 lg:col-span-1">
+            @livewire('dashboard.widgets.upcoming-agenda')
             @livewire('dashboard.widgets.active-users')
         </div>
     </div>

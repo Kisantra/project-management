@@ -6,6 +6,7 @@ use App\Models\CalendarEvent;
 use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
+use App\Models\UserActivity;
 use App\Services\CalendarService;
 use App\Services\TaxDeadlineService;
 use Carbon\Carbon;
@@ -16,14 +17,16 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Url;
 use Throwable;
 
 /**
- * Team calendar for project management: appointments, data-request reminders
- * and other events, on a month grid or a week strip. Click a day to add, click
- * a chip to open it, drag a chip to another day to reschedule.
+ * Team calendar for project management, laid out like the content calendar
+ * in client-management: a month grid (or week strip), a new-event dialog over
+ * the grid, and a record panel that floats in from the right and turns into
+ * the edit form in place.
  */
 class Index extends Page implements HasForms
 {
@@ -44,22 +47,41 @@ class Index extends Page implements HasForms
     #[Url(as: 'view')]
     public string $mode = 'month';
 
-    /** Kind filter; empty = all kinds. */
+    /** Free-text search over title, client and location. */
+    #[Url(as: 'q')]
+    public string $q = '';
+
+    /** Status segment: all | scheduled | done | late. */
+    #[Url(as: 'status')]
+    public string $status = 'all';
+
+    /** Kind dropdown; '' = all kinds. */
     #[Url(as: 'jenis')]
-    public array $kinds = [];
+    public string $kind = '';
+
+    /** Participant dropdown; null = everyone. */
+    #[Url(as: 'peserta')]
+    public ?int $participant = null;
 
     /** Only events I created or am invited to. */
     #[Url(as: 'saya')]
     public bool $mine = false;
 
-    /** Event open in the detail panel (also honoured from the URL so notifications can deep-link). */
+    /** Event in the record panel (also honoured from the URL so notifications can deep-link). */
     #[Url(as: 'event')]
     public ?int $selectedId = null;
 
-    /** Event being edited in the form modal, null when creating. */
-    public ?int $editingId = null;
+    /** Overlay state, entangled with Alpine so transitions run client-side. */
+    public bool $panelOpen = false;
+    public bool $dialogOpen = false;
+    public bool $deleteOpen = false;
 
+    /** 'view' shows the record; 'edit' turns the same panel into the form. */
+    public string $panelMode = 'view';
+
+    /** New-event form state and in-panel edit form state. */
     public ?array $data = [];
+    public ?array $editData = [];
 
     public static function shouldRegisterNavigation(): bool
     {
@@ -81,6 +103,24 @@ class Index extends Page implements HasForms
         }
 
         $this->form->fill($this->defaults(today()->toDateString()));
+        $this->editForm->fill($this->defaults(today()->toDateString()));
+
+        // Deep link from a notification or the dashboard: open the record straight away,
+        // in edit mode when asked for (?edit=1) and allowed.
+        if ($this->selectedId && CalendarEvent::whereKey($this->selectedId)->exists()) {
+            $this->panelOpen = true;
+            if (request()->boolean('edit')) {
+                $this->startEdit();
+            }
+        } else {
+            $this->selectedId = null;
+        }
+    }
+
+    /** The page draws its own header (title, counts, month stepper, add button). */
+    public function getHeader(): ?View
+    {
+        return view('filament.pages.calendar.header', $this->headerData());
     }
 
     /* ------------------------------------------------------------------ */
@@ -120,15 +160,21 @@ class Index extends Page implements HasForms
         $this->mode = 'week';
     }
 
-    public function toggleKind(string $kind): void
+    public function setStatusFilter(string $status): void
     {
-        if (! array_key_exists($kind, CalendarEvent::KINDS)) {
-            return;
+        if (in_array($status, ['all', 'scheduled', 'done', 'late'], true)) {
+            $this->status = $status;
         }
+    }
 
-        $this->kinds = in_array($kind, $this->kinds, true)
-            ? array_values(array_diff($this->kinds, [$kind]))
-            : [...$this->kinds, $kind];
+    public function setKindFilter(string $kind): void
+    {
+        $this->kind = array_key_exists($kind, CalendarEvent::KINDS) ? $kind : '';
+    }
+
+    public function setParticipant(?int $userId): void
+    {
+        $this->participant = $userId ?: null;
     }
 
     public function toggleMine(): void
@@ -136,61 +182,106 @@ class Index extends Page implements HasForms
         $this->mine = ! $this->mine;
     }
 
+    public function clearFilters(): void
+    {
+        $this->q = '';
+        $this->status = 'all';
+        $this->kind = '';
+        $this->participant = null;
+        $this->mine = false;
+    }
+
+    protected function hasFilters(): bool
+    {
+        return $this->q !== '' || $this->status !== 'all' || $this->kind !== '' || $this->participant !== null || $this->mine;
+    }
+
+    /** Inline change of the kind from the record panel's pill. */
+    public function setKind(int $id, string $kind): void
+    {
+        $event = CalendarEvent::findOrFail($id);
+
+        if (! $event->canBeManagedBy(auth()->user()) || ! array_key_exists($kind, CalendarEvent::KINDS)) {
+            return;
+        }
+
+        $event->update(['kind' => $kind]);
+        $event->logActivity('calendar_event_updated', 'Jenis acara "' . $event->title . '" diubah menjadi ' . $event->kindLabel());
+    }
+
     /* ------------------------------------------------------------------ */
-    /* Form                                                                */
+    /* Forms                                                               */
     /* ------------------------------------------------------------------ */
+
+    protected function getForms(): array
+    {
+        return ['form', 'editForm'];
+    }
 
     public function form(Form $form): Form
     {
-        return $form->statePath('data')->schema([
+        return $form->statePath('data')->columns(2)->schema($this->schema('data'));
+    }
+
+    public function editForm(Form $form): Form
+    {
+        return $form->statePath('editData')->columns(2)->schema($this->schema('editData'));
+    }
+
+    /** One schema for both forms; $path only feeds the quick time-slot pills. */
+    protected function schema(string $path): array
+    {
+        return [
             Forms\Components\TextInput::make('title')->label('Judul')->required()->maxLength(150)
-                ->placeholder('mis. Meeting laporan SPT Tahunan'),
+                ->placeholder('mis. Meeting laporan SPT Tahunan')->columnSpanFull(),
 
-            Forms\Components\Grid::make(2)->schema([
-                Forms\Components\Select::make('kind')->label('Jenis')->required()->native(false)
-                    ->options(collect(CalendarEvent::KINDS)->map(fn ($k) => $k['label'])->all()),
-                Forms\Components\DatePicker::make('date')->label('Tanggal')->required()
-                    ->native(false)->displayFormat('D, d M Y')->closeOnDateSelection(),
-            ]),
+            Forms\Components\Select::make('kind')->label('Jenis')->required()->native(false)
+                ->options(collect(CalendarEvent::KINDS)->map(fn ($k) => $k['label'])->all()),
+            Forms\Components\DatePicker::make('date')->label('Tanggal')->required()
+                ->native(false)->displayFormat('D, d M Y')->closeOnDateSelection(),
 
-            Forms\Components\Toggle::make('all_day')->label('Seharian')->live()->inline(),
+            Forms\Components\Toggle::make('all_day')->label('Seharian')->live()->inline()->columnSpanFull(),
 
-            Forms\Components\Grid::make(2)->schema([
-                Forms\Components\TimePicker::make('start_time')->label('Mulai')->seconds(false)->native(false)
-                    ->minutesStep(5)->displayFormat('H:i')->required(fn (Forms\Get $get) => ! $get('all_day')),
-                Forms\Components\TimePicker::make('end_time')->label('Selesai')->seconds(false)->native(false)
-                    ->minutesStep(5)->displayFormat('H:i')->after('start_time')
-                    ->validationMessages(['after' => 'Jam selesai harus setelah jam mulai.']),
-            ])->hidden(fn (Forms\Get $get) => (bool) $get('all_day')),
+            Forms\Components\TimePicker::make('start_time')->label('Mulai')->seconds(false)->native(false)
+                ->minutesStep(5)->displayFormat('H:i')->required(fn (Forms\Get $get) => ! $get('all_day'))
+                ->hidden(fn (Forms\Get $get) => (bool) $get('all_day')),
+            Forms\Components\TimePicker::make('end_time')->label('Selesai')->seconds(false)->native(false)
+                ->minutesStep(5)->displayFormat('H:i')->after('start_time')
+                ->validationMessages(['after' => 'Jam selesai harus setelah jam mulai.'])
+                ->hidden(fn (Forms\Get $get) => (bool) $get('all_day')),
+
+            // Quick picks: one click sets the start hour; the pickers stay for anything else.
+            Forms\Components\View::make('filament.pages.calendar.partials.time-slots')
+                ->viewData(['path' => $path])
+                ->hidden(fn (Forms\Get $get) => (bool) $get('all_day'))
+                ->columnSpanFull(),
 
             Forms\Components\TextInput::make('location')->label('Lokasi atau tautan meeting')->maxLength(255)
-                ->placeholder('Kantor klien, ruang rapat, atau tautan Zoom/Meet'),
+                ->placeholder('Kantor klien, ruang rapat, atau tautan Zoom/Meet')->columnSpanFull(),
 
-            Forms\Components\Grid::make(2)->schema([
-                Forms\Components\Select::make('client_id')->label('Klien')->native(false)->searchable()->preload()
-                    ->options(fn () => Client::query()->where('status', 'Active')->orderBy('name')->pluck('name', 'id'))
-                    ->placeholder('Tidak terkait')->live()
-                    ->afterStateUpdated(fn (Forms\Set $set) => $set('project_id', null)),
-                Forms\Components\Select::make('project_id')->label('Proyek')->native(false)->searchable()
-                    ->options(fn (Forms\Get $get) => Project::query()
-                        ->when($get('client_id'), fn ($q, $id) => $q->where('client_id', $id))
-                        ->whereNotIn('status', ['completed', 'canceled'])
-                        ->orderBy('name')->limit(200)->pluck('name', 'id'))
-                    ->placeholder('Tidak terkait')
-                    ->helperText('Memilih klien mempersempit daftar proyek.'),
-            ]),
+            Forms\Components\Select::make('client_id')->label('Klien')->native(false)->searchable()->preload()
+                ->options(fn () => Client::query()->where('status', 'Active')->orderBy('name')->pluck('name', 'id'))
+                ->placeholder('Tidak terkait')->live()
+                ->afterStateUpdated(fn (Forms\Set $set) => $set('project_id', null)),
+            Forms\Components\Select::make('project_id')->label('Proyek')->native(false)->searchable()
+                ->options(fn (Forms\Get $get) => Project::query()
+                    ->when($get('client_id'), fn ($q, $id) => $q->where('client_id', $id))
+                    ->whereNotIn('status', ['completed', 'canceled'])
+                    ->orderBy('name')->limit(200)->pluck('name', 'id'))
+                ->placeholder('Tidak terkait')
+                ->helperText('Memilih klien mempersempit daftar proyek.'),
 
             Forms\Components\Select::make('participants')->label('Peserta')->multiple()->native(false)->searchable()->preload()
                 ->options(fn () => $this->participantOptions())
-                ->helperText('Peserta mendapat notifikasi undangan dan pengingat. Anda otomatis ikut sebagai peserta.'),
+                ->helperText('Peserta mendapat undangan dan pengingat. Anda otomatis ikut.'),
 
             Forms\Components\Select::make('reminders')->label('Pengingat')->multiple()->native(false)
                 ->options(CalendarEvent::REMINDER_OPTIONS)
-                ->helperText('Dikirim sebagai notifikasi dalam aplikasi ke semua peserta.'),
+                ->helperText('Notifikasi dalam aplikasi ke semua peserta.'),
 
             Forms\Components\Textarea::make('description')->label('Catatan')->rows(3)->autosize()
-                ->placeholder('Agenda, dokumen yang perlu dibawa, atau data yang diminta'),
-        ]);
+                ->placeholder('Agenda, dokumen yang perlu dibawa, atau data yang diminta')->columnSpanFull(),
+        ];
     }
 
     protected function participantOptions(): array
@@ -221,29 +312,9 @@ class Index extends Page implements HasForms
         ];
     }
 
-    /* ------------------------------------------------------------------ */
-    /* Actions                                                             */
-    /* ------------------------------------------------------------------ */
-
-    public function openCreate(?string $date = null): void
+    protected function fillFromEvent(CalendarEvent $event): array
     {
-        $this->editingId = null;
-        $this->form->fill($this->defaults($date && strtotime($date) ? $date : $this->cursor));
-        $this->dispatch('open-modal', id: 'acara-form');
-    }
-
-    public function openEdit(int $id): void
-    {
-        $event = CalendarEvent::with(['participants', 'reminders'])->findOrFail($id);
-
-        if (! $event->canBeManagedBy(auth()->user())) {
-            Notification::make()->title('Hanya pembuat acara atau manajer yang bisa mengubahnya')->warning()->send();
-
-            return;
-        }
-
-        $this->editingId = $event->id;
-        $this->form->fill([
+        return [
             'title'        => $event->title,
             'kind'         => $event->kind,
             'date'         => $event->starts_at->toDateString(),
@@ -256,10 +327,25 @@ class Index extends Page implements HasForms
             'participants' => $event->participants->pluck('id')->reject(fn ($id) => (int) $id === (int) $event->created_by)->values()->all(),
             'reminders'    => $event->reminders->pluck('minutes_before')->all(),
             'description'  => $event->description,
-        ]);
+        ];
+    }
 
-        $this->dispatch('close-modal', id: 'acara-detail');
-        $this->dispatch('open-modal', id: 'acara-form');
+    /* ------------------------------------------------------------------ */
+    /* Create (dialog)                                                     */
+    /* ------------------------------------------------------------------ */
+
+    public function openCreate(?string $date = null): void
+    {
+        $this->form->fill($this->defaults($date && strtotime($date) ? $date : $this->defaultDay()));
+        $this->dialogOpen = true;
+    }
+
+    /** New events start today when today is in view, else on the first visible day of the month. */
+    protected function defaultDay(): string
+    {
+        $cursor = Carbon::parse($this->cursor);
+
+        return today()->isSameMonth($cursor) ? today()->toDateString() : $cursor->startOfMonth()->toDateString();
     }
 
     public function save(CalendarService $service): void
@@ -267,13 +353,7 @@ class Index extends Page implements HasForms
         $data = $this->form->getState();
 
         try {
-            if ($this->editingId) {
-                $event = $service->update(CalendarEvent::findOrFail($this->editingId), $data, auth()->user());
-                Notification::make()->title('Acara diperbarui')->success()->send();
-            } else {
-                $event = $service->create($data, auth()->user());
-                Notification::make()->title('Acara dibuat')->body($event->dateLabel() . ' · ' . $event->timeLabel())->success()->send();
-            }
+            $event = $service->create($data, auth()->user());
         } catch (Throwable $e) {
             Notification::make()->title('Gagal menyimpan acara')->body($e->getMessage())->danger()->send();
 
@@ -281,19 +361,69 @@ class Index extends Page implements HasForms
         }
 
         $this->cursor = $event->starts_at->toDateString();
-        $this->editingId = null;
-        $this->dispatch('close-modal', id: 'acara-form');
+        $this->dialogOpen = false;
+        Notification::make()->title('Acara dibuat')->body($event->dateLabel() . ' · ' . $event->timeLabel())->success()->send();
     }
+
+    /* ------------------------------------------------------------------ */
+    /* Record panel                                                        */
+    /* ------------------------------------------------------------------ */
 
     public function open(int $id): void
     {
         $this->selectedId = $id;
-        $this->dispatch('open-modal', id: 'acara-detail');
+        $this->panelMode = 'view';
+        $this->panelOpen = true;
     }
 
-    public function closeDetail(): void
+    public function closePanel(): void
     {
+        $this->panelOpen = false;
+        $this->panelMode = 'view';
         $this->selectedId = null;
+    }
+
+    /** The record's own card becomes the form, in place. */
+    public function startEdit(): void
+    {
+        $event = $this->selectedId ? CalendarEvent::with(['participants', 'reminders'])->find($this->selectedId) : null;
+
+        if (! $event || ! $event->canBeManagedBy(auth()->user())) {
+            Notification::make()->title('Hanya pembuat acara atau manajer yang bisa mengubahnya')->warning()->send();
+
+            return;
+        }
+
+        $this->editForm->fill($this->fillFromEvent($event));
+        $this->panelMode = 'edit';
+    }
+
+    public function cancelEdit(): void
+    {
+        $this->panelMode = 'view';
+    }
+
+    public function update(CalendarService $service): void
+    {
+        $event = $this->selectedId ? CalendarEvent::find($this->selectedId) : null;
+
+        if (! $event || ! $event->canBeManagedBy(auth()->user())) {
+            return;
+        }
+
+        $data = $this->editForm->getState();
+
+        try {
+            $event = $service->update($event, $data, auth()->user());
+        } catch (Throwable $e) {
+            Notification::make()->title('Gagal menyimpan perubahan')->body($e->getMessage())->danger()->send();
+
+            return;
+        }
+
+        $this->cursor = $event->starts_at->toDateString();
+        $this->panelMode = 'view';
+        Notification::make()->title('Acara diperbarui')->success()->send();
     }
 
     public function setStatus(int $id, string $status, CalendarService $service): void
@@ -312,6 +442,11 @@ class Index extends Page implements HasForms
         }
     }
 
+    public function askDelete(): void
+    {
+        $this->deleteOpen = true;
+    }
+
     public function delete(CalendarService $service): void
     {
         $event = $this->selectedId ? CalendarEvent::find($this->selectedId) : null;
@@ -321,9 +456,8 @@ class Index extends Page implements HasForms
         }
 
         $service->delete($event);
-        $this->selectedId = null;
-        $this->dispatch('close-modal', id: 'hapus-acara');
-        $this->dispatch('close-modal', id: 'acara-detail');
+        $this->deleteOpen = false;
+        $this->closePanel();
         Notification::make()->title('Acara dihapus')->success()->send();
     }
 
@@ -349,18 +483,80 @@ class Index extends Page implements HasForms
     /* View data                                                           */
     /* ------------------------------------------------------------------ */
 
-    protected function getViewData(): array
+    /** @return array{from: CarbonImmutable, to: CarbonImmutable, cursor: CarbonImmutable} */
+    protected function window(): array
     {
         $cursor = CarbonImmutable::parse($this->cursor);
-        $today = CarbonImmutable::today();
 
         if ($this->mode === 'week') {
             $from = $cursor->startOfWeek(CarbonImmutable::MONDAY);
-            $to = $from->addDays(6);
-        } else {
-            $from = $cursor->startOfMonth()->startOfWeek(CarbonImmutable::MONDAY);
-            $to = $cursor->endOfMonth()->endOfWeek(CarbonImmutable::SUNDAY);
+
+            return ['from' => $from, 'to' => $from->addDays(6), 'cursor' => $cursor];
         }
+
+        return [
+            'from'   => $cursor->startOfMonth()->startOfWeek(CarbonImmutable::MONDAY),
+            'to'     => $cursor->endOfMonth()->endOfWeek(CarbonImmutable::SUNDAY),
+            'cursor' => $cursor,
+        ];
+    }
+
+    protected function headerData(): array
+    {
+        ['from' => $from, 'to' => $to, 'cursor' => $cursor] = $this->window();
+
+        // Counts for the status segments respect every filter except the status segment itself.
+        $inRange = $this->applyFilters(
+            CalendarEvent::query()->between($from->toMutable(), $to->toMutable())->where('status', '<>', CalendarEvent::STATUS_CANCELED),
+            withStatus: false,
+        )->get(['id', 'status', 'starts_at', 'ends_at']);
+
+        $late = $inRange->filter(fn ($e) => $e->status === CalendarEvent::STATUS_SCHEDULED && ($e->ends_at ?? $e->starts_at)->isPast())->count();
+        $done = $inRange->where('status', CalendarEvent::STATUS_DONE)->count();
+
+        return [
+            'counts'     => ['all' => $inRange->count(), 'scheduled' => $inRange->count() - $done - $late, 'done' => $done, 'late' => $late],
+            'rangeLabel' => $this->mode === 'week'
+                ? $from->locale('id')->translatedFormat('d M') . ' – ' . $to->locale('id')->translatedFormat('d M Y')
+                : $cursor->locale('id')->translatedFormat('F Y'),
+            'isCurrent'  => $this->mode === 'week' ? $cursor->isSameWeek(today()) : $cursor->isSameMonth(today()),
+            'total'      => $inRange->count(),
+            'done'       => $done,
+            'late'       => $late,
+            'hasFilters' => $this->hasFilters(),
+        ];
+    }
+
+    /** Search, kind, participant, "mine" and (optionally) the status segment. */
+    protected function applyFilters($query, bool $withStatus = true)
+    {
+        $query->when($this->q !== '', function ($q) {
+            $term = '%' . $this->q . '%';
+            $q->where(fn ($w) => $w->where('title', 'like', $term)
+                ->orWhere('location', 'like', $term)
+                ->orWhereHas('client', fn ($c) => $c->where('name', 'like', $term)));
+        })
+            ->when($this->kind !== '', fn ($q) => $q->where('kind', $this->kind))
+            ->when($this->participant, fn ($q) => $q->whereHas('participants', fn ($p) => $p->where('users.id', $this->participant)))
+            ->when($this->mine, fn ($q) => $q->involving(auth()->user()));
+
+        if ($withStatus) {
+            $now = now();
+            match ($this->status) {
+                'done'      => $query->where('status', CalendarEvent::STATUS_DONE),
+                'late'      => $query->where('status', CalendarEvent::STATUS_SCHEDULED)->whereRaw('COALESCE(ends_at, starts_at) < ?', [$now]),
+                'scheduled' => $query->where('status', CalendarEvent::STATUS_SCHEDULED)->whereRaw('COALESCE(ends_at, starts_at) >= ?', [$now]),
+                default     => null,
+            };
+        }
+
+        return $query;
+    }
+
+    protected function getViewData(): array
+    {
+        ['from' => $from, 'to' => $to, 'cursor' => $cursor] = $this->window();
+        $today = CarbonImmutable::today();
 
         $events = $this->eventsBetween($from, $to);
         $keyDates = $this->keyDatesBetween($from, $to);
@@ -387,17 +583,16 @@ class Index extends Page implements HasForms
 
         return [
             'days'          => $days,
-            'weeks'         => array_chunk($days, 7),
-            'rangeLabel'    => $this->mode === 'week'
-                ? $from->locale('id')->translatedFormat('d M') . ' – ' . $to->locale('id')->translatedFormat('d M Y')
-                : $cursor->locale('id')->translatedFormat('F Y'),
-            'eventCount'    => $events->flatten(1)->count(),
+            'monthLabel'    => $cursor->locale('id')->translatedFormat('F Y'),
+            'eventCount'    => $events->flatten(1)->unique('id')->count(),
             'selected'      => $selected,
             'canManage'     => $selected?->canBeManagedBy(auth()->user()) ?? false,
             'isParticipant' => $selected ? $selected->participants->contains('id', auth()->id()) : false,
+            'history'       => $selected ? $this->history($selected) : collect(),
             'kindsMeta'     => CalendarEvent::KINDS,
-            'editing'       => $this->editingId !== null,
-            'upcoming'      => $this->upcoming(),
+            'hasFilters'    => $this->hasFilters(),
+            'counts'        => $this->headerData()['counts'],
+            'participants'  => $this->participantOptions(),
         ];
     }
 
@@ -410,12 +605,7 @@ class Index extends Page implements HasForms
             ->where('status', '<>', CalendarEvent::STATUS_CANCELED)
             ->orderBy('all_day', 'desc')->orderBy('starts_at');
 
-        if ($this->kinds !== []) {
-            $query->whereIn('kind', $this->kinds);
-        }
-        if ($this->mine) {
-            $query->involving(auth()->user());
-        }
+        $this->applyFilters($query);
 
         $byDate = [];
         foreach ($query->get() as $event) {
@@ -452,17 +642,16 @@ class Index extends Page implements HasForms
         return $out;
     }
 
-    /** Next events for the phone-width agenda and the sidebar list. */
-    protected function upcoming(): Collection
+    /** The event's own history from the activity log, newest first. */
+    protected function history(CalendarEvent $event): Collection
     {
-        return CalendarEvent::query()
-            ->with(['client:id,name'])
-            ->where('status', CalendarEvent::STATUS_SCHEDULED)
-            ->where(fn ($q) => $q->where('ends_at', '>=', now())->orWhere(fn ($w) => $w->whereNull('ends_at')->where('starts_at', '>=', now())))
-            ->when($this->kinds !== [], fn ($q) => $q->whereIn('kind', $this->kinds))
-            ->when($this->mine, fn ($q) => $q->involving(auth()->user()))
-            ->orderBy('starts_at')
-            ->limit(8)
+        return UserActivity::query()
+            ->with('user:id,name')
+            ->where('actionable_type', CalendarEvent::class)
+            ->where('actionable_id', $event->id)
+            ->latest('id')
+            ->limit(30)
             ->get();
     }
+
 }

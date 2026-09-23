@@ -167,8 +167,10 @@ class CalendarService
             return [$date->copy()->startOfDay(), $date->copy()->endOfDay()];
         }
 
-        $start = $date->copy()->setTimeFromTimeString($data['start_time'] ?: '09:00');
-        $end = filled($data['end_time'] ?? null) ? $date->copy()->setTimeFromTimeString($data['end_time']) : null;
+        // Filament's TimePicker may hand back "H:i" or a full "Y-m-d H:i:s"; keep only the clock.
+        $clock = fn ($t) => Carbon::parse($t)->format('H:i');
+        $start = $date->copy()->setTimeFromTimeString($clock($data['start_time'] ?: '09:00'));
+        $end = filled($data['end_time'] ?? null) ? $date->copy()->setTimeFromTimeString($clock($data['end_time'])) : null;
 
         if ($end && $end->lte($start)) {
             throw new \InvalidArgumentException('Jam selesai harus setelah jam mulai.');

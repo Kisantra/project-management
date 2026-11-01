@@ -30,6 +30,7 @@
         "jenssegers/agent": "^2.6",
         "joaopaulolndev/filament-pdf-viewer": "^1.0",
         "kenepa/banner": "^0.1.0",
+        "kisantra/watchpost-laravel": "dev-main",
         "laravel/framework": "^10.10",
         "laravel/reverb": "^1.4",
         "laravel/sanctum": "^3.3",
@@ -107,5 +108,10 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [{
+        "name": "watchpost",
+        "type": "vcs",
+        "url": "https://github.com/Kisantra/watchpost-laravel.git"
+    }]
 }

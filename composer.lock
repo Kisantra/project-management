@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "78f15dfe5b1ad51b1d538bb3252f5f5b",
+    "content-hash": "d0535529a935acf8f96789d98fdd9155",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -4935,6 +4935,66 @@
                 "source": "https://github.com/kirschbaum-development/eloquent-power-joins/tree/4.1.0"
             },
             "time": "2025-02-12T11:14:14+00:00"
+        },
+        {
+            "name": "kisantra/watchpost-laravel",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/Kisantra/watchpost-laravel.git",
+                "reference": "40ef785c381a297e7bb12abdac4f0af8b29d3ade"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/Kisantra/watchpost-laravel/zipball/40ef785c381a297e7bb12abdac4f0af8b29d3ade",
+                "reference": "40ef785c381a297e7bb12abdac4f0af8b29d3ade",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/console": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/routing": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+                "php": "^8.1"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
+                "phpunit/phpunit": "^10.5|^11.0|^12.0"
+            },
+            "default-branch": true,
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Kisantra\\Watchpost\\WatchpostServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Kisantra\\Watchpost\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Kisantra\\Watchpost\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Kirim error, health check, dan heartbeat website Laravel ke Kisantra Watchpost.",
+            "support": {
+                "source": "https://github.com/Kisantra/watchpost-laravel/tree/main",
+                "issues": "https://github.com/Kisantra/watchpost-laravel/issues"
+            },
+            "time": "2026-11-01T11:17:22+00:00"
         },
         {
             "name": "laravel/framework",
@@ -17060,7 +17120,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "kisantra/watchpost-laravel": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d0535529a935acf8f96789d98fdd9155",
+    "content-hash": "d7e34ceb0ad3f385120c3aed6fc5e5bb",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -4938,7 +4938,7 @@
         },
         {
             "name": "kisantra/watchpost-laravel",
-            "version": "dev-main",
+            "version": "v1.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Kisantra/watchpost-laravel.git",
@@ -4962,7 +4962,6 @@
                 "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
                 "phpunit/phpunit": "^10.5|^11.0|^12.0"
             },
-            "default-branch": true,
             "type": "library",
             "extra": {
                 "laravel": {
@@ -4991,7 +4990,7 @@
             ],
             "description": "Kirim error, health check, dan heartbeat website Laravel ke Kisantra Watchpost.",
             "support": {
-                "source": "https://github.com/Kisantra/watchpost-laravel/tree/main",
+                "source": "https://github.com/Kisantra/watchpost-laravel/tree/v1.1.0",
                 "issues": "https://github.com/Kisantra/watchpost-laravel/issues"
             },
             "time": "2026-11-01T11:17:22+00:00"
@@ -17120,9 +17119,7 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "kisantra/watchpost-laravel": 20
-    },
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

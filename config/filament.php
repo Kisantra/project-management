@@ -24,8 +24,12 @@ return [
             'wssPort' => env('VITE_REVERB_PORT') ?? 443,
             'authEndpoint' => '/broadcasting/auth',
             'disableStats' => true,
-            'encrypted' => env('REVERB_SCHEME', 'https') === 'https',
-            'forceTLS' => env('REVERB_SCHEME', 'https') === 'https',
+            // Browser side, so the VITE_ scheme; REVERB_SCHEME is the server's local hop to Reverb.
+            'encrypted' => env('VITE_REVERB_SCHEME', 'https') === 'https',
+            'forceTLS' => env('VITE_REVERB_SCHEME', 'https') === 'https',
+            // WebSocket only. Without this pusher-js also races an xhr fallback to
+            // sockjs.pusher.com, whose "unknown key" reply can win and leave Echo disconnected.
+            'enabledTransports' => ['ws', 'wss'],
         ],
     ],
 

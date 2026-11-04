@@ -75,7 +75,7 @@ class ActiveUsers extends Component
             return [
                 'rank'     => $i + 1,
                 'name'     => $user?->name ?? 'Pengguna terhapus',
-                'title'    => $user?->signatureTitle(),
+                'title'    => $user?->displayTitle(),
                 'initials' => $this->initials($user?->name ?? '?'),
                 'avatar'   => $user?->avatar_url ? (str_starts_with($user->avatar_url, 'http') ? $user->avatar_url : asset($user->avatar_url)) : null,
                 'total'    => (int) $row->total,

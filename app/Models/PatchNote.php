@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Storage;
 
 class PatchNote extends Model
 {
@@ -42,6 +43,16 @@ class PatchNote extends Model
         'Tugas Harian' => 'Tugas Harian',
         'Sistem'       => 'Sistem',
     ];
+
+    /** Disk + folder untuk screenshot sebelum/sesudah di tiap item perubahan. */
+    public const IMAGE_DISK = 'public';
+
+    public const IMAGE_DIRECTORY = 'patch-notes';
+
+    public static function imageUrl(?string $path): ?string
+    {
+        return filled($path) ? Storage::disk(self::IMAGE_DISK)->url($path) : null;
+    }
 
     public function creator(): BelongsTo
     {

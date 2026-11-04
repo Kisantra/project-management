@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\PatchNoteResource\Pages;
 use App\Models\PatchNote;
+use Filament\Facades\Filament;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -86,18 +87,60 @@ class PatchNoteResource extends Resource
                                 ->required()
                                 ->native(false)
                                 ->placeholder('Di bagian mana?'),
-                            Forms\Components\TextInput::make('text')
+                            Forms\Components\TextInput::make('title')
+                                ->label('Judul singkat (opsional)')
+                                ->placeholder('mis. Garis waktu tenggat')
+                                ->helperText('Tampil sebagai judul slide bila item ini punya gambar.')
+                                ->maxLength(80)
+                                ->columnSpanFull(),
+                            Forms\Components\Textarea::make('text')
                                 ->label('Perubahan')
                                 ->required()
+                                ->rows(2)
+                                ->autosize()
                                 ->placeholder('Tulis dengan bahasa sederhana yang mudah dimengerti pengguna…')
                                 ->columnSpanFull(),
+
+                            Forms\Components\Fieldset::make('Letak & tampilan (opsional)')
+                                ->columns(2)
+                                ->schema([
+                                    Forms\Components\Select::make('location_url')
+                                        ->label('Halaman')
+                                        ->options(fn () => static::locationOptions())
+                                        ->searchable()
+                                        ->native(false)
+                                        ->placeholder('Pilih menu tempat perubahan ini berada')
+                                        ->live()
+                                        ->afterStateUpdated(fn (Forms\Set $set, ?string $state) => $set('location', static::locationOptions()[$state] ?? null)),
+                                    Forms\Components\TextInput::make('location')
+                                        ->label('Teks letak')
+                                        ->placeholder('Tax Management › Dashboard')
+                                        ->helperText('Terisi otomatis dari halaman. Pisahkan tingkat dengan "›", mis. tambahkan "› Tab SPT".')
+                                        ->maxLength(120),
+                                    Forms\Components\FileUpload::make('image_before')
+                                        ->label('Gambar sebelum')
+                                        ->image()
+                                        ->disk(PatchNote::IMAGE_DISK)
+                                        ->directory(PatchNote::IMAGE_DIRECTORY)
+                                        ->visibility('public')
+                                        ->maxSize(4096)
+                                        ->helperText('Kosongkan untuk fitur yang benar-benar baru.'),
+                                    Forms\Components\FileUpload::make('image_after')
+                                        ->label('Gambar sesudah')
+                                        ->image()
+                                        ->disk(PatchNote::IMAGE_DISK)
+                                        ->directory(PatchNote::IMAGE_DIRECTORY)
+                                        ->visibility('public')
+                                        ->maxSize(4096)
+                                        ->helperText('Item bergambar tampil sebagai slide sorotan di popup.'),
+                                ]),
                         ])
                         ->columns(2)
                         ->defaultItems(1)
                         ->addActionLabel('Tambah Perubahan')
                         ->reorderableWithButtons()
                         ->collapsible()
-                        ->itemLabel(fn (array $state): ?string => $state['text'] ?? 'Perubahan baru'),
+                        ->itemLabel(fn (array $state): ?string => ($state['title'] ?? null) ?: ($state['text'] ?? null) ?: 'Perubahan baru'),
                 ]),
 
             Forms\Components\Hidden::make('created_by')
@@ -149,6 +192,31 @@ class PatchNoteResource extends Resource
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    /**
+     * Pilihan "Letak" diambil dari menu panel admin: path relatif => "Grup › Menu".
+     * Path (bukan URL penuh) yang disimpan supaya tetap benar di domain lain.
+     *
+     * @return array<string, string>
+     */
+    protected static function locationOptions(): array
+    {
+        $options = [];
+
+        foreach (Filament::getNavigation() as $group) {
+            foreach (collect($group->getItems()) as $item) {
+                foreach (collect($item->getChildItems())->prepend($item) as $entry) {
+                    $path = parse_url((string) $entry->getUrl(), PHP_URL_PATH) ?: '/';
+
+                    $options[$path] ??= collect([$group->getLabel(), $entry->getLabel()])
+                        ->filter()
+                        ->implode(' › ');
+                }
+            }
+        }
+
+        return $options;
     }
 
     public static function getPages(): array

@@ -75,9 +75,14 @@ class AppServiceProvider extends ServiceProvider
             Js::make('filament-notification-sounds', __DIR__ . '/../../resources/js/filament-notification-sounds.js'),
         ]);
 
+        // BODY_END is also rendered on the login pages. This modal downloads,
+        // removes and approves documents by raw ID, so it must never be handed
+        // to a guest (see the boot() guard in GlobalDocumentModal as well).
         FilamentView::registerRenderHook(
             PanelsRenderHook::BODY_END,
-            fn(): string => Blade::render('@livewire(\'projects.modals.global-document-modal\')'),
+            fn(): string => auth()->check()
+                ? Blade::render('@livewire(\'projects.modals.global-document-modal\')')
+                : '',
         );
 
         FilamentView::registerRenderHook(

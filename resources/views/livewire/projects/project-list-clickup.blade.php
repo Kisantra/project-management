@@ -1805,15 +1805,18 @@
     .cu-root > .cu-toolbar { margin-bottom: 16px; }
     .cu-root > .cu-table-head { margin-bottom: 0; }
 
+    /* Neutral zinc, the same gray Filament uses for the rest of the dark
+       panel (page = zinc-950, cards = zinc-900), so the list doesn't read
+       as a blue-tinted island. */
     .dark .cu-root {
-        --cu-ink: #f1f5f9;
-        --cu-muted: #94a3b8;
-        --cu-subtle: #64748b;
-        --cu-line: #1f2733;
-        --cu-line-strong: #2a3340;
-        --cu-bg: #1a1f2a;
-        --cu-bg-soft: #141923;
-        --cu-bg-hover: #20262f;
+        --cu-ink: #f4f4f5;
+        --cu-muted: #a1a1aa;
+        --cu-subtle: #71717a;
+        --cu-line: #27272a;
+        --cu-line-strong: #3f3f46;
+        --cu-bg: #18181b;
+        --cu-bg-soft: #131316;
+        --cu-bg-hover: #222226;
         --cu-accent-soft: rgba(99, 102, 241, .12);
     }
 

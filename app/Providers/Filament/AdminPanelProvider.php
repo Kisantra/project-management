@@ -27,7 +27,6 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Kisantra\Watchpost\Http\InjectBrowserScript;
-use DiogoGPinto\AuthUIEnhancer\AuthUIEnhancerPlugin;
 use SolutionForest\FilamentAccessManagement\FilamentAccessManagementPanel;
 use CharrafiMed\GlobalSearchModal\GlobalSearchModalPlugin;
 use Devonab\FilamentEasyFooter\EasyFooterPlugin;
@@ -50,7 +49,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('')
-            ->login()
+            ->login(\App\Filament\Auth\Login::class)
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -121,13 +120,15 @@ class AdminPanelProvider extends PanelProvider
                 FilamentProgressbarPlugin::make()->color('#f59e0b'),
                 FilamentAccessManagementPanel::make(),
                 FilamentErrorPagesPlugin::make(),
-                AuthUIEnhancerPlugin::make()
-                    ->showEmptyPanelOnMobile(false)
-                    ->formPanelPosition('right')
-                    ->formPanelWidth('50%')
-                    ->emptyPanelBackgroundImageOpacity('70%')
-                    ->emptyPanelBackgroundImageUrl('https://images.unsplash.com/photo-1662808782878-941ea16adbdc?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8amFrYXJ0YSUyMGNpdHl8ZW58MHx8MHx8fDA%3D')
             ])
+            ->renderHook(
+                'panels::body.end',
+                fn() => view('filament.components.patch-notes-modal-hook'),
+            )
+            ->renderHook(
+                'panels::user-menu.profile.after',
+                fn() => view('filament.components.patch-notes-menu-item'),
+            )
             ->brandLogo(asset('images/Logo/OnlyLogo.png'))
             ->brandLogoHeight('3rem')
             ->viteTheme('resources/css/filament/admin/theme.css')

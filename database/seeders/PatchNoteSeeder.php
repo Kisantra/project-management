@@ -5,9 +5,13 @@ namespace Database\Seeders;
 use App\Models\PatchNote;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
 
 class PatchNoteSeeder extends Seeder
 {
+    /** Halaman Tax Management › Dashboard (App\Filament\Pages\DashboardTaxReport). */
+    private const TAX_DASHBOARD = '/dashboard-tax-report';
+
     public function run(): void
     {
         PatchNote::updateOrCreate(
@@ -16,7 +20,7 @@ class PatchNoteSeeder extends Seeder
                 'title'        => 'Peningkatan Modul Klien, Pajak & Proyek',
                 'description'  => 'Beberapa penyempurnaan agar mengelola klien, faktur pajak, dan hasil proyek jadi lebih mudah.',
                 'is_published' => true,
-                'released_at'  => now()->toDateString(),
+                'released_at'  => '2026-06-24',
                 'created_by'   => User::query()->value('id'),
                 'changes'      => [
                     // Fitur baru
@@ -69,7 +73,7 @@ class PatchNoteSeeder extends Seeder
                 'title'        => 'Pelaporan SPT Masa & Penyempurnaan Modul Pajak',
                 'description'  => 'Unggah SPT Masa dari Coretax di tiap jenis pajak, ringkasan SPT untuk klien, notifikasi otomatis, serta navigasi & filter laporan pajak yang lebih pintar.',
                 'is_published' => true,
-                'released_at'  => now()->toDateString(),
+                'released_at'  => '2026-06-29',
                 'created_by'   => User::query()->value('id'),
                 'changes'      => [
                     // Fitur baru
@@ -120,81 +124,133 @@ class PatchNoteSeeder extends Seeder
                 'title'        => 'Dashboard Laporan Pajak Baru',
                 'description'  => 'Dashboard pajak dirombak agar menjawab satu pertanyaan lebih dulu: klien mana yang belum lapor dan tenggatnya sudah dekat. Ditambah beberapa perbaikan perhitungan yang membuat angkanya lebih tepat.',
                 'is_published' => true,
-                'released_at'  => now()->toDateString(),
+                'released_at'  => '2026-07-20',
                 'created_by'   => User::query()->value('id'),
                 'changes'      => [
                     // Fitur baru
                     [
-                        'type' => 'feature',
-                        'area' => 'Pajak',
-                        'text' => 'Garis waktu tenggat: satu bilah yang menunjukkan posisi hari ini terhadap batas lapor PPh 21 & Unifikasi (tgl 10), PPN (tgl 20), dan batas bayar (tgl 30), lengkap dengan jumlah klien yang masih tertunggak di tiap tenggat.',
+                        'type'         => 'feature',
+                        'area'         => 'Pajak',
+                        'title'        => 'Garis waktu tenggat',
+                        'text'         => 'Satu bilah yang menunjukkan posisi hari ini terhadap batas lapor PPh 21 & Unifikasi (tgl 10), PPN (tgl 20), dan batas bayar (tgl 30), lengkap dengan jumlah klien yang masih tertunggak di tiap tenggat. Menggantikan kalender bulanan.',
+                        'location'     => 'Tax Management › Dashboard › Panel Tenggat',
+                        'location_url' => self::TAX_DASHBOARD,
+                        'image_before' => $this->shot('1.7.0', 'deadline-before.webp'),
+                        'image_after'  => $this->shot('1.7.0', 'deadline-after.webp'),
                     ],
                     [
-                        'type' => 'feature',
-                        'area' => 'Pajak',
-                        'text' => 'Daftar "Perlu ditindak" mengurutkan klien berdasarkan tenggat terdekat, bukan berdasarkan besarnya omzet. Tiap baris bisa diklik langsung menuju laporan pajaknya.',
+                        'type'         => 'feature',
+                        'area'         => 'Pajak',
+                        'title'        => 'Daftar "Perlu ditindak"',
+                        'text'         => 'Klien kini diurutkan berdasarkan tenggat terdekat, bukan berdasarkan besarnya omzet seperti daftar "Top Klien Belum Lapor" sebelumnya. Tiap baris bisa diklik langsung menuju laporan pajaknya.',
+                        'location'     => 'Tax Management › Dashboard › Perlu ditindak',
+                        'location_url' => self::TAX_DASHBOARD,
+                        'image_before' => $this->shot('1.7.0', 'triage-before.webp'),
+                        'image_after'  => $this->shot('1.7.0', 'triage-after.webp'),
                     ],
                     [
-                        'type' => 'feature',
-                        'area' => 'Pajak',
-                        'text' => 'Tombol "Sorot" menyaring daftar ke satu jenis tenggat saja, dan pengingat ke seluruh project manager bisa dikirim dari situ (dengan konfirmasi terlebih dahulu).',
+                        'type'         => 'feature',
+                        'area'         => 'Pajak',
+                        'title'        => 'Tombol "Sorot"',
+                        'text'         => 'Menyaring daftar ke satu jenis tenggat saja; panel tenggat yang bersangkutan ikut tersorot. Pengingat ke seluruh project manager bisa dikirim dari situ (dengan konfirmasi terlebih dahulu).',
+                        'location'     => 'Tax Management › Dashboard › Perlu ditindak › Sorot',
+                        'location_url' => self::TAX_DASHBOARD,
+                        'image_after'  => $this->shot('1.7.0', 'sorot-after.webp'),
                     ],
                     [
-                        'type' => 'feature',
-                        'area' => 'Pajak',
-                        'text' => 'Grafik saldo akhir 12 bulan terakhir. Klik salah satu bulan untuk langsung berpindah ke periode tersebut.',
+                        'type'         => 'feature',
+                        'area'         => 'Pajak',
+                        'title'        => 'Grafik saldo akhir',
+                        'text'         => 'Saldo akhir 12 bulan terakhir dalam satu grafik. Klik salah satu bulan untuk langsung berpindah ke periode tersebut.',
+                        'location'     => 'Tax Management › Dashboard › Saldo akhir',
+                        'location_url' => self::TAX_DASHBOARD,
+                        'image_after'  => $this->shot('1.7.0', 'saldo-after.webp'),
                     ],
 
                     // Peningkatan
                     [
-                        'type' => 'improvement',
-                        'area' => 'Pajak',
-                        'text' => 'Pemilih periode disederhanakan menjadi satu stepper bulan. Rentang bebas seperti "kuartal ini" dihapus karena kewajiban pajak selalu dihitung per masa bulanan.',
+                        'type'         => 'improvement',
+                        'area'         => 'Pajak',
+                        'title'        => 'Pemilih periode',
+                        'text'         => 'Disederhanakan menjadi satu stepper bulan di pojok kanan atas, dan filter kini selalu terlihat. Rentang bebas seperti "kuartal ini" dihapus karena kewajiban pajak selalu dihitung per masa bulanan.',
+                        'location'     => 'Tax Management › Dashboard › Pemilih periode',
+                        'location_url' => self::TAX_DASHBOARD,
+                        'image_before' => $this->shot('1.7.0', 'periode-before.webp'),
+                        'image_after'  => $this->shot('1.7.0', 'periode-after.webp'),
                     ],
                     [
-                        'type' => 'improvement',
-                        'area' => 'Pajak',
-                        'text' => 'Filter dashboard (klien, jenis pajak, status lapor, status bayar) kini tersimpan di alamat halaman, sehingga tampilan yang sudah disaring bisa disimpan sebagai bookmark atau dibagikan ke rekan.',
+                        'type'         => 'improvement',
+                        'area'         => 'Pajak',
+                        'text'         => 'Filter dashboard (klien, jenis pajak, status lapor, status bayar) kini tersimpan di alamat halaman, sehingga tampilan yang sudah disaring bisa disimpan sebagai bookmark atau dibagikan ke rekan.',
+                        'location'     => 'Tax Management › Dashboard › Filter',
+                        'location_url' => self::TAX_DASHBOARD,
                     ],
                     [
-                        'type' => 'improvement',
-                        'area' => 'Pajak',
-                        'text' => 'Istilah diseragamkan: "Bupot" kini ditulis "PPh Unifikasi" dan "PPh" menjadi "PPh 21", mengikuti penamaan di modul Klien.',
+                        'type'         => 'improvement',
+                        'area'         => 'Pajak',
+                        'text'         => 'Istilah diseragamkan: "Bupot" kini ditulis "PPh Unifikasi" dan "PPh" menjadi "PPh 21", mengikuti penamaan di modul Klien.',
+                        'location'     => 'Tax Management › Dashboard',
+                        'location_url' => self::TAX_DASHBOARD,
                     ],
                     [
-                        'type' => 'improvement',
-                        'area' => 'Sistem',
-                        'text' => 'Dashboard pajak lebih ringan dibuka. Pengambilan data daftar klien yang sebelumnya menjalankan belasan kueri sekarang cukup satu kali, berapa pun jumlah kliennya.',
+                        'type'         => 'improvement',
+                        'area'         => 'Sistem',
+                        'text'         => 'Dashboard pajak lebih ringan dibuka. Pengambilan data daftar klien yang sebelumnya menjalankan belasan kueri sekarang cukup satu kali, berapa pun jumlah kliennya.',
+                        'location'     => 'Tax Management › Dashboard',
+                        'location_url' => self::TAX_DASHBOARD,
                     ],
 
                     // Perbaikan
                     [
-                        'type' => 'fix',
-                        'area' => 'Pajak',
-                        'text' => 'Angka pada dashboard sebelumnya menggabungkan masa dengan nama bulan yang sama dari tahun berbeda (misalnya Januari 2025 ikut terhitung di Januari 2026). Perhitungan kini memakai bulan sekaligus tahun.',
+                        'type'         => 'fix',
+                        'area'         => 'Pajak',
+                        'text'         => 'Angka pada dashboard sebelumnya menggabungkan masa dengan nama bulan yang sama dari tahun berbeda (misalnya Januari 2025 ikut terhitung di Januari 2026). Perhitungan kini memakai bulan sekaligus tahun.',
+                        'location'     => 'Tax Management › Dashboard',
+                        'location_url' => self::TAX_DASHBOARD,
                     ],
                     [
-                        'type' => 'fix',
-                        'area' => 'Pajak',
-                        'text' => 'Tenggat pembayaran tanggal 30 tidak pernah muncul pada bulan Februari. Tenggat kini otomatis menyesuaikan ke hari terakhir bulan tersebut.',
+                        'type'         => 'fix',
+                        'area'         => 'Pajak',
+                        'text'         => 'Tenggat pembayaran tanggal 30 tidak pernah muncul pada bulan Februari. Tenggat kini otomatis menyesuaikan ke hari terakhir bulan tersebut.',
+                        'location'     => 'Tax Management › Dashboard',
+                        'location_url' => self::TAX_DASHBOARD,
                     ],
                     [
-                        'type' => 'fix',
-                        'area' => 'Pajak',
-                        'text' => 'Menyaring dashboard ke jenis pajak tertentu sebelumnya tetap menampilkan penanda "Bayar" milik jenis pajak lain. Penanda kini ikut menyesuaikan filter.',
+                        'type'         => 'fix',
+                        'area'         => 'Pajak',
+                        'text'         => 'Menyaring dashboard ke jenis pajak tertentu sebelumnya tetap menampilkan penanda "Bayar" milik jenis pajak lain. Penanda kini ikut menyesuaikan filter.',
+                        'location'     => 'Tax Management › Dashboard',
+                        'location_url' => self::TAX_DASHBOARD,
                     ],
                     [
-                        'type' => 'fix',
-                        'area' => 'Sistem',
-                        'text' => 'Kegagalan memuat data pada dashboard sebelumnya tampil sebagai daftar kosong, sehingga menyerupai kondisi "semua sudah beres". Kegagalan kini ditampilkan sebagai pesan yang jelas beserta tombol muat ulang.',
+                        'type'         => 'fix',
+                        'area'         => 'Sistem',
+                        'text'         => 'Kegagalan memuat data pada dashboard sebelumnya tampil sebagai daftar kosong, sehingga menyerupai kondisi "semua sudah beres". Kegagalan kini ditampilkan sebagai pesan yang jelas beserta tombol muat ulang.',
+                        'location'     => 'Tax Management › Dashboard',
+                        'location_url' => self::TAX_DASHBOARD,
                     ],
                     [
-                        'type' => 'fix',
-                        'area' => 'Sistem',
-                        'text' => 'Menu Dashboard pada Tax Management sebelumnya mengikuti hak akses modul Tugas Harian. Kini menggunakan hak akses miliknya sendiri.',
+                        'type'         => 'fix',
+                        'area'         => 'Sistem',
+                        'text'         => 'Menu Dashboard pada Tax Management sebelumnya mengikuti hak akses modul Tugas Harian. Kini menggunakan hak akses miliknya sendiri.',
+                        'location'     => 'Tax Management › Dashboard',
+                        'location_url' => self::TAX_DASHBOARD,
                     ],
                 ],
             ]
         );
+    }
+
+    /**
+     * Salin screenshot bawaan seeder ke disk publik dan kembalikan path-nya.
+     * File sumbernya ikut di-commit di database/seeders/patch-notes/{versi}/.
+     */
+    private function shot(string $version, string $file): string
+    {
+        $path = PatchNote::IMAGE_DIRECTORY . "/{$version}/{$file}";
+
+        Storage::disk(PatchNote::IMAGE_DISK)->put($path, file_get_contents(__DIR__ . "/patch-notes/{$version}/{$file}"));
+
+        return $path;
     }
 }

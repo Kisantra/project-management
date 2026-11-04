@@ -75,6 +75,21 @@ class GlobalDocumentModal extends Component implements HasForms
      */
     public ?array $notesData = [];
 
+    /**
+     * Refuse every request that is not authenticated, initial render and
+     * Livewire updates alike.
+     *
+     * This modal used to be rendered on the login page too, and a snapshot
+     * taken there stays valid after the render hook stopped emitting it.
+     * Livewire re-applies the middleware of the route a snapshot came from,
+     * and /login has no auth middleware, so without this guard a guest could
+     * still call downloadDocument() / removeDocument() with any document ID.
+     */
+    public function boot(): void
+    {
+        abort_unless(auth()->check(), 403);
+    }
+
     public function mount(): void
     {
         $this->uploadFileForm->fill();

@@ -85,6 +85,15 @@ class ViewProject extends ViewRecord
 
     protected function getViewData(): array
     {
+        // The checklist table reads every step's tasks, documents, latest file
+        // uploader and reviewer; load them once instead of per row.
+        $this->record->loadMissing([
+            'client', 'pic', 'teamMembers', 'sop', 'department', 'statusRecord', 'parentProject',
+            'steps.tasks.comments',
+            'steps.requiredDocuments.submittedDocuments.user',
+            'steps.requiredDocuments.reviewer',
+        ]);
+
         return [
             'record' => $this->record,
             'client' => $this->record->client,
@@ -290,6 +299,8 @@ class ViewProject extends ViewRecord
         $task->status = $task->status === 'completed' ? 'pending' : 'completed';
         $task->save();
 
+        $this->reaggregateFresh();
+
         Notification::make()
             ->title('Task status updated successfully')
             ->success()
@@ -318,6 +329,8 @@ class ViewProject extends ViewRecord
 
         $document->status = $status;
         $document->save();
+
+        $this->reaggregateFresh();
 
         Notification::make()
             ->title("Document status updated to " . ucfirst($status))
@@ -595,17 +608,15 @@ class ViewProject extends ViewRecord
 
         if (!$hasRequiredRole) {
             return [
-                // Only include the other actions if user doesn't have required role
+                PreviousRecordAction::make()->color('gray'),
+                NextRecordAction::make()->color('gray'),
+
                 Actions\Action::make('edit')
                     ->url(static::getResource()::getUrl('edit', ['record' => $this->record]))
                     ->icon('heroicon-o-pencil-square')
+                    ->color('gray')
                     ->visible(fn() => !$this->isProjectLocked())
                     ->button(),
-
-                Actions\Action::make('viewActivity')
-                    ->label('Aktivitas')
-                    ->icon('heroicon-o-clock')
-                    ->url(fn() => ProjectResource::getUrl('view', ['record' => $this->record]) . '#aktivitas'),
             ];
         }
 
@@ -658,10 +669,22 @@ class ViewProject extends ViewRecord
         $isCompleted = $this->record->status === 'completed';
 
         return [
+            PreviousRecordAction::make()->color('gray'),
+            NextRecordAction::make()->color('gray'),
+
+            Actions\Action::make('edit')
+                ->url(static::getResource()::getUrl('edit', ['record' => $this->record]))
+                ->icon('heroicon-o-pencil-square')
+                ->color('gray')
+                ->visible(fn() => !$this->isProjectLocked())
+                ->button(),
+
             Actions\Action::make('completeProject')
                 ->label($isCompleted ? 'Perbarui Deliverable' : 'Selesaikan Proyek')
                 ->icon($isCompleted ? 'heroicon-o-arrow-up-tray' : 'heroicon-o-check-circle')
-                ->color($isCompleted ? 'warning' : 'success')
+                // Green only when it can actually run; otherwise it would shout
+                // "do this" at a project that still has open documents.
+                ->color(! $isCompleted && $requirementsMet ? 'success' : 'gray')
                 ->tooltip($isCompleted ? 'Tambah file atau perbarui catatan penyelesaian' : $tooltipMessage)
                 ->disabled(!$isCompleted && !$requirementsMet)
                 ->requiresConfirmation()
@@ -1111,7 +1134,7 @@ class ViewProject extends ViewRecord
             Actions\Action::make('operToClientDocument')
                 ->label('Oper ke Dokumen Klien')
                 ->icon('heroicon-o-arrow-right-circle')
-                ->color('info')
+                ->color('gray')
                 ->visible(fn() => $this->record->status === 'completed'
                     && !empty($this->record->deliverable_files)
                     && !$clientInactive)
@@ -1263,20 +1286,6 @@ class ViewProject extends ViewRecord
                     $this->resetOperState();
                 }),
 
-            // Modify edit action to be disabled when project is completed or client inactive
-            Actions\Action::make('edit')
-                ->url(static::getResource()::getUrl('edit', ['record' => $this->record]))
-                ->icon('heroicon-o-pencil-square')
-                ->visible(fn() => !$this->isProjectLocked())
-                ->button(),
-
-            Actions\Action::make('viewActivity')
-                ->label('Aktivitas')
-                ->icon('heroicon-o-clock')
-                ->url(fn() => ProjectResource::getUrl('view', ['record' => $this->record]) . '#aktivitas'),
-
-            PreviousRecordAction::make(),
-            NextRecordAction::make(),
         ];
     }
 
@@ -1319,6 +1328,17 @@ class ViewProject extends ViewRecord
 
     public function confirmStatusChange(): void
     {
+        // Same guard as toggleTaskStatus(): this path used to skip it entirely.
+        if ($this->isProjectLocked()) {
+            Notification::make()
+                ->title('Proyek terkunci')
+                ->body('Status tugas tidak bisa diubah karena proyek sudah selesai atau kliennya tidak aktif.')
+                ->warning()
+                ->send();
+            $this->dispatch('close-modal', id: "confirm-status-modal-{$this->selectedTaskId}");
+            return;
+        }
+
         $task = Task::find($this->selectedTaskId);
         $oldStatus = $task->status;
 
@@ -1332,9 +1352,23 @@ class ViewProject extends ViewRecord
             'content' => "Status changed from " . ucfirst($oldStatus) . " to " . ucfirst($this->newTaskStatus)
         ]);
 
-        $this->dispatch('close-modal', ['id' => "confirm-status-modal-{$this->selectedTaskId}"]);
+        $this->dispatch('close-modal', id: "confirm-status-modal-{$this->selectedTaskId}");
 
-        // Update statuses in the correct order
+        $this->reaggregateFresh();
+    }
+
+    /**
+     * Re-run the status aggregators against fresh rows.
+     *
+     * Livewire re-hydrates $record with its step tree BEFORE an action runs, so
+     * after saving a Task/RequiredDocument fetched separately, $record->steps
+     * still holds the old status. Aggregating (or rendering) from that tree
+     * leaves the step status and the checklist one change behind until reload.
+     */
+    private function reaggregateFresh(): void
+    {
+        $this->record->unsetRelation('steps');
+
         $this->updateRequiredDocumentStatuses();
         $this->updateProjectStepStatus();
         $this->updateProjectStatus();

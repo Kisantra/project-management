@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Model;
 use App\Models\User;
 use App\Models\UserClient;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Filament\Notifications\Notification;
 
 class EditUserClient extends EditRecord
@@ -44,11 +43,6 @@ class EditUserClient extends EditRecord
                 'avatar_path'   => $user->avatar_path,
                 // avatar_url mirrors the upload ('storage/...') when a file exists; only an external URL belongs in the field.
                 'avatar_url'    => $user->avatar_path ? null : $user->avatar_url,
-                // Only files on the public disk can be shown in the uploader; hand-placed
-                // files under public/images are kept as-is unless replaced.
-                'signature_path' => $user->signature_path && Storage::disk('public')->exists($user->signature_path)
-                    ? $user->signature_path
-                    : null,
             ];
         }
 
@@ -85,16 +79,6 @@ class EditUserClient extends EditRecord
         if (!empty($data['user']['avatar_url']) && empty($data['user']['avatar_path'])) {
             $updateData['avatar_url'] = $data['user']['avatar_url'];
             $updateData['avatar_path'] = null;
-        }
-
-        // Handle signature: a new upload replaces; a cleared uploader removes a disk-stored file.
-        $newSignature = $data['user']['signature_path'] ?? null;
-        if ($newSignature && $newSignature !== $record->user->signature_path) {
-            $record->user->deleteOldSignature();
-            $updateData['signature_path'] = $newSignature;
-        } elseif (! $newSignature && $record->user->signature_path && Storage::disk('public')->exists($record->user->signature_path)) {
-            $record->user->deleteOldSignature();
-            $updateData['signature_path'] = null;
         }
 
         // Update password if provided

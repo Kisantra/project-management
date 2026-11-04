@@ -2,10 +2,8 @@
 
 namespace App\Livewire\Dashboard\Widget;
 
-use App\Filament\Pages\Letters\Index as LettersIndex;
 use App\Filament\Resources\ProjectResource;
 use App\Filament\Resources\RequiredDocumentResource;
-use App\Models\Letter;
 use App\Models\Project;
 use App\Models\SubmittedDocument;
 use App\Models\UserActivity;
@@ -38,9 +36,8 @@ class ProjectStatsOverview extends Component
             $this->newProjectsTile(),
             $this->completedProjectsTile(),
             $this->documentsTile(),
+            $this->activityTile(),
         ];
-
-        $tiles[] = auth()->user()->can('surat.*') ? $this->lettersTile() : $this->activityTile();
 
         return $tiles;
     }
@@ -88,17 +85,6 @@ class ProjectStatsOverview extends Component
             query: $query,
             column: 'submitted_documents.created_at',
             href: RequiredDocumentResource::getUrl('index'),
-        );
-    }
-
-    protected function lettersTile(): array
-    {
-        return $this->tile(
-            label: 'Surat diajukan',
-            unit: 'surat',
-            query: Letter::query()->whereNotNull('submitted_at'),
-            column: 'letters.submitted_at',
-            href: LettersIndex::getUrl() . '?tab=surat',
         );
     }
 

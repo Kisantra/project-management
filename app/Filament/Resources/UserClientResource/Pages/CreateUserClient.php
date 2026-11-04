@@ -28,7 +28,6 @@ class CreateUserClient extends CreateRecord
             'status' => $data['user']['status'] ?? 'active',
             'avatar_path' => $data['user']['avatar_path'] ?? null,
             'avatar_url' => ! empty($data['user']['avatar_path']) ? 'storage/' . $data['user']['avatar_path'] : ($data['user']['avatar_url'] ?? null),
-            'signature_path' => $data['user']['signature_path'] ?? null,
         ]);
 
         $firstUserClient = null;

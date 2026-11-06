@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d7e34ceb0ad3f385120c3aed6fc5e5bb",
+    "content-hash": "a5523cf0b99a312c250166fb32d00158",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -4935,6 +4935,61 @@
                 "source": "https://github.com/kirschbaum-development/eloquent-power-joins/tree/4.1.0"
             },
             "time": "2025-02-12T11:14:14+00:00"
+        },
+        {
+            "name": "kisantra/sso-laravel",
+            "version": "dev-master",
+            "dist": {
+                "type": "path",
+                "url": "../Kisantra-Platform/packages/sso-laravel",
+                "reference": "c47e1bc60f0074d55a3d9b7ea1698b7626373d20"
+            },
+            "require": {
+                "guzzlehttp/guzzle": "^7.2|^8.0",
+                "illuminate/auth": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/console": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/database": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/routing": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+                "illuminate/view": "^10.0|^11.0|^12.0|^13.0",
+                "php": "^8.1"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
+                "phpunit/phpunit": "^10.5|^11.0|^12.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Kisantra\\Sso\\SsoServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Kisantra\\Sso\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Kisantra\\Sso\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Masuk ke aplikasi Laravel Kisantra lewat Kisantra Platform (single sign-on).",
+            "transport-options": {
+                "relative": true
+            }
         },
         {
             "name": "kisantra/watchpost-laravel",
@@ -17119,7 +17174,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "kisantra/sso-laravel": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

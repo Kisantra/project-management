@@ -29,7 +29,23 @@
     <div class="kl-stage">
         <main class="kl-card">
             <h1 class="kl-title">Masuk</h1>
-            <p class="kl-lead">Gunakan email kantor, atau email yang terdaftar sebagai klien Kisantra.</p>
+
+            @if (\Kisantra\Sso\Sso::enabled())
+                {{-- Kisantra Platform SSO: staff use the button, clients the form below. --}}
+                <p class="kl-lead">Tim Kisantra masuk dengan Akun Kisantra. Klien memakai email dan kata sandi.</p>
+
+                <a href="{{ route('sso.login') }}" class="kl-sso">
+                    <svg viewBox="39 33 82 94.5" width="15" height="17" aria-hidden="true">
+                        <path fill="currentColor" d="M40 40.1A6.5 6.5 0 0 1 46.5 33.6L62.4 33.6A6.5 6.5 0 0 1 68.9 40.1L68.9 60.6A23.4 23.4 0 0 0 92.3 84L116 84A4 4 0 0 1 120 88L120 122.04A4.4 4.4 0 0 1 115.6 126.44L82.4 126.44A4.4 4.4 0 0 1 78 122.04L78 97A9.1 12.3 0 0 0 68.9 84.7L68.9 101.7A25.5 25.5 0 0 1 49.58 126.44L42.5 126.44A2.5 2.5 0 0 1 40 123.94Z"/>
+                        <path fill="#42b2cc" d="M81.33 37.1A3.5 3.5 0 0 1 84.83 33.6L114.12 33.6Q118.12 33.6 118.06 37.6A37.5 37.5 0 0 1 86.33 72.17Q81.33 72.55 81.33 67.55Z"/>
+                    </svg>
+                    Masuk dengan Akun Kisantra
+                </a>
+
+                <div class="kl-or" role="separator"><span>atau, untuk klien</span></div>
+            @else
+                <p class="kl-lead">Gunakan email kantor, atau email yang terdaftar sebagai klien Kisantra.</p>
+            @endif
 
             {{ \Filament\Support\Facades\FilamentView::renderHook(\Filament\View\PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE, scopes: $this->getRenderHookScopes()) }}
 
@@ -136,6 +152,29 @@
             margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--kl-line);
             font-size: 12px; color: var(--kl-subtle);
         }
+
+        /* Kisantra Platform SSO button; with it, the form's button steps back to secondary. */
+        .kl-sso {
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            height: 46px; border-radius: 10px;
+            background: var(--kl-btn); color: var(--kl-on-btn);
+            font-size: 14.5px; font-weight: 700; text-decoration: none;
+            transition: background-color .15s ease;
+        }
+        .kl-sso:hover { background: var(--kl-btn-hover); }
+        .kl-sso:focus-visible { outline: 2px solid var(--kl-btn); outline-offset: 3px; }
+        .kl-or {
+            display: flex; align-items: center; gap: 12px;
+            margin: 22px 0 16px; font-size: 12px; font-weight: 600; color: var(--kl-subtle);
+        }
+        .kl-or::before, .kl-or::after { content: ""; flex: 1; height: 1px; background: var(--kl-line); }
+        .kl-card:has(.kl-sso) .fi-btn.fi-btn-color-primary {
+            background-color: transparent !important;
+            color: var(--kl-ink) !important;
+            box-shadow: inset 0 0 0 1px var(--kl-line) !important;
+        }
+        .kl-card:has(.kl-sso) .fi-btn.fi-btn-color-primary:hover { background-color: rgba(0, 0, 0, .03) !important; }
+        .kl-card:has(.kl-sso) .fi-btn.fi-btn-color-primary .fi-btn-icon { color: var(--kl-ink) !important; }
 
         /* Filament form, tuned to the card */
         .kl-card .fi-fo-field-wrp-label span { font-size: 13px; font-weight: 600; }

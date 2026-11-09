@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+
 use App\Models\DailyTask;
 use App\Models\DailyTaskSubTask;
 use App\Models\ProjectStatus;
@@ -22,10 +23,8 @@ use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Blade;
 use Filament\Notifications\Livewire\DatabaseNotifications;
 use App\Models\Invoice;
-use App\Models\User;
 use App\Observers\InvoiceObserver;
 use Illuminate\Support\Facades\Vite;
-use Kisantra\Sso\Sso;
 use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
@@ -58,11 +57,6 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Model::unguard();
-
-        // Kisantra Platform SSO (kisantra/sso-laravel): staff sign in through the
-        // platform; clients keep the local login for the /klien portal.
-        Sso::canLoginUsing(fn (User $user): bool => $user->status === 'active');
-        Sso::allowLocalSessionUsing(fn (User $user): bool => $user->hasRole('client'));
         Invoice::observe(InvoiceObserver::class);
         TaxReport::observe(TaxReportObserver::class);
         DailyTask::observe(DailyTaskObserver::class);

@@ -19,7 +19,6 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Kisantra\Sso\Http\Middleware\EnsureSsoSession;
 use Kisantra\Watchpost\Http\InjectBrowserScript;
 use Filament\Support\Enums\MaxWidth;
 use EightCedars\FilamentInactivityGuard\FilamentInactivityGuardPlugin;
@@ -65,8 +64,6 @@ class ClientPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 InjectBrowserScript::class,
-                // Panels skip the web group, so the SSO session check is added by hand.
-                EnsureSsoSession::class,
             ])
             ->topNavigation()
             ->plugins([

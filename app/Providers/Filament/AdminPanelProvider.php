@@ -26,9 +26,6 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Filament\View\PanelsRenderHook;
-use Filament\Navigation\MenuItem;
-use Kisantra\Sso\Http\Middleware\EnsureSsoSession;
 use Kisantra\Watchpost\Http\InjectBrowserScript;
 use SolutionForest\FilamentAccessManagement\FilamentAccessManagementPanel;
 use CharrafiMed\GlobalSearchModal\GlobalSearchModalPlugin;
@@ -93,8 +90,6 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
                 InjectBrowserScript::class,
-                // Panels skip the web group, so the SSO session check is added by hand.
-                EnsureSsoSession::class,
                 
             ])
             ->maxContentWidth(MaxWidth::Full)
@@ -133,16 +128,6 @@ class AdminPanelProvider extends PanelProvider
                 'panels::user-menu.profile.after',
                 fn() => view('filament.components.patch-notes-menu-item'),
             )
-            // Kisantra Platform: jump to the other apps, and sign out of all of them.
-            ->renderHook(
-                PanelsRenderHook::USER_MENU_BEFORE,
-                fn() => view('filament.components.sso-app-switcher'),
-            )
-            ->userMenuItems([
-                'logout' => MenuItem::make()
-                    ->label('Keluar')
-                    ->url(fn(): string => route('sso.logout')),
-            ])
             ->brandLogo(asset('images/Logo/OnlyLogo.png'))
             ->brandLogoHeight('3rem')
             ->viteTheme('resources/css/filament/admin/theme.css')

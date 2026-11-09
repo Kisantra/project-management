@@ -30,7 +30,6 @@
         "jenssegers/agent": "^2.6",
         "joaopaulolndev/filament-pdf-viewer": "^1.0",
         "kenepa/banner": "^0.1.0",
-        "kisantra/sso-laravel": "@dev",
         "kisantra/watchpost-laravel": "^1.1",
         "laravel/framework": "^10.10",
         "laravel/reverb": "^1.4",
@@ -111,10 +110,6 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "repositories": [{
-        "name": "kisantra-sso",
-        "type": "path",
-        "url": "../Kisantra-Platform/packages/sso-laravel"
-    },{
         "name": "watchpost",
         "type": "vcs",
         "url": "https://github.com/Kisantra/watchpost-laravel.git"

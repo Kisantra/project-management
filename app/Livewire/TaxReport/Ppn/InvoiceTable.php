@@ -359,6 +359,28 @@ class InvoiceTable extends Component implements HasForms, HasTable
                         return !($this->taxReport->client && $this->taxReport->client->ppn_contract);
                     }),
 
+                Tables\Actions\Action::make('import_json')
+                    ->label('Import JSON')
+                    ->icon('heroicon-o-code-bracket')
+                    ->color('gray')
+                    ->modalHeading('Import Faktur dari JSON')
+                    ->modalWidth('6xl')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->modalContent(fn () => view(
+                        'livewire.tax-report.ppn.bulk-invoice-json-import-modal',
+                        ['taxReportId' => $this->taxReportId]
+                    ))
+                    ->tooltip(function () {
+                        if (!$this->taxReport->client || !$this->taxReport->client->ppn_contract) {
+                            return 'Klien tidak memiliki kontrak PPN aktif.';
+                        }
+                        return 'Impor banyak faktur sekaligus dari JSON hasil AI beserta file-nya';
+                    })
+                    ->disabled(function () {
+                        return !($this->taxReport->client && $this->taxReport->client->ppn_contract);
+                    }),
+
                 Tables\Actions\CreateAction::make()
                     ->label('Input Manual')
                     ->icon('heroicon-o-pencil-square')

@@ -2,20 +2,16 @@
 
 namespace App\Filament\Auth;
 
-use App\Models\User;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Component;
 use Filament\Forms\Components\TextInput;
-use Filament\Facades\Filament;
-use Filament\Http\Responses\Auth\Contracts\LoginResponse;
 use Filament\Notifications\Notification;
 use Filament\Pages\Auth\Login as BaseLogin;
 use Filament\Support\Enums\IconPosition;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Validation\ValidationException;
-use Kisantra\Sso\Sso;
 
 /**
  * Halaman login panel admin (dipakai staf dan klien; klien diarahkan ke /klien
@@ -98,27 +94,6 @@ class Login extends BaseLogin
             ->icon('heroicon-m-arrow-right')
             ->iconPosition(IconPosition::After)
             ->submit('authenticate');
-    }
-
-    /**
-     * Staff come in through Kisantra Platform ("Masuk dengan Akun Kisantra");
-     * the password form stays for clients, whose portal is /klien. With
-     * SSO_LOCAL_LOGIN=true (platform down) staff may use the form again.
-     */
-    public function authenticate(): ?LoginResponse
-    {
-        $response = parent::authenticate();
-        $user = Filament::auth()->user();
-
-        if ($response && $user instanceof User && Sso::enabled() && ! config('sso.local_login') && ! $user->hasRole('client')) {
-            Filament::auth()->logout();
-
-            throw ValidationException::withMessages([
-                'data.email' => 'Tim Kisantra masuk lewat tombol "Masuk dengan Akun Kisantra".',
-            ]);
-        }
-
-        return $response;
     }
 
     protected function throwFailureValidationException(): never

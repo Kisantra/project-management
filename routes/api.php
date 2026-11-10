@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ActivityController;
+use App\Http\Controllers\Api\ClientIntakeController;
 use Illuminate\Support\Facades\Route;
 
 // Version 1 API Routes
@@ -30,5 +31,12 @@ Route::prefix('v1')->middleware('api')->group(function () {
     Route::prefix('activities')->group(function () {
         Route::get('/', [ActivityController::class, 'index']);
         Route::get('/{activity}', [ActivityController::class, 'show']);
+    });
+
+    // Serah terima klien dari Client Management (token bersama, bukan sesi)
+    Route::prefix('intake')->middleware('client-management.token')->group(function () {
+        Route::post('/clients', [ClientIntakeController::class, 'store']);
+        Route::post('/clients/{cmLeadId}/withdraw', [ClientIntakeController::class, 'withdraw'])
+            ->whereNumber('cmLeadId');
     });
 });

@@ -324,6 +324,21 @@
                     $typeMeta   = $types[$client->client_type] ?? null;
                     $pkpMeta    = $pkps[$client->pkp_status] ?? null;
 
+                    // Deal dari Client Management yang diproses menjadi klien ini (bila ada)
+                    $intake = $client->latestIntake;
+                    $originTone = match (true) {
+                        $intake === null => null,
+                        $intake->isWithdrawn() => 'withdrawn',
+                        $intake->matched => 'matched',
+                        default => 'created',
+                    };
+                    $originTitle = match ($originTone) {
+                        'withdrawn' => 'Deal untuk klien ini dibatalkan di Client Management (aplikasi tim marketing) setelah diproses.',
+                        'matched' => 'Klien yang sudah ada, menerima deal layanan baru dari Client Management (aplikasi tim marketing).',
+                        'created' => 'Klien ini dibuat dari deal di Client Management (aplikasi tim marketing).',
+                        default => null,
+                    };
+
                     // Logo resolution — http(s) URL or public-disk relative path
                     $logoSrc = null;
                     if ($client->logo) {
@@ -358,6 +373,9 @@
                     <div class="cl-col-name">
                         <a href="{{ $this->viewUrl($client) }}" class="cl-client-name">{{ $client->name }}</a>
                         <div class="cl-client-meta">
+                            @if ($originTone)
+                                <span class="cl-origin cl-origin-{{ $originTone }}" title="{{ $originTitle }}">{{ $intake->originLabel() }}</span>
+                            @endif
                             @if ($client->NPWP)
                                 <span class="cl-npwp">NPWP {{ $client->NPWP }}</span>
                             @endif
@@ -978,6 +996,23 @@
             .cl-cred-pill:active { transform: translateY(1px); }
             .cl-cred-pill svg { flex-shrink: 0; }
             .cl-cred-pill-label { line-height: 1; }
+
+            /* Origin badge for clients that came in through Client Management */
+            .cl-client-meta { flex-wrap: wrap; row-gap: 3px; }
+            .cl-origin {
+                display: inline-flex; align-items: center;
+                padding: 1px 7px; border-radius: 99px;
+                font-size: 10.5px; font-weight: 600; line-height: 1.5;
+                white-space: nowrap; cursor: help;
+                color: var(--cl-origin-ink); background: var(--cl-origin-bg);
+                box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-origin-ink) 16%, transparent);
+            }
+            .cl-origin-created   { --cl-origin-ink: #4338ca; --cl-origin-bg: #eef2ff; }
+            .cl-origin-matched   { --cl-origin-ink: #0e7490; --cl-origin-bg: #ecfeff; }
+            .cl-origin-withdrawn { --cl-origin-ink: #b91c1c; --cl-origin-bg: #fef2f2; }
+            .dark .cl-origin-created   { --cl-origin-ink: #a5b4fc; --cl-origin-bg: #1e1b4b; }
+            .dark .cl-origin-matched   { --cl-origin-ink: #67e8f9; --cl-origin-bg: #083344; }
+            .dark .cl-origin-withdrawn { --cl-origin-ink: #fca5a5; --cl-origin-bg: #450a0a; }
 
             /* Three-dot actions button — neutral */
             .cl-act-btn {

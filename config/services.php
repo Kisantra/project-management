@@ -31,4 +31,17 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    // Serah terima klien dari aplikasi Client Management (marketing).
+    // Token yang sama dipakai dua arah: CM -> PM (Bearer ke /api/v1/intake)
+    // dan PM -> CM (Bearer ke /api/pm/...). Nilainya = PROJECT_MANAGEMENT_TOKEN di CM.
+    'client_management' => [
+        'url' => env('CLIENT_MANAGEMENT_URL'),
+        'token' => env('CLIENT_MANAGEMENT_TOKEN'),
+        'timeout' => (int) env('CLIENT_MANAGEMENT_TIMEOUT', 10),
+
+        // Penerima notifikasi serah terima. Nama role yang tidak ada di
+        // database diabaikan, jadi aman mencantumkan variasi penamaan.
+        'notify_roles' => ['super-admin', 'direktur', 'director', 'manager', 'project-manager'],
+    ],
+
 ];

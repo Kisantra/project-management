@@ -76,7 +76,18 @@ class Client extends Model
     {
         return $this->hasMany(ClientContact::class);
     }
-    
+
+    /** Deal dari Client Management yang sudah diproses menjadi klien ini. */
+    public function intakes(): HasMany
+    {
+        return $this->hasMany(ClientIntake::class);
+    }
+
+    public function latestIntake(): HasOne
+    {
+        return $this->hasOne(ClientIntake::class)->latestOfMany();
+    }
+
     /**
      * Relationship ke credential utama
      */

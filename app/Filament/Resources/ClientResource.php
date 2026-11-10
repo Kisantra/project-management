@@ -68,322 +68,19 @@ class ClientResource extends Resource
                     ->description('Detail dari Client')
                     ->icon('heroicon-o-building-office-2')
                     ->schema([
-                        Forms\Components\Select::make('client_type')
-                            ->label('Tipe Klien')
-                            ->options([
-                                'Pribadi' => 'Pribadi/Perorangan',
-                                'Badan' => 'Badan/Perusahaan',
-                                'Pemerintah' => 'Pemerintah',
-                                'Pemungut PPN PMSE Luar Negeri' => 'Pemungut PPN PMSE Luar Negeri',
-                            ])
-                            ->default('Pribadi')
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, ?string $state) {
-                                // Reset subtype when client type changes
-                                $set('client_subtype', null);
+                        static::clientTypeField(),
 
-                                // Reset pilihan "individu ini adalah PIC" pada setiap perubahan tipe
-                                $set('pic_is_self', 'no');
+                        static::clientSubtypeField(),
 
-                                // Reset PIC for Pribadi (dipilih ulang lewat dropdown bila perlu)
-                                if ($state === 'Pribadi') {
-                                    $set('pic_id', null);
-                                }
-                            })
-                            ->native(false)
-                            ->helperText(function (Forms\Get $get) {
-                                $type = $get('client_type');
-                                return match($type) {
-                                    'Badan' => '✅ Klien Badan memerlukan PIC (Person In Charge)',
-                                    'Pemerintah' => '🏛️ Klien Pemerintahan memerlukan informasi instansi',
-                                    'Pemungut PPN PMSE Luar Negeri' => '🌐 Pemungut PPN untuk platform digital luar negeri',
-                                    default => 'ℹ️ Klien Pribadi tidak memerlukan PIC',
-                                };
-                            })
-                            ->columnSpanFull(),
+                        static::nameField(),
+                        static::emailField(),
+                        static::addressField(),
 
-                        // Dynamic Subtype Field - Shows different options based on client_type
-                        Forms\Components\Select::make('client_subtype')
-                            ->label(function (Forms\Get $get) {
-                                return match($get('client_type')) {
-                                    'Badan' => 'Jenis Badan Usaha',
-                                    'Pemerintah' => 'Jenis Instansi Pemerintah',
-                                    default => 'Sub Tipe',
-                                };
-                            })
-                            
-                            ->options(function (Forms\Get $get) {
-                                $clientType = $get('client_type');
-                                
-                                if ($clientType === 'Badan') {
-                                    return [
-                                        'Badan Internasional' => 'Badan Internasional',
-                                        'Badan Usaha Milik Desa' => 'Badan Usaha Milik Desa',
-                                        'Bentuk Usaha Tetap (BUT)' => 'Bentuk Usaha Tetap (BUT)',
-                                        'Dana Pensiun' => 'Dana Pensiun',
-                                        'Firma' => 'Firma',
-                                        'Kantor Perwakilan Perusahaan Asing (KPPA)' => 'Kantor Perwakilan Perusahaan Asing (KPPA)',
-                                        'Kerja Sama Operasi (KSO/JO)' => 'Kerja Sama Operasi (KSO/JO)',
-                                        'Kongsi' => 'Kongsi',
-                                        'Kontrak Investasi Kolektif' => 'Kontrak Investasi Kolektif',
-                                        'Koperasi' => 'Koperasi',
-                                        'Lembaga dan bentuk badan lainnya' => 'Lembaga dan bentuk badan lainnya',
-                                        'Organisasi Lainnya' => 'Organisasi Lainnya',
-                                        'Organisasi Massa' => 'Organisasi Massa',
-                                        'Organisasi sosial politik' => 'Organisasi sosial politik',
-                                        'PT Perorangan' => 'PT Perorangan',
-                                        'Penyelenggara Kegiatan' => 'Penyelenggara Kegiatan',
-                                        'Perkumpulan' => 'Perkumpulan',
-                                        'Persekutuan Perdata' => 'Persekutuan Perdata',
-                                        'Perseroan Komanditer (CV)' => 'Perseroan Komanditer (CV)',
-                                        'Perseroan Lainnya' => 'Perseroan Lainnya',
-                                        'Perseroan Terbatas (PT)' => 'Perseroan Terbatas (PT)',
-                                        'Perusahaan Umum' => 'Perusahaan Umum',
-                                        'Perwakilan Negara Asing' => 'Perwakilan Negara Asing',
-                                        'Yayasan' => 'Yayasan',
-                                    ];
-                                } elseif ($clientType === 'Pemerintah') {
-                                    return [
-                                        'Institusi Pemerintah Pusat' => 'Institusi Pemerintah Pusat',
-                                        'Institusi Pemerintah Daerah' => 'Institusi Pemerintah Daerah',
-                                        'Lembaga Pemerintah Desa' => 'Lembaga Pemerintah Desa',
-                                        'Badan Layanan Umum Pusat' => 'Badan Layanan Umum Pusat',
-                                        'Badan Layanan Umum Daerah' => 'Badan Layanan Umum Daerah',
-                                    ];
-                                }
-                                
-                                return [];
-                            })
-                            ->visible(fn (Forms\Get $get) => in_array($get('client_type'), ['Badan', 'Pemerintah']))
-                            ->required(fn (Forms\Get $get) => in_array($get('client_type'), ['Badan', 'Pemerintah']))
-                            ->searchable()
-                            ->native(false)
-                            ->helperText(function (Forms\Get $get) {
-                                return match($get('client_type')) {
-                                    'Badan' => 'Pilih jenis badan usaha sesuai dengan dokumen legal',
-                                    'Pemerintah' => 'Pilih jenis instansi pemerintahan',
-                                    default => '',
-                                };
-                            })
-                            ->columnSpanFull()
-                            ->placeholder(function (Forms\Get $get) {
-                                return match($get('client_type')) {
-                                    'Badan' => 'Pilih jenis badan usaha...',
-                                    'Pemerintah' => 'Pilih jenis instansi...',
-                                    default => 'Pilih sub tipe...',
-                                };
-                            }),
+                        ...static::picFields(),
 
-                        Forms\Components\TextInput::make('name')
-                            ->required()
-                            ->label('Client Name')
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('email')
-                            ->email()
-                            ->label('Client Email')
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(255),
-                        Forms\Components\TextInput::make('adress')
-                            ->label('Address')
-                            ->columnSpanFull(),
-
-                        // ===== PIC (khusus klien Pribadi) =====
-                        // Gerbang Select: apakah individu ini juga terdaftar / akan didaftarkan
-                        // sebagai PIC. Field bantuan — tidak disimpan ke kolom.
-                        Forms\Components\Select::make('pic_is_self')
-                            ->label('Individu ini terdaftar sebagai PIC?')
-                            ->options([
-                                'no'  => 'Tidak',
-                                'yes' => 'Ya, terdaftar sebagai PIC',
-                            ])
-                            ->default('no')
-                            ->native(false)
-                            ->dehydrated(false)
-                            ->live()
-                            ->visible(fn (Forms\Get $get) => $get('client_type') === 'Pribadi')
-                            ->helperText('Pilih "Ya" jika orang ini sudah ada di daftar PIC atau ingin didaftarkan sebagai PIC baru. Nama, NIK & kredensialnya akan terisi otomatis.')
-                            ->afterStateHydrated(function (Forms\Get $get, Forms\Set $set) {
-                                // Saat edit: set "Ya" bila klien Pribadi sudah ter-link ke PIC
-                                if ($get('client_type') === 'Pribadi' && filled($get('pic_id'))) {
-                                    $set('pic_is_self', 'yes');
-                                }
-                            })
-                            ->afterStateUpdated(function (?string $state, Forms\Set $set) {
-                                // Bersihkan pilihan PIC saat diubah ke "Tidak"
-                                if ($state !== 'yes') {
-                                    $set('pic_id', null);
-                                }
-                            })
-                            ->columnSpanFull(),
-
-                        Select::make('pic_id')
-                            ->label('Person In Charge (PIC)')
-                            ->searchable()
-                            ->live()
-                            ->options(function (Forms\Get $get) {
-                                // Untuk Badan: kelompokkan PIC berdasarkan sumbernya —
-                                // record Pic (master) vs klien Pribadi yang terdaftar sebagai PIC.
-                                if ($get('client_type') === 'Badan') {
-                                    $pribadiClients = \App\Models\Client::query()
-                                        ->where('client_type', 'Pribadi')
-                                        ->whereNotNull('pic_id')
-                                        ->orderBy('name')
-                                        ->get(['id', 'name', 'pic_id']);
-
-                                    $linkedPicIds = $pribadiClients->pluck('pic_id')->unique();
-
-                                    $masterPics = \App\Models\Pic::query()
-                                        ->when($linkedPicIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $linkedPicIds))
-                                        ->orderBy('name')
-                                        ->pluck('name', 'id')
-                                        ->toArray();
-
-                                    $pribadiOptions = $pribadiClients
-                                        ->mapWithKeys(fn ($client) => [$client->pic_id => $client->name])
-                                        ->toArray();
-
-                                    $options = [];
-                                    if (! empty($masterPics)) {
-                                        $options['PIC (Master)'] = $masterPics;
-                                    }
-                                    if (! empty($pribadiOptions)) {
-                                        $options['Klien Pribadi'] = $pribadiOptions;
-                                    }
-
-                                    return $options;
-                                }
-
-                                // Tipe lain (Pribadi): daftar PIC biasa (flat)
-                                return \App\Models\Pic::orderBy('name')->pluck('name', 'id')->toArray();
-                            })
-                            ->visible(fn (Forms\Get $get) => $get('client_type') === 'Badan'
-                                || ($get('client_type') === 'Pribadi' && ($get('pic_is_self') === 'yes' || filled($get('pic_id')))))
-                            ->disabled(fn (Forms\Get $get) => ! ($get('client_type') === 'Badan'
-                                || ($get('client_type') === 'Pribadi' && ($get('pic_is_self') === 'yes' || filled($get('pic_id'))))))
-                            ->required(fn (Forms\Get $get) => $get('client_type') === 'Pribadi' && $get('pic_is_self') === 'yes')
-                            // Untuk Pribadi: tetap dehydrate walau hidden, agar unlink (pic_id => null)
-                            // saat diubah ke "Tidak" benar-benar tersimpan ke database.
-                            ->dehydratedWhenHidden(fn (Forms\Get $get) => $get('client_type') === 'Pribadi')
-                            ->createOptionForm([
-                                Forms\Components\TextInput::make('name')
-                                    ->required()
-                                    ->maxLength(255),
-                                Forms\Components\TextInput::make('nik')
-                                    ->label('NIK')
-                                    ->required()
-                                    ->unique(table: \App\Models\Pic::class)
-                                    ->length(16)
-                                    ->numeric(),
-                                Forms\Components\TextInput::make('password')
-                                    ->password()
-                                    ->required()
-                                    ->minLength(8),
-                                Forms\Components\Select::make('status')
-                                    ->options([
-                                        'active' => 'Active',
-                                        'inactive' => 'Inactive',
-                                    ])
-                                    ->default('active')
-                                    ->required(),
-                            ])
-                            // Tanpa relationship(), createOptionForm butuh createOptionUsing untuk
-                            // membuat record Pic dan mengembalikan id-nya sebagai value select.
-                            ->createOptionUsing(fn (array $data) => \App\Models\Pic::create([
-                                'name'     => $data['name'],
-                                'nik'      => $data['nik'],
-                                'password' => $data['password'],
-                                'status'   => $data['status'] ?? 'active',
-                            ])->getKey())
-                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
-                                // Untuk klien Pribadi: autofill nama klien dari nama PIC yang dipilih/dibuat
-                                if ($get('client_type') === 'Pribadi' && filled($state)) {
-                                    if ($pic = \App\Models\Pic::find($state)) {
-                                        $set('name', $pic->name);
-                                    }
-                                }
-                            })
-                            ->helperText(function (Forms\Get $get) {
-                                return match (true) {
-                                    $get('client_type') === 'Badan' => 'Pilih PIC (master) atau klien Pribadi yang terdaftar sebagai PIC, atau buat PIC baru',
-                                    $get('client_type') === 'Pribadi' => 'Pilih orang dari daftar PIC, atau buat PIC baru — nama, NIK & kredensial akan terisi otomatis',
-                                    default => 'PIC tidak diperlukan untuk klien ini',
-                                };
-                            })
-                            ->columnSpanFull(),
-
-                        // Read-only: NIK & password PIC yang dipilih (berdampingan)
-                        Forms\Components\Placeholder::make('pic_nik_display')
-                            ->label('NIK PIC')
-                            ->visible(fn (Forms\Get $get) => $get('client_type') === 'Pribadi' && filled($get('pic_id')))
-                            ->content(fn (Forms\Get $get) => optional(\App\Models\Pic::find($get('pic_id')))->nik ?? '—'),
-
-                        Forms\Components\Placeholder::make('pic_password_display')
-                            ->label('Password PIC')
-                            ->visible(fn (Forms\Get $get) => $get('client_type') === 'Pribadi' && filled($get('pic_id')))
-                            ->content(fn (Forms\Get $get) => optional(\App\Models\Pic::find($get('pic_id')))->password ?? '—'),
-
-                        Select::make('ar_id')
-                            ->label('Account Representative (AR)')
-                            ->relationship('accountRepresentative', 'name')
-                            ->searchable()
-                            ->preload()
-                            ->createOptionForm([
-                                Forms\Components\TextInput::make('name')
-                                    ->required()
-                                    ->maxLength(255)
-                                    ->label('AR Name'),
-                                Forms\Components\TextInput::make('phone_number')
-                                    ->tel()
-                                    ->label('Phone Number')
-                                    ->placeholder('+62 XXX XXXX XXXX'),
-                                Forms\Components\TextInput::make('email')
-                                    ->email()
-                                    ->unique()
-                                    ->label('Email'),
-                                Forms\Components\Select::make('kpp')
-                                    ->label('KPP')
-                                    ->options(\App\Services\Clients\KppService::getKppOptions())
-                                    ->searchable()
-                                    ->placeholder('Pilih atau cari KPP...')
-                                    ->helperText('Pilih KPP tempat AR bertugas'),
-                                Forms\Components\Textarea::make('notes')
-                                    ->label('Notes')
-                                    ->rows(2),
-                                Forms\Components\Select::make('status')
-                                    ->options([
-                                        'active' => 'Active',
-                                        'inactive' => 'Inactive',
-                                    ])
-                                    ->default('active')
-                                    ->required(),
-                            ])
-                            ->createOptionAction(function (Forms\Components\Actions\Action $action) {
-                                return $action
-                                    ->modalHeading('Create New Account Representative')
-                                    ->modalSubmitActionLabel('Create AR')
-                                    ->modalWidth('lg');
-                            })
-                            ->helperText('Select or create a new Account Representative for this client'),
-                        Select::make('status')
-                            ->label('Client Status')
-                            ->options([
-                                'Active' => 'Active',
-                                'Inactive' => 'Inactive',
-                            ])
-                            ->default('Active')
-                            ->required()
-                            ->native(false),
-                        Select::make('group_id')
-                            ->label('Grup Client')
-                            ->relationship('group', 'name')
-                            ->searchable()
-                            ->preload()
-                            ->nullable()
-                            ->placeholder('Tidak ada grup')
-                            ->helperText('Opsional — pilih jika client ini terafiliasi ke suatu grup')
-                            ->columnSpanFull(),
+                        static::accountRepresentativeField(),
+                        static::statusField(),
+                        static::groupField(),
                         FileUpload::make('logo')
                             ->label('Client Logo')
                             ->openable()
@@ -491,41 +188,12 @@ class ClientResource extends Resource
                     ->description('Tax registration and compliance details')
                     ->icon('heroicon-o-document-text')
                     ->schema([
-                        Forms\Components\TextInput::make('NPWP')
-                            ->label('NPWP')
-                            ->placeholder('XX.XXX.XXX.X-XXX.XXX'),
-                        // KLU (Klasifikasi Lapangan Usaha) — khusus klien Badan.
-                        Forms\Components\TextInput::make('klu')
-                            ->label('KLU')
-                            ->placeholder('mis. 62019')
-                            ->maxLength(255)
-                            ->helperText('Klasifikasi Lapangan Usaha — kode bidang usaha sesuai NPWP/DJP.')
-                            ->visible(fn (Forms\Get $get) => $get('client_type') === 'Badan'),
+                        static::npwpField(),
+                        static::kluField(),
                         Forms\Components\TextInput::make('EFIN')
                             ->label('EFIN')
                             ->placeholder('Electronic Filing Identification Number'),                       
-                        Select::make('pkp_status')
-                            ->label('Status PKP')
-                            ->options([
-                                'Non-PKP' => 'Non-PKP',
-                                'PKP' => 'PKP (Pengusaha Kena Pajak)',
-                            ])
-                            ->default('Non-PKP')
-                            ->live()
-                            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, ?string $state) {
-                                if ($state === 'Non-PKP') {
-                                    $set('ppn_contract', false);
-                                }
-                            })
-                            ->helperText(function (Forms\Get $get) {
-                                $status = $get('pkp_status');
-                                if ($status === 'PKP') {
-                                    return '✅ Client dapat membuat faktur pajak dan memungut PPN';
-                                } else {
-                                    return 'ℹ️ Client tidak dapat membuat faktur pajak (otomatis menonaktifkan kontrak PPN)';
-                                }
-                            })
-                            ->columnSpanFull(),
+                        static::pkpStatusField(),
                     ])
                     ->columns(2),
 
@@ -597,36 +265,8 @@ class ClientResource extends Resource
                     ->schema([
                         Forms\Components\Grid::make(4)
                             ->schema([
-                                Forms\Components\Toggle::make('ppn_contract')
-                                    ->label('PPN Contract')
-                                    ->reactive()
-                                    ->disabled(fn (Forms\Get $get) => $get('pkp_status') === 'Non-PKP')
-                                    ->helperText(function (Forms\Get $get) {
-                                        if ($get('pkp_status') === 'Non-PKP') {
-                                            return 'Tidak tersedia untuk Non-PKP';
-                                        }
-                                        return 'Kontrak untuk pengelolaan PPN';
-                                    })
-                                    ->columnSpan(1),
-                                    
-                                Forms\Components\Toggle::make('pph_contract')
-                                    ->label('PPh 21 Contract')
-                                    ->reactive()
-                                    ->helperText('Kontrak untuk pengelolaan PPh 21')
-                                    ->columnSpan(1),
+                                ...static::contractToggles(),
 
-                                Forms\Components\Toggle::make('bupot_contract')
-                                    ->label('PPh Unifikasi Contract')
-                                    ->reactive()
-                                    ->helperText('Kontrak untuk PPh Unifikasi (bukti potong)')
-                                    ->columnSpan(1),
-                                
-                                Forms\Components\Toggle::make('pph_badan_contract')
-                                    ->label('PPh Badan Contract')
-                                    ->reactive()
-                                    ->helperText('Kontrak untuk PPh Badan')
-                                    ->columnSpan(1),
-                                
                                 Forms\Components\FileUpload::make('contract_file')
                                     ->label('Contract Document')
                                     ->visible(function (callable $get) {
@@ -643,6 +283,440 @@ class ClientResource extends Resource
                     ])
                     ->collapsible(),
             ]);
+    }
+
+    // Field yang dipakai bersama oleh form ini dan halaman Cek & proses Klien Masuk
+    // (ClientIntakeResource\Pages\ProsesClientIntake). Ubah di sini supaya keduanya tetap sama.
+
+    public static function clientTypeField(): Forms\Components\Select
+    {
+        return Forms\Components\Select::make('client_type')
+            ->label('Tipe Klien')
+            ->options([
+                'Pribadi' => 'Pribadi/Perorangan',
+                'Badan' => 'Badan/Perusahaan',
+                'Pemerintah' => 'Pemerintah',
+                'Pemungut PPN PMSE Luar Negeri' => 'Pemungut PPN PMSE Luar Negeri',
+            ])
+            ->default('Pribadi')
+            ->required()
+            ->live()
+            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, ?string $state) {
+                // Reset subtype when client type changes
+                $set('client_subtype', null);
+
+                // Reset pilihan "individu ini adalah PIC" pada setiap perubahan tipe
+                $set('pic_is_self', 'no');
+
+                // Reset PIC for Pribadi (dipilih ulang lewat dropdown bila perlu)
+                if ($state === 'Pribadi') {
+                    $set('pic_id', null);
+                }
+            })
+            ->native(false)
+            ->helperText(function (Forms\Get $get) {
+                $type = $get('client_type');
+                return match($type) {
+                    'Badan' => '✅ Klien Badan memerlukan PIC (Person In Charge)',
+                    'Pemerintah' => '🏛️ Klien Pemerintahan memerlukan informasi instansi',
+                    'Pemungut PPN PMSE Luar Negeri' => '🌐 Pemungut PPN untuk platform digital luar negeri',
+                    default => 'ℹ️ Klien Pribadi tidak memerlukan PIC',
+                };
+            })
+            ->columnSpanFull();
+    }
+
+    /** Sub tipe dinamis mengikuti client_type (Badan / Pemerintah). */
+    public static function clientSubtypeField(): Forms\Components\Select
+    {
+        return Forms\Components\Select::make('client_subtype')
+            ->label(function (Forms\Get $get) {
+                return match($get('client_type')) {
+                    'Badan' => 'Jenis Badan Usaha',
+                    'Pemerintah' => 'Jenis Instansi Pemerintah',
+                    default => 'Sub Tipe',
+                };
+            })
+
+            ->options(function (Forms\Get $get) {
+                $clientType = $get('client_type');
+
+                if ($clientType === 'Badan') {
+                    return [
+                        'Badan Internasional' => 'Badan Internasional',
+                        'Badan Usaha Milik Desa' => 'Badan Usaha Milik Desa',
+                        'Bentuk Usaha Tetap (BUT)' => 'Bentuk Usaha Tetap (BUT)',
+                        'Dana Pensiun' => 'Dana Pensiun',
+                        'Firma' => 'Firma',
+                        'Kantor Perwakilan Perusahaan Asing (KPPA)' => 'Kantor Perwakilan Perusahaan Asing (KPPA)',
+                        'Kerja Sama Operasi (KSO/JO)' => 'Kerja Sama Operasi (KSO/JO)',
+                        'Kongsi' => 'Kongsi',
+                        'Kontrak Investasi Kolektif' => 'Kontrak Investasi Kolektif',
+                        'Koperasi' => 'Koperasi',
+                        'Lembaga dan bentuk badan lainnya' => 'Lembaga dan bentuk badan lainnya',
+                        'Organisasi Lainnya' => 'Organisasi Lainnya',
+                        'Organisasi Massa' => 'Organisasi Massa',
+                        'Organisasi sosial politik' => 'Organisasi sosial politik',
+                        'PT Perorangan' => 'PT Perorangan',
+                        'Penyelenggara Kegiatan' => 'Penyelenggara Kegiatan',
+                        'Perkumpulan' => 'Perkumpulan',
+                        'Persekutuan Perdata' => 'Persekutuan Perdata',
+                        'Perseroan Komanditer (CV)' => 'Perseroan Komanditer (CV)',
+                        'Perseroan Lainnya' => 'Perseroan Lainnya',
+                        'Perseroan Terbatas (PT)' => 'Perseroan Terbatas (PT)',
+                        'Perusahaan Umum' => 'Perusahaan Umum',
+                        'Perwakilan Negara Asing' => 'Perwakilan Negara Asing',
+                        'Yayasan' => 'Yayasan',
+                    ];
+                } elseif ($clientType === 'Pemerintah') {
+                    return [
+                        'Institusi Pemerintah Pusat' => 'Institusi Pemerintah Pusat',
+                        'Institusi Pemerintah Daerah' => 'Institusi Pemerintah Daerah',
+                        'Lembaga Pemerintah Desa' => 'Lembaga Pemerintah Desa',
+                        'Badan Layanan Umum Pusat' => 'Badan Layanan Umum Pusat',
+                        'Badan Layanan Umum Daerah' => 'Badan Layanan Umum Daerah',
+                    ];
+                }
+
+                return [];
+            })
+            ->visible(fn (Forms\Get $get) => in_array($get('client_type'), ['Badan', 'Pemerintah']))
+            ->required(fn (Forms\Get $get) => in_array($get('client_type'), ['Badan', 'Pemerintah']))
+            ->searchable()
+            ->native(false)
+            ->helperText(function (Forms\Get $get) {
+                return match($get('client_type')) {
+                    'Badan' => 'Pilih jenis badan usaha sesuai dengan dokumen legal',
+                    'Pemerintah' => 'Pilih jenis instansi pemerintahan',
+                    default => '',
+                };
+            })
+            ->columnSpanFull()
+            ->placeholder(function (Forms\Get $get) {
+                return match($get('client_type')) {
+                    'Badan' => 'Pilih jenis badan usaha...',
+                    'Pemerintah' => 'Pilih jenis instansi...',
+                    default => 'Pilih sub tipe...',
+                };
+            });
+    }
+
+    public static function nameField(): Forms\Components\TextInput
+    {
+        return Forms\Components\TextInput::make('name')
+            ->required()
+            ->label('Client Name')
+            ->unique(ignoreRecord: true)
+            ->maxLength(255);
+    }
+
+    public static function emailField(): Forms\Components\TextInput
+    {
+        return Forms\Components\TextInput::make('email')
+            ->email()
+            ->label('Client Email')
+            ->unique(ignoreRecord: true)
+            ->maxLength(255);
+    }
+
+    public static function addressField(): Forms\Components\TextInput
+    {
+        return Forms\Components\TextInput::make('adress')
+            ->label('Address')
+            ->columnSpanFull();
+    }
+
+    /** PIC: gerbang "individu ini PIC?" (Pribadi), pilihan PIC, dan NIK/password PIC terpilih. */
+    public static function picFields(): array
+    {
+        return [
+            // ===== PIC (khusus klien Pribadi) =====
+            // Gerbang Select: apakah individu ini juga terdaftar / akan didaftarkan
+            // sebagai PIC. Field bantuan — tidak disimpan ke kolom.
+            Forms\Components\Select::make('pic_is_self')
+                ->label('Individu ini terdaftar sebagai PIC?')
+                ->options([
+                    'no'  => 'Tidak',
+                    'yes' => 'Ya, terdaftar sebagai PIC',
+                ])
+                ->default('no')
+                ->native(false)
+                ->dehydrated(false)
+                ->live()
+                ->visible(fn (Forms\Get $get) => $get('client_type') === 'Pribadi')
+                ->helperText('Pilih "Ya" jika orang ini sudah ada di daftar PIC atau ingin didaftarkan sebagai PIC baru. Nama, NIK & kredensialnya akan terisi otomatis.')
+                ->afterStateHydrated(function (Forms\Get $get, Forms\Set $set) {
+                    // Saat edit: set "Ya" bila klien Pribadi sudah ter-link ke PIC
+                    if ($get('client_type') === 'Pribadi' && filled($get('pic_id'))) {
+                        $set('pic_is_self', 'yes');
+                    }
+                })
+                ->afterStateUpdated(function (?string $state, Forms\Set $set) {
+                    // Bersihkan pilihan PIC saat diubah ke "Tidak"
+                    if ($state !== 'yes') {
+                        $set('pic_id', null);
+                    }
+                })
+                ->columnSpanFull(),
+
+            Select::make('pic_id')
+                ->label('Person In Charge (PIC)')
+                ->searchable()
+                ->live()
+                ->options(function (Forms\Get $get) {
+                    // Untuk Badan: kelompokkan PIC berdasarkan sumbernya —
+                    // record Pic (master) vs klien Pribadi yang terdaftar sebagai PIC.
+                    if ($get('client_type') === 'Badan') {
+                        $pribadiClients = \App\Models\Client::query()
+                            ->where('client_type', 'Pribadi')
+                            ->whereNotNull('pic_id')
+                            ->orderBy('name')
+                            ->get(['id', 'name', 'pic_id']);
+
+                        $linkedPicIds = $pribadiClients->pluck('pic_id')->unique();
+
+                        $masterPics = \App\Models\Pic::query()
+                            ->when($linkedPicIds->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $linkedPicIds))
+                            ->orderBy('name')
+                            ->pluck('name', 'id')
+                            ->toArray();
+
+                        $pribadiOptions = $pribadiClients
+                            ->mapWithKeys(fn ($client) => [$client->pic_id => $client->name])
+                            ->toArray();
+
+                        $options = [];
+                        if (! empty($masterPics)) {
+                            $options['PIC (Master)'] = $masterPics;
+                        }
+                        if (! empty($pribadiOptions)) {
+                            $options['Klien Pribadi'] = $pribadiOptions;
+                        }
+
+                        return $options;
+                    }
+
+                    // Tipe lain (Pribadi): daftar PIC biasa (flat)
+                    return \App\Models\Pic::orderBy('name')->pluck('name', 'id')->toArray();
+                })
+                ->visible(fn (Forms\Get $get) => $get('client_type') === 'Badan'
+                    || ($get('client_type') === 'Pribadi' && ($get('pic_is_self') === 'yes' || filled($get('pic_id')))))
+                ->disabled(fn (Forms\Get $get) => ! ($get('client_type') === 'Badan'
+                    || ($get('client_type') === 'Pribadi' && ($get('pic_is_self') === 'yes' || filled($get('pic_id'))))))
+                ->required(fn (Forms\Get $get) => $get('client_type') === 'Pribadi' && $get('pic_is_self') === 'yes')
+                // Untuk Pribadi: tetap dehydrate walau hidden, agar unlink (pic_id => null)
+                // saat diubah ke "Tidak" benar-benar tersimpan ke database.
+                ->dehydratedWhenHidden(fn (Forms\Get $get) => $get('client_type') === 'Pribadi')
+                ->createOptionForm([
+                    Forms\Components\TextInput::make('name')
+                        ->required()
+                        ->maxLength(255),
+                    Forms\Components\TextInput::make('nik')
+                        ->label('NIK')
+                        ->required()
+                        ->unique(table: \App\Models\Pic::class)
+                        ->length(16)
+                        ->numeric(),
+                    Forms\Components\TextInput::make('password')
+                        ->password()
+                        ->required()
+                        ->minLength(8),
+                    Forms\Components\Select::make('status')
+                        ->options([
+                            'active' => 'Active',
+                            'inactive' => 'Inactive',
+                        ])
+                        ->default('active')
+                        ->required(),
+                ])
+                // Tanpa relationship(), createOptionForm butuh createOptionUsing untuk
+                // membuat record Pic dan mengembalikan id-nya sebagai value select.
+                ->createOptionUsing(fn (array $data) => \App\Models\Pic::create([
+                    'name'     => $data['name'],
+                    'nik'      => $data['nik'],
+                    'password' => $data['password'],
+                    'status'   => $data['status'] ?? 'active',
+                ])->getKey())
+                ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, $state) {
+                    // Untuk klien Pribadi: autofill nama klien dari nama PIC yang dipilih/dibuat
+                    if ($get('client_type') === 'Pribadi' && filled($state)) {
+                        if ($pic = \App\Models\Pic::find($state)) {
+                            $set('name', $pic->name);
+                        }
+                    }
+                })
+                ->helperText(function (Forms\Get $get) {
+                    return match (true) {
+                        $get('client_type') === 'Badan' => 'Pilih PIC (master) atau klien Pribadi yang terdaftar sebagai PIC, atau buat PIC baru',
+                        $get('client_type') === 'Pribadi' => 'Pilih orang dari daftar PIC, atau buat PIC baru — nama, NIK & kredensial akan terisi otomatis',
+                        default => 'PIC tidak diperlukan untuk klien ini',
+                    };
+                })
+                ->columnSpanFull(),
+
+            // Read-only: NIK & password PIC yang dipilih (berdampingan)
+            Forms\Components\Placeholder::make('pic_nik_display')
+                ->label('NIK PIC')
+                ->visible(fn (Forms\Get $get) => $get('client_type') === 'Pribadi' && filled($get('pic_id')))
+                ->content(fn (Forms\Get $get) => optional(\App\Models\Pic::find($get('pic_id')))->nik ?? '—'),
+
+            Forms\Components\Placeholder::make('pic_password_display')
+                ->label('Password PIC')
+                ->visible(fn (Forms\Get $get) => $get('client_type') === 'Pribadi' && filled($get('pic_id')))
+                ->content(fn (Forms\Get $get) => optional(\App\Models\Pic::find($get('pic_id')))->password ?? '—'),
+        ];
+    }
+
+    public static function accountRepresentativeField(): Select
+    {
+        return Select::make('ar_id')
+            ->label('Account Representative (AR)')
+            ->relationship('accountRepresentative', 'name')
+            ->searchable()
+            ->preload()
+            ->createOptionForm([
+                Forms\Components\TextInput::make('name')
+                    ->required()
+                    ->maxLength(255)
+                    ->label('AR Name'),
+                Forms\Components\TextInput::make('phone_number')
+                    ->tel()
+                    ->label('Phone Number')
+                    ->placeholder('+62 XXX XXXX XXXX'),
+                Forms\Components\TextInput::make('email')
+                    ->email()
+                    ->unique()
+                    ->label('Email'),
+                Forms\Components\Select::make('kpp')
+                    ->label('KPP')
+                    ->options(\App\Services\Clients\KppService::getKppOptions())
+                    ->searchable()
+                    ->placeholder('Pilih atau cari KPP...')
+                    ->helperText('Pilih KPP tempat AR bertugas'),
+                Forms\Components\Textarea::make('notes')
+                    ->label('Notes')
+                    ->rows(2),
+                Forms\Components\Select::make('status')
+                    ->options([
+                        'active' => 'Active',
+                        'inactive' => 'Inactive',
+                    ])
+                    ->default('active')
+                    ->required(),
+            ])
+            ->createOptionAction(function (Forms\Components\Actions\Action $action) {
+                return $action
+                    ->modalHeading('Create New Account Representative')
+                    ->modalSubmitActionLabel('Create AR')
+                    ->modalWidth('lg');
+            })
+            ->helperText('Select or create a new Account Representative for this client');
+    }
+
+    public static function statusField(): Select
+    {
+        return Select::make('status')
+            ->label('Client Status')
+            ->options([
+                'Active' => 'Active',
+                'Inactive' => 'Inactive',
+            ])
+            ->default('Active')
+            ->required()
+            ->native(false);
+    }
+
+    public static function groupField(): Select
+    {
+        return Select::make('group_id')
+            ->label('Grup Client')
+            ->relationship('group', 'name')
+            ->searchable()
+            ->preload()
+            ->nullable()
+            ->placeholder('Tidak ada grup')
+            ->helperText('Opsional — pilih jika client ini terafiliasi ke suatu grup')
+            ->columnSpanFull();
+    }
+
+    public static function npwpField(): Forms\Components\TextInput
+    {
+        return Forms\Components\TextInput::make('NPWP')
+            ->label('NPWP')
+            ->placeholder('XX.XXX.XXX.X-XXX.XXX');
+    }
+
+    public static function kluField(): Forms\Components\TextInput
+    {
+        // KLU (Klasifikasi Lapangan Usaha) — khusus klien Badan.
+        return Forms\Components\TextInput::make('klu')
+            ->label('KLU')
+            ->placeholder('mis. 62019')
+            ->maxLength(255)
+            ->helperText('Klasifikasi Lapangan Usaha — kode bidang usaha sesuai NPWP/DJP.')
+            ->visible(fn (Forms\Get $get) => $get('client_type') === 'Badan');
+    }
+
+    public static function pkpStatusField(): Select
+    {
+        return Select::make('pkp_status')
+            ->label('Status PKP')
+            ->options([
+                'Non-PKP' => 'Non-PKP',
+                'PKP' => 'PKP (Pengusaha Kena Pajak)',
+            ])
+            ->default('Non-PKP')
+            ->live()
+            ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, ?string $state) {
+                if ($state === 'Non-PKP') {
+                    $set('ppn_contract', false);
+                }
+            })
+            ->helperText(function (Forms\Get $get) {
+                $status = $get('pkp_status');
+                if ($status === 'PKP') {
+                    return '✅ Client dapat membuat faktur pajak dan memungut PPN';
+                } else {
+                    return 'ℹ️ Client tidak dapat membuat faktur pajak (otomatis menonaktifkan kontrak PPN)';
+                }
+            })
+            ->columnSpanFull();
+    }
+
+    /** Empat toggle kontrak layanan (tanpa unggahan file kontrak). */
+    public static function contractToggles(): array
+    {
+        return [
+            Forms\Components\Toggle::make('ppn_contract')
+                ->label('PPN Contract')
+                ->reactive()
+                ->disabled(fn (Forms\Get $get) => $get('pkp_status') === 'Non-PKP')
+                ->helperText(function (Forms\Get $get) {
+                    if ($get('pkp_status') === 'Non-PKP') {
+                        return 'Tidak tersedia untuk Non-PKP';
+                    }
+                    return 'Kontrak untuk pengelolaan PPN';
+                })
+                ->columnSpan(1),
+
+            Forms\Components\Toggle::make('pph_contract')
+                ->label('PPh 21 Contract')
+                ->reactive()
+                ->helperText('Kontrak untuk pengelolaan PPh 21')
+                ->columnSpan(1),
+
+            Forms\Components\Toggle::make('bupot_contract')
+                ->label('PPh Unifikasi Contract')
+                ->reactive()
+                ->helperText('Kontrak untuk PPh Unifikasi (bukti potong)')
+                ->columnSpan(1),
+
+            Forms\Components\Toggle::make('pph_badan_contract')
+                ->label('PPh Badan Contract')
+                ->reactive()
+                ->helperText('Kontrak untuk PPh Badan')
+                ->columnSpan(1),
+        ];
     }
 
     public static function table(Table $table): Table

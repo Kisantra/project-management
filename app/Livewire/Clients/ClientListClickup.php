@@ -208,7 +208,7 @@ class ClientListClickup extends Component
     protected function filteredQuery(): Builder
     {
         $query = Client::query()
-            ->with(['pic:id,name', 'group:id,name', 'accountRepresentative:id,name']);
+            ->with(['pic:id,name', 'group:id,name', 'accountRepresentative:id,name', 'latestIntake']);
 
         if ($this->search !== '') {
             $term = '%' . $this->search . '%';

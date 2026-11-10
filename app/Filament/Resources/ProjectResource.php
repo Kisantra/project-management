@@ -69,302 +69,386 @@ class ProjectResource extends Resource
                         ->description('Basic project information')
                         ->icon('heroicon-o-clipboard-document')
                         ->schema([
-                            Forms\Components\TextInput::make('name')
-                                ->required()
-                                ->label('Project Name')
-                                ->maxLength(255)
-                                ->columnSpanFull(),
-                            Select::make('client_id')
-                                ->required()
-                                ->label('Client')
-                                ->options(fn () => Client::pluck('name', 'id'))
-                                ->disableOptionWhen(
-                                    fn(string $value): bool =>
-                                    Client::find($value)?->status === 'Inactive'
-                                )
-                                ->searchable()
-                                ->live()
-                                ->afterStateUpdated(function ($state, Forms\Set $set) {
-                                    // Reset PIC when client changes
-                                    $set('pic_id', null);
-                                })
-                                ->native(false)
-                                ->columnSpan(2)
-                                ->createOptionForm([
-                                    Forms\Components\TextInput::make('name')
-                                        ->label('Nama Client')
-                                        ->required()
-                                        ->maxLength(255)
-                                        ->placeholder('Masukkan nama client baru')
-                                ])
-                                ->createOptionUsing(function (array $data): int {
-                                    // Create client
-                                    $client = Client::create([
-                                        'name' => $data['name'],
-                                        'status' => 'Active', // Set default status
-                                    ]);
-
-                                    // Automatically assign current user to this client
-                                    \App\Models\UserClient::create([
-                                        'user_id' => auth()->id(),
-                                        'client_id' => $client->id,
-                                    ]);
-
-                                    // Send notification to user
-                                    \Filament\Notifications\Notification::make()
-                                        ->title('Client Baru Dibuat')
-                                        ->body("Client '{$client->name}' berhasil dibuat dan Anda telah ditugaskan sebagai anggota tim.")
-                                        ->success()
-                                        ->send();
-
-                                    return $client->id;
-                                }),
-
-                            Select::make('pic_id')
-                                ->label('Person in Charge (PIC)')
-                                ->options(function (Forms\Get $get) {
-                                    $clientId = $get('client_id');
-
-                                    if (!$clientId) {
-                                        return [];
-                                    }
-
-                                    // Get users related to the selected client through user_clients
-                                    // FILTER: hanya user aktif dengan role tertentu
-                                    return User::whereHas('userClients', function ($query) use ($clientId) {
-                                        $query->where('client_id', $clientId);
-                                    })
-                                        ->where('status', 'active')
-                                        ->whereHas('roles', function ($query) {
-                                        $query->whereIn('name', ['project-manager', 'direktur', 'super-admin']);
-                                    })
-                                        ->pluck('name', 'id');
-                                })
-                                ->searchable()
-                                ->live()
-                                ->native(false)
-                                ->helperText(function (Forms\Get $get) {
-                                    $clientId = $get('client_id');
-                                    return $clientId
-                                        ? 'Select a Project Manager, Director, or Super Admin as PIC'
-                                        : 'Please select a client first';
-                                })
-                                ->columnSpan(2),
-
-                            Select::make('department_id')
-                                ->label('Departemen')
-                                ->relationship('department', 'name')
-                                ->searchable()
-                                ->preload()
-                                ->native(false)
-                                ->placeholder('Pilih departemen')
-                                ->columnSpan(2),
-
-                            Select::make('type')
-                                ->label('Type')
-                                ->options([
-                                    'single' => 'On Spot',
-                                    'monthly' => 'Monthly',
-                                    'yearly' => 'Yearly',
-                                ])
-                                ->required()
-                                ->native(false),
-                            Select::make('priority')
-                                ->label('Priority')
-                                ->options([
-                                    'urgent' => 'Urgent',
-                                    'normal' => 'Normal',
-                                    'low' => 'Low',
-                                ])
-                                ->required()
-                                ->native(false)
-                                ->default('normal'),
-                            Select::make('sop_id')
-                                ->label('Standard Operating Procedure')
-                                ->options(Sop::query()->pluck('name', 'id'))
-                                ->searchable()
-                                ->live()
-                                ->afterStateUpdated(function ($state, Forms\Set $set) {
-                                    if (!$state) {
-                                        $set('steps', []);
-                                        return;
-                                    }
-
-                                    $sop = Sop::with(['steps.tasks', 'steps.requiredDocuments'])->find($state);
-                                    if (!$sop)
-                                        return;
-
-                                    // Set project type and type from SOP
-                                    $set('type', $sop->type);
-                                    $set('project_type', $sop->project_type);
-
-                                    // Prepare steps data
-                                    $stepsData = $sop->steps->map(function ($step) {
-                                        return [
-                                            'name' => $step->name,
-                                            'description' => $step->description,
-                                            'order' => $step->order,
-                                            'priority' => $step->priority,
-                                            'tasks' => $step->tasks->map(fn($task) => [
-                                                'title' => $task->title,
-                                                'description' => $task->description,
-                                                'requires_document' => $task->requires_document,
-                                            ])->toArray(),
-                                            'requiredDocuments' => $step->requiredDocuments->map(fn($doc) => [
-                                                'name' => $doc->name,
-                                                'description' => $doc->description,
-                                                'is_required' => $doc->is_required,
-                                            ])->toArray(),
-                                        ];
-                                    })->toArray();
-
-                                    $set('steps', $stepsData);
-                                })
-                                ->native(false),
-                            DatePicker::make('due_date')
-                                ->required()
-                                ->date()
-                                ->afterStateHydrated(function ($state) {
-                                    return $state ? Carbon::parse($state)->format('d M Y') : '-';
-                                })
-                                ->beforeStateDehydrated(function ($state) {
-                                    return $state ? Carbon::parse($state)->format('Y-m-d') : null;
-                                })
-                                ->native(false),
-
-                            Forms\Components\RichEditor::make('description')
-                                ->columnSpanFull(),
-
+                            static::projectNameField(),
+                            static::projectClientField(),
+                            ...static::projectDetailFields(),
                         ])->columns(4),
 
                     Forms\Components\Wizard\Step::make('Project Steps')
                         ->description('Configure steps, tasks, and documents')
                         ->icon('heroicon-o-squares-plus')
                         ->schema([
-                            Repeater::make('steps')
-                                ->label('Project Step')
-                                ->addActionLabel('Add New Step')
-                                ->relationship()
-                                ->schema([
-                                    Forms\Components\TextInput::make('name')
-                                        ->columnSpanFull(),
-                                    Forms\Components\RichEditor::make('description')
-                                        ->toolbarButtons([
-                                            'bold',
-                                            'bulletList',
-                                            'italic',
-                                            'link',
-                                            'orderedList',
-                                            'undo',
-                                            'redo',
-                                        ])
-                                        ->columnSpanFull(),
-                                    FormSection::make('Tasks')
-                                        ->description('Add and manage tasks for this project step')
-                                        ->collapsible()
-                                        ->schema([
-                                            Repeater::make('tasks')
-                                                ->label('Project Task')
-                                                ->relationship('tasks')
-                                                ->schema([
-                                                    TextInput::make('title')
-                                                        ->label('Task Title')
-                                                        ->required(),
-                                                    Forms\Components\RichEditor::make('description')
-                                                        ->toolbarButtons([
-                                                            'bold',
-                                                            'bulletList',
-                                                            'italic',
-                                                            'link',
-                                                            'orderedList',
-                                                            'undo',
-                                                            'redo',
-                                                        ]),
-                                                ])
-                                                ->collapsed()
-                                                ->itemLabel(fn(array $state): ?string => $state['title'] ?? null)
-                                                ->addActionLabel('Add New Task'),
-                                        ]),
-                                    FormSection::make('Required Documents')
-                                        ->description('Specify required documents for this project step')
-                                        ->collapsible()
-                                        ->schema([
-                                            Repeater::make('requiredDocuments')
-                                                ->label('Required Documents')
-                                                ->relationship('requiredDocuments')
-                                                ->schema([
-                                                    TextInput::make('name')
-                                                        ->label('Documents Name')
-                                                        ->required(),
-                                                    Forms\Components\RichEditor::make('description')
-                                                        ->toolbarButtons([
-                                                            'bold',
-                                                            'bulletList',
-                                                            'italic',
-                                                            'link',
-                                                            'orderedList',
-                                                            'undo',
-                                                            'redo',
-                                                        ]),
-                                                ])
-                                                ->collapsed()
-                                                ->itemLabel(fn(array $state): ?string => $state['name'] ?? null)
-                                                ->addActionLabel('Add New Document')
-                                        ])
-                                ])
-                                ->itemLabel(fn(array $state): ?string => $state['name'] ?? null)
-                                ->orderColumn('order')
-                                ->collapsed()
-                                ->reorderable(false)
-                                ->columnSpanFull(),
+                            static::projectStepsRepeater(),
                         ]),
 
                     Forms\Components\Wizard\Step::make('Project Members')
                         ->description('Assign team members to the project')
                         ->icon('heroicon-o-users')
                         ->schema([
-                            Repeater::make('userProject')
-                                ->label('')
-                                ->relationship()
-                                ->schema([
-                                    Select::make('user_id')
-                                        ->label('Member')
-                                        ->options(function (Forms\Get $get) {
-                                            $clientId = $get('../../client_id');
-
-                                            if (!$clientId) {
-                                                return [];
-                                            }
-
-                                            return User::whereHas('userClients', function ($query) use ($clientId) {
-                                                $query->where('client_id', $clientId);
-                                            })
-                                                ->whereDoesntHave('roles', function ($query) {
-                                                    $query->where('name', 'direktur');
-                                                })
-                                                ->where('status', 'active')
-                                                ->pluck('name', 'id');
-                                        })
-                                        ->live()
-                                        ->required()
-                                        ->searchable()
-                                        ->distinct()
-                                        ->native(false)
-                                        ->helperText(function (Forms\Get $get) {
-                                            $clientId = $get('../../client_id');
-                                            return $clientId
-                                                ? 'Select a user from this client'
-                                                : 'Please select a client first';
-                                        })
-                                        ->disableOptionsWhenSelectedInSiblingRepeaterItems()
-                                ])
-                                ->addActionLabel('Add New Member')
-                                ->columnSpanFull(),
+                            static::projectMembersRepeater(),
                         ]),
                 ])
                     ->columnSpanFull()
                     ->skippable()
             ]);
+    }
+
+    // Field form proyek dipakai bersama oleh form ini dan pemrosesan Klien
+    // Masuk (ClientIntakeResource\Pages\ProsesClientIntake). Ubah di sini
+    // supaya membuat proyek dari kedua jalur tetap sama.
+
+    /**
+     * Field "Project Details" setelah nama dan klien.
+     *
+     * @param  Closure|null  $clientUsers  lihat projectPicField()
+     */
+    public static function projectDetailFields(?Closure $clientUsers = null): array
+    {
+        return [
+            static::projectPicField($clientUsers),
+            static::projectDepartmentField(),
+            static::projectTypeField(),
+            static::projectPriorityField(),
+            static::projectSopField(),
+            static::projectDueDateField(),
+            static::projectDescriptionField(),
+        ];
+    }
+
+    public static function projectNameField(): Forms\Components\TextInput
+    {
+        return Forms\Components\TextInput::make('name')
+            ->required()
+            ->label('Project Name')
+            ->maxLength(255)
+            ->columnSpanFull();
+    }
+
+    /** Pilih klien, dengan opsi membuat klien baru langsung dari form. */
+    public static function projectClientField(): Select
+    {
+        return Select::make('client_id')
+            ->required()
+            ->label('Client')
+            ->options(fn () => Client::pluck('name', 'id'))
+            ->disableOptionWhen(
+                fn(string $value): bool =>
+                Client::find($value)?->status === 'Inactive'
+            )
+            ->searchable()
+            ->live()
+            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                // Reset PIC when client changes
+                $set('pic_id', null);
+            })
+            ->native(false)
+            ->columnSpan(2)
+            ->createOptionForm([
+                Forms\Components\TextInput::make('name')
+                    ->label('Nama Client')
+                    ->required()
+                    ->maxLength(255)
+                    ->placeholder('Masukkan nama client baru')
+            ])
+            ->createOptionUsing(function (array $data): int {
+                // Create client
+                $client = Client::create([
+                    'name' => $data['name'],
+                    'status' => 'Active', // Set default status
+                ]);
+
+                // Automatically assign current user to this client
+                \App\Models\UserClient::create([
+                    'user_id' => auth()->id(),
+                    'client_id' => $client->id,
+                ]);
+
+                // Send notification to user
+                \Filament\Notifications\Notification::make()
+                    ->title('Client Baru Dibuat')
+                    ->body("Client '{$client->name}' berhasil dibuat dan Anda telah ditugaskan sebagai anggota tim.")
+                    ->success()
+                    ->send();
+
+                return $client->id;
+            });
+    }
+
+    public static function projectDepartmentField(): Select
+    {
+        return Select::make('department_id')
+            ->label('Departemen')
+            ->relationship('department', 'name')
+            ->searchable()
+            ->preload()
+            ->native(false)
+            ->placeholder('Pilih departemen')
+            ->columnSpan(2);
+    }
+
+    public static function projectTypeField(): Select
+    {
+        return Select::make('type')
+            ->label('Type')
+            ->options([
+                'single' => 'On Spot',
+                'monthly' => 'Monthly',
+                'yearly' => 'Yearly',
+            ])
+            ->required();
+    }
+
+    public static function projectPriorityField(): Select
+    {
+        return Select::make('priority')
+            ->label('Priority')
+            ->options([
+                'urgent' => 'Urgent',
+                'normal' => 'Normal',
+                'low' => 'Low',
+            ])
+            ->required()
+            ->native(false);
+    }
+
+    /** Memilih SOP mengisi repeater "steps" (tahapan, tugas, dokumen wajib) dari templat SOP. */
+    public static function projectSopField(): Select
+    {
+        return Select::make('sop_id')
+            ->label('Standard Operating Procedure')
+            ->options(Sop::query()->pluck('name', 'id'))
+            ->searchable()
+            ->live()
+            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                if (!$state) {
+                    $set('steps', []);
+                    return;
+                }
+
+                $sop = Sop::with(['steps.tasks', 'steps.requiredDocuments'])->find($state);
+                if (!$sop)
+                    return;
+
+                // Set project type and type from SOP
+                $set('type', $sop->type);
+                $set('project_type', $sop->project_type);
+
+                // Prepare steps data
+                $stepsData = $sop->steps->map(function ($step) {
+                    return [
+                        'name' => $step->name,
+                        'description' => $step->description,
+                        'order' => $step->order,
+                        'priority' => $step->priority,
+                        'tasks' => $step->tasks->map(fn($task) => [
+                            'title' => $task->title,
+                            'description' => $task->description,
+                            'requires_document' => $task->requires_document,
+                        ])->toArray(),
+                        'requiredDocuments' => $step->requiredDocuments->map(fn($doc) => [
+                            'name' => $doc->name,
+                            'description' => $doc->description,
+                            'is_required' => $doc->is_required,
+                        ])->toArray(),
+                    ];
+                })->toArray();
+
+                $set('steps', $stepsData);
+            })
+            ->native(false);
+    }
+
+    public static function projectDueDateField(): DatePicker
+    {
+        return DatePicker::make('due_date')
+            ->required()
+            ->date()
+            ->afterStateHydrated(function ($state) {
+                return $state ? Carbon::parse($state)->format('d M Y') : '-';
+            })
+            ->beforeStateDehydrated(function ($state) {
+                return $state ? Carbon::parse($state)->format('Y-m-d') : null;
+            })
+            ->native(false);
+    }
+
+    public static function projectDescriptionField(): Forms\Components\RichEditor
+    {
+        return Forms\Components\RichEditor::make('description')
+            ->columnSpanFull();
+    }
+
+    /** Tahapan proyek beserta tugas dan dokumen wajibnya (disimpan lewat relasi). */
+    public static function projectStepsRepeater(): Repeater
+    {
+        return Repeater::make('steps')
+            ->label('Project Step')
+            ->addActionLabel('Add New Step')
+            ->relationship()
+            ->schema([
+                Forms\Components\TextInput::make('name')
+                    ->columnSpanFull(),
+                Forms\Components\RichEditor::make('description')
+                    ->toolbarButtons([
+                        'bold',
+                        'bulletList',
+                        'italic',
+                        'link',
+                        'orderedList',
+                        'undo',
+                        'redo',
+                    ])
+                    ->columnSpanFull(),
+                FormSection::make('Tasks')
+                    ->description('Add and manage tasks for this project step')
+                    ->collapsible()
+                    ->schema([
+                        Repeater::make('tasks')
+                            ->label('Project Task')
+                            ->relationship('tasks')
+                            ->schema([
+                                TextInput::make('title')
+                                    ->label('Task Title')
+                                    ->required(),
+                                Forms\Components\RichEditor::make('description')
+                                    ->toolbarButtons([
+                                        'bold',
+                                        'bulletList',
+                                        'italic',
+                                        'link',
+                                        'orderedList',
+                                        'undo',
+                                        'redo',
+                                    ]),
+                            ])
+                            ->collapsed()
+                            ->itemLabel(fn(array $state): ?string => $state['title'] ?? null)
+                            ->addActionLabel('Add New Task'),
+                    ]),
+                FormSection::make('Required Documents')
+                    ->description('Specify required documents for this project step')
+                    ->collapsible()
+                    ->schema([
+                        Repeater::make('requiredDocuments')
+                            ->label('Required Documents')
+                            ->relationship('requiredDocuments')
+                            ->schema([
+                                TextInput::make('name')
+                                    ->label('Documents Name')
+                                    ->required(),
+                                Forms\Components\RichEditor::make('description')
+                                    ->toolbarButtons([
+                                        'bold',
+                                        'bulletList',
+                                        'italic',
+                                        'link',
+                                        'orderedList',
+                                        'undo',
+                                        'redo',
+                                    ]),
+                            ])
+                            ->collapsed()
+                            ->itemLabel(fn(array $state): ?string => $state['name'] ?? null)
+                            ->addActionLabel('Add New Document')
+                    ])
+            ])
+            ->itemLabel(fn(array $state): ?string => $state['name'] ?? null)
+            ->orderColumn('order')
+            ->collapsed()
+            ->reorderable(false)
+            ->columnSpanFull();
+    }
+
+    /**
+     * Pengguna yang terhubung ke klien lewat user_clients. Dipakai sebagai
+     * sumber pilihan PIC dan anggota proyek.
+     */
+    public static function usersOfClient(mixed $clientId): ?Builder
+    {
+        if (blank($clientId)) {
+            return null;
+        }
+
+        return User::whereHas('userClients', function ($query) use ($clientId) {
+            $query->where('client_id', $clientId);
+        });
+    }
+
+    /**
+     * @param  Closure|null  $clientUsers  mengembalikan query pengguna klien (atau null bila klien
+     *                                      belum dipilih); bawaan: dari field client_id di form ini.
+     */
+    public static function projectPicField(?Closure $clientUsers = null): Select
+    {
+        $clientUsers ??= fn (Forms\Get $get) => static::usersOfClient($get('client_id'));
+
+        return Select::make('pic_id')
+            ->label('Person in Charge (PIC)')
+            ->options(function (Select $component) use ($clientUsers) {
+                $users = $component->evaluate($clientUsers);
+
+                if (! $users) {
+                    return [];
+                }
+
+                // FILTER: hanya user aktif dengan role tertentu
+                return $users
+                    ->where('status', 'active')
+                    ->whereHas('roles', function ($query) {
+                        $query->whereIn('name', ['project-manager', 'direktur', 'super-admin']);
+                    })
+                    ->pluck('name', 'id');
+            })
+            ->searchable()
+            ->live()
+            ->native(false)
+            ->helperText(function (Select $component) use ($clientUsers) {
+                return $component->evaluate($clientUsers)
+                    ? 'Select a Project Manager, Director, or Super Admin as PIC'
+                    : 'Please select a client first';
+            })
+            ->columnSpan(2);
+    }
+
+    /** @param  Closure|null  $clientUsers  lihat projectPicField() */
+    public static function projectMembersRepeater(?Closure $clientUsers = null): Repeater
+    {
+        $clientUsers ??= fn (Forms\Get $get) => static::usersOfClient($get('../../client_id'));
+
+        return Repeater::make('userProject')
+            ->label('')
+            ->relationship()
+            ->schema([
+                Select::make('user_id')
+                    ->label('Member')
+                    ->options(function (Select $component) use ($clientUsers) {
+                        $users = $component->evaluate($clientUsers);
+
+                        if (! $users) {
+                            return [];
+                        }
+
+                        return $users
+                            ->whereDoesntHave('roles', function ($query) {
+                                $query->where('name', 'direktur');
+                            })
+                            ->where('status', 'active')
+                            ->pluck('name', 'id');
+                    })
+                    ->live()
+                    ->required()
+                    ->searchable()
+                    ->distinct()
+                    ->native(false)
+                    ->helperText(function (Select $component) use ($clientUsers) {
+                        return $component->evaluate($clientUsers)
+                            ? 'Select a user from this client'
+                            : 'Please select a client first';
+                    })
+                    ->disableOptionsWhenSelectedInSiblingRepeaterItems(),
+            ])
+            ->addActionLabel('Add New Member')
+            ->columnSpanFull();
     }
 
     public static function table(Table $table): Table

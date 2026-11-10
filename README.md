@@ -200,6 +200,7 @@ Kemudian isi `.env` sesuai lingkungan Anda (nilai bersifat rahasia — **jangan 
 - **Google Drive** — kredensial `yaza/laravel-google-drive-storage` (`FILESYSTEM_CLOUD=google`)
 - **AI** — kunci **Gemini** / **OpenAI**
 - **Queue** — `QUEUE_CONNECTION=database`
+- **Client Management (serah terima klien)** — `CLIENT_MANAGEMENT_URL` (base URL aplikasi Client Management), `CLIENT_MANAGEMENT_TOKEN` (nilainya sama dengan `PROJECT_MANAGEMENT_TOKEN` di Client Management), opsional `CLIENT_MANAGEMENT_TIMEOUT` (detik, bawaan 10). Token kosong = endpoint `/api/v1/intake/*` menolak semua permintaan.
 
 ```bash
 # 4. Migrasi basis data

@@ -239,8 +239,8 @@ class ProsesClientIntakePageTest extends ClientIntakeTestCase
         $this->page($intake)
             ->fillForm($this->requiredFields())
             ->fillForm(['project.sop_id' => $sop->id])
-            // SOP di form proyek mengosongkan "type" (tabel sops tidak punya kolom type); pilih lagi.
-            ->fillForm(['project.type' => 'yearly'])
+            // Saran jenis dari layanan (PPh Badan -> yearly) tidak boleh hilang saat SOP dipilih.
+            ->assertFormSet(['project.type' => 'yearly'])
             ->set('data.documents', [])
             ->call('process')
             ->assertHasNoFormErrors();
@@ -249,6 +249,7 @@ class ProsesClientIntakePageTest extends ClientIntakeTestCase
         $projectStep = $project->steps()->first();
 
         $this->assertSame($sop->id, $project->sop_id);
+        $this->assertSame('yearly', $project->type);
         $this->assertSame('Kumpulkan dokumen', $projectStep?->name);
         $this->assertSame(['Minta laporan keuangan'], $projectStep->tasks()->pluck('title')->all());
         $this->assertSame(['Laporan keuangan 2026'], $projectStep->requiredDocuments()->pluck('name')->all());
@@ -340,5 +341,16 @@ class ProsesClientIntakePageTest extends ClientIntakeTestCase
         $this->assertSame('urgent', $project->priority);
         $this->assertTrue($project->userProject()->where('user_id', $this->staff->id)->exists());
         $this->assertTrue(DailyTask::where('project_id', $project->id)->exists());
+    }
+
+    public function test_choosing_sop_keeps_project_type_on_manual_create_project(): void
+    {
+        $sop = Sop::forceCreate(['name' => 'SOP Jenis Uji']);
+        $sop->steps()->forceCreate(['name' => 'Tahap uji', 'order' => 1]);
+
+        Livewire::test(CreateProject::class)
+            ->fillForm(['type' => 'monthly'])
+            ->fillForm(['sop_id' => $sop->id])
+            ->assertFormSet(['type' => 'monthly', 'steps' => fn (array $steps) => count($steps) === 1]);
     }
 }

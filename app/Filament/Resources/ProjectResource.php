@@ -229,9 +229,8 @@ class ProjectResource extends Resource
                 if (!$sop)
                     return;
 
-                // Set project type and type from SOP
-                $set('type', $sop->type);
-                $set('project_type', $sop->project_type);
+                // Jenis proyek tidak disentuh: tabel sops tidak punya kolom jenis,
+                // jadi menyalinnya dari SOP hanya mengosongkan pilihan pengguna.
 
                 // Prepare steps data
                 $stepsData = $sop->steps->map(function ($step) {

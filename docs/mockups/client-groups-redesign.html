@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grup Client · Usulan redesign (12 Nov 2026)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--background, #fff); color: var(--foreground, #111); }
+  .chrome { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding: 2px 2px 12px; font-size: 13px; }
+  .chrome .seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border, #ddd); border-radius: 9px; background: var(--muted, #f4f4f5); }
+  .chrome .seg button { font: inherit; padding: 5px 11px; border: 0; border-radius: 7px; background: transparent; color: var(--muted-foreground, #555); cursor: pointer; }
+  .chrome .seg button[aria-pressed="true"] { background: var(--background, #fff); color: var(--foreground, #111); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 600; }
+  .frame { border: 1px solid var(--border, #ddd); border-radius: 12px; overflow-x: auto; overflow-y: hidden; }
+
+  .pm {
+    --ground: #f1f7f9; --surface: #ffffff; --subtle: #f1f7f9; --subtle-2: #ebf2f4;
+    --ink: #0d1417; --ink-2: #363f43; --ink-3: #626a6f; --ink-4: #8b9497;
+    --line: #dee5e7; --line-soft: #ebf2f4; --line-strong: #ccd4d7;
+    --primary: #157a9c; --primary-700: #10657f; --primary-soft: #dff4fe; --primary-50: #eef9fd;
+    --danger: #cf4232; --danger-text: #af3628; --danger-soft: #fff4f2;
+    --tile: #1790b5;
+    font-family: "Manrope", system-ui, sans-serif; font-size: 14px; line-height: 1.45; color: var(--ink); background: var(--ground);
+    -webkit-font-smoothing: antialiased; display: grid; grid-template-columns: 236px 1fr; min-width: 1240px;
+  }
+  .pm.dark {
+    --ground: #0d1417; --surface: #151c20; --subtle: #1b2327; --subtle-2: #222b30;
+    --ink: #ffffff; --ink-2: #ccd4d7; --ink-3: #8b9497; --ink-4: #626a6f;
+    --line: rgba(255,255,255,.09); --line-soft: rgba(255,255,255,.05); --line-strong: rgba(255,255,255,.16);
+    --primary: #4ab4d2; --primary-700: #89d2ea; --primary-soft: rgba(23,144,181,.18); --primary-50: rgba(23,144,181,.1);
+    --danger: #ef806f; --danger-text: #feac9e; --danger-soft: rgba(207,66,50,.16);
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .pm svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* frame */
+  .side { padding: 14px 10px 14px 12px; }
+  .app { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; }
+  .app .logo { width: 36px; height: 36px; border-radius: 10px; background: var(--tile); display: grid; place-items: center; color: #fff; font-weight: 800; }
+  .app b { display: block; font-size: 14px; font-weight: 800; }
+  .app small { font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+  .grp { font-size: 11.5px; font-weight: 700; color: var(--ink-3); padding: 14px 10px 5px; }
+  .it { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+  .it.on { background: var(--primary-soft); color: var(--primary-700); font-weight: 700; }
+  .panel { margin: 10px 10px 10px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; min-width: 0; }
+  .top { height: 60px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 28px; }
+  .top .search { width: 220px; height: 36px; border-radius: 11px; border: 1px solid var(--line); display: flex; align-items: center; padding: 0 12px; color: var(--ink-4); font-size: 13px; }
+  .top .av { width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: var(--surface); display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+  .page { padding: 24px 32px 40px; }
+
+  /* shared bits */
+  .btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border-radius: 11px; font: inherit; font-size: 13.5px; font-weight: 700; border: 0; cursor: pointer; white-space: nowrap; }
+  .btn.p { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(16,101,127,.25); }
+  .pm.dark .btn.p { background: #157a9c; }
+  .btn.o { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-strong); }
+  .btn.o svg { color: var(--ink-3); }
+  .btn.sm { height: 32px; padding: 0 11px; font-size: 12.5px; border-radius: 9px; }
+  .btn.ghost { background: transparent; color: var(--primary-700); padding: 0 8px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .badge.dot::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: currentColor; }
+  .badge.blue { background: var(--primary-soft); color: var(--primary-700); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-700) 20%, transparent); }
+  .badge.red { background: var(--danger-soft); color: var(--danger-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger-text) 22%, transparent); }
+  .badge.neutral { background: var(--subtle-2); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line); }
+  .badge.outline { background: var(--surface); color: var(--primary-700); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-700) 40%, transparent); }
+  .lbl { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .card { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+
+
+  .crumb { display: flex; gap: 8px; align-items: center; font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+  .crumb b { color: var(--ink-2); }
+  .hd { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 8px 0 18px; }
+  h1 { margin: 0; font-size: 25px; font-weight: 800; letter-spacing: -.03em; line-height: 1.15; display: flex; align-items: center; gap: 10px; }
+  .lead { margin: 6px 0 0; font-size: 13.5px; font-weight: 600; color: var(--ink-3); }
+  .lead b { color: var(--ink); font-weight: 800; }
+  .lead a { color: var(--primary-700); font-weight: 700; text-decoration: none; }
+  .acts { display: flex; gap: 8px; }
+  .tool { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .search { width: 300px; height: 38px; border-radius: 11px; box-shadow: inset 0 0 0 1px var(--line-strong); background: var(--surface); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--ink-4); font-size: 13px; font-weight: 500; }
+  .rail { display: inline-flex; gap: 2px; padding: 4px; border-radius: 14px; background: var(--subtle-2); border: 1px solid var(--line); }
+  .rail button { font: inherit; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 11px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-2); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .rail button i { font-style: normal; font-size: 11px; font-weight: 800; color: var(--ink-3); }
+  .rail button.on { background: var(--surface); color: var(--primary-700); box-shadow: 0 1px 2px rgba(13,20,23,.12), 0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent); }
+  .rail button.on i { background: var(--primary-soft); color: var(--primary-700); padding: 1px 6px; border-radius: 7px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .tile { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 11px; background: var(--primary-soft); color: var(--primary-700); font-size: 13px; font-weight: 800; }
+  .tile.sm { width: 30px; height: 30px; border-radius: 8px; font-size: 10.5px; background: var(--subtle-2); color: var(--ink-2); }
+  .tile.lg { width: 52px; height: 52px; border-radius: 13px; font-size: 15px; }
+  .gcard { display: flex; flex-direction: column; overflow: hidden; }
+  .gcard .top { height: auto; border: 0; justify-content: flex-start; padding: 16px 18px 14px; gap: 12px; align-items: flex-start; }
+  .gcard .who { flex: 1; min-width: 0; }
+  .gcard .nm { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; letter-spacing: -.015em; }
+  .gcard .nm a { color: inherit; text-decoration: none; }
+  .gcard .mt { margin-top: 3px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  .gcard .sec { display: flex; align-items: center; justify-content: space-between; padding: 0 18px 6px; }
+  .gcard ul { list-style: none; margin: 0; padding: 0 8px 6px; }
+  .gcard li { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+  .gcard li:hover { background: var(--subtle); }
+  .gcard li .t { flex: 1; min-width: 0; }
+  .gcard li .t small { display: block; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+  .gcard li .st { font-size: 12px; font-weight: 700; color: var(--ink-3); display: inline-flex; align-items: center; gap: 5px; }
+  .gcard li .st::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: var(--ink-4); }
+  .gcard li .st.on { color: var(--primary-700); }
+  .gcard li .st.on::before { background: var(--primary); }
+  .gcard .more { display: block; padding: 2px 18px 10px; font-size: 12.5px; font-weight: 700; color: var(--primary-700); }
+  .gcard .ft { margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--line-soft); background: var(--subtle); }
+  .meter { flex: 1; display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 700; color: var(--ink-3); }
+  .meter span { display: block; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+  .meter span i { display: block; height: 100%; border-radius: 99px; background: var(--tile); }
+  .newcard { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; padding: 30px; border: 1.5px dashed var(--line-strong); border-radius: 14px; color: var(--ink-3); font-size: 13px; font-weight: 600; min-height: 260px; }
+  .newcard b { color: var(--ink); font-size: 15px; font-weight: 800; }
+  .newcard .tile { background: var(--subtle-2); color: var(--ink-3); }
+  /* detail */
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.1fr); gap: 16px; align-items: start; }
+  .info h3, .roster h3 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.015em; }
+  .info .hd2, .roster .hd2 { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 18px 12px; }
+  .info .cap, .roster .cap { margin-top: 2px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  dl.kv { margin: 0; }
+  dl.kv div { padding: 10px 18px; border-top: 1px solid var(--line-soft); }
+  dl.kv dt { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  dl.kv dd { margin: 3px 0 0; font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.5; }
+  dl.kv dd a { color: var(--primary-700); text-decoration: none; }
+  dl.kv dd.muted { color: var(--ink-4); font-weight: 500; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border-top: 1px solid var(--line); }
+  .stats div { background: var(--surface); padding: 12px 18px; }
+  .stats small { display: block; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+  .stats b { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); background: var(--subtle); padding: 0 12px; height: 36px; border-block: 1px solid var(--line); }
+  td { padding: 0 12px; height: 56px; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  th:first-child, td:first-child { padding-left: 18px; width: 18px; }
+  td .p { display: block; font-weight: 700; color: var(--ink); }
+  td .s { display: block; font-size: 12px; color: var(--ink-3); }
+  .cl { display: flex; align-items: center; gap: 10px; }
+  .chk { width: 16px; height: 16px; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--line-strong); display: inline-block; }
+  .rtool { display: flex; align-items: center; gap: 8px; padding: 0 18px 12px; }
+  .rtool .search { width: 240px; height: 34px; }
+  .note { margin: 14px 2px 0; font-size: 12.5px; color: var(--muted-foreground, #666); line-height: 1.55; max-width: 980px; }
+  .note b { color: var(--foreground, #111); }
+  .view { display: none; } .view.on { display: block; }
+</style>
+</head>
+<body>
+<div class="chrome">
+  <div class="seg" role="group" aria-label="Tema"><button type="button" aria-pressed="true" data-theme="light">Terang</button><button type="button" aria-pressed="false" data-theme="dark">Gelap</button></div>
+  <div class="seg" role="group" aria-label="Halaman"><button type="button" aria-pressed="true" data-view="list">Daftar grup</button><button type="button" aria-pressed="false" data-view="detail">Detail grup</button></div>
+  <div class="seg" role="group" aria-label="Data"><button type="button" aria-pressed="true" data-many="0">Data sekarang (1 grup)</button><button type="button" aria-pressed="false" data-many="1">Contoh 4 grup</button></div>
+</div>
+<div class="frame">
+<div class="pm" id="pm">
+  <aside class="side">
+    <div class="app"><span class="logo">K</span><span><b>Project Management</b><small>Kisantra</small></span></div>
+    <div class="grp">Client Management</div>
+    <div class="it"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>Clients</div>
+    <div class="it"><svg class="i" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Komunikasi Klien</div>
+    <div class="it on"><svg class="i" viewBox="0 0 24 24"><path d="M3 21h18M5 21V9l7-5 7 5v12M9 13h6M9 17h6"/></svg>Grup Client</div>
+    <div class="it"><svg class="i" viewBox="0 0 24 24"><path d="M4 13h4l2 3h4l2-3h4M4 13l2-8h12l2 8v6H4z"/></svg>Klien Masuk</div>
+  </aside>
+  <main class="panel">
+    <div class="top"><div class="search" style="width:220px">Search</div><div class="av">A</div></div>
+    <div class="page">
+
+      <section class="view on" data-v="list">
+        <div class="crumb">Client Management <span>›</span> <b>Grup Client</b></div>
+        <div class="hd">
+          <div>
+            <h1>Grup Client</h1>
+            <p class="lead"><b class="cnt-g">1</b> grup aktif · <b class="cnt-c">3</b> klien tergabung · <a href="#">166 klien belum punya grup →</a></p>
+          </div>
+          <div class="acts"><button class="btn p">+ Tambah grup</button></div>
+        </div>
+        <div class="tool">
+          <div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Cari grup, kontak, atau nama klien</div>
+          <div class="rail"><button class="on">Semua <i class="r-all">1</i></button><button>Aktif <i class="r-act">1</i></button><button>Nonaktif <i class="r-off">0</i></button></div>
+        </div>
+        <div class="grid" id="grid">
+          <article class="card gcard">
+            <div class="top">
+              <span class="tile">MG</span>
+              <div class="who">
+                <div class="nm"><a href="#" data-goto="detail">Mitra Group</a> <span class="badge blue dot">Aktif</span></div>
+                <div class="mt">Kontak Admin · admin@mitragroup.co.id</div>
+              </div>
+              <button class="btn ghost sm" title="Ubah grup">⋯</button>
+            </div>
+            <div class="sec"><span class="lbl">Perusahaan · 3</span></div>
+            <ul><li><span class="tile sm">AC</span><span class="t">Abe Cell<small>Badan</small></span><span class="st ">Nonaktif</span></li><li><span class="tile sm">CS</span><span class="t">CV. Anak Seribu Sungai<small>Pribadi</small></span><span class="st on">Aktif</span></li><li><span class="tile sm">PA</span><span class="t">PT. Abbasy Anugerah Jaya<small>Badan · Perseroan Terbatas (PT)</small></span><span class="st on">Aktif</span></li></ul>
+            
+            <div class="ft">
+              <div class="meter">2 dari 3 aktif<span><i style="width:67%"></i></span></div>
+              <button class="btn o sm">+ Tambah client</button>
+              <button class="btn o sm" data-goto="detail">Buka →</button>
+            </div>
+          </article><div id="more" hidden style="display:contents">
+          <article class="card gcard">
+            <div class="top">
+              <span class="tile">HG</span>
+              <div class="who">
+                <div class="nm"><a href="#" data-goto="detail">Grup Harita</a> <span class="badge blue dot">Aktif</span></div>
+                <div class="mt">Kontak Rina Hartono · 0812 5566 7788</div>
+              </div>
+              <button class="btn ghost sm" title="Ubah grup">⋯</button>
+            </div>
+            <div class="sec"><span class="lbl">Perusahaan · 7</span></div>
+            <ul><li><span class="tile sm">HN</span><span class="t">PT. Harita Nickel<small>Badan · PT</small></span><span class="st on">Aktif</span></li><li><span class="tile sm">TB</span><span class="t">PT. Trimegah Bangun Persada<small>Badan · PT</small></span><span class="st on">Aktif</span></li><li><span class="tile sm">GP</span><span class="t">PT. Gane Permai Sentosa<small>Badan · PT</small></span><span class="st on">Aktif</span></li><li><span class="tile sm">MS</span><span class="t">PT. Megah Surya Pertiwi<small>Badan · PT</small></span><span class="st ">Nonaktif</span></li></ul>
+            <a class="more" href="#">+3 perusahaan lainnya →</a>
+            <div class="ft">
+              <div class="meter">6 dari 7 aktif<span><i style="width:86%"></i></span></div>
+              <button class="btn o sm">+ Tambah client</button>
+              <button class="btn o sm" data-goto="detail">Buka →</button>
+            </div>
+          </article>
+          <article class="card gcard">
+            <div class="top">
+              <span class="tile">AD</span>
+              <div class="who">
+                <div class="nm"><a href="#" data-goto="detail">Grup Adaro</a> <span class="badge blue dot">Aktif</span></div>
+                <div class="mt">Tanpa kontak</div>
+              </div>
+              <button class="btn ghost sm" title="Ubah grup">⋯</button>
+            </div>
+            <div class="sec"><span class="lbl">Perusahaan · 2</span></div>
+            <ul><li><span class="tile sm">AE</span><span class="t">PT. Adaro Energy<small>Badan · PT</small></span><span class="st on">Aktif</span></li><li><span class="tile sm">AL</span><span class="t">PT. Adaro Logistics<small>Badan · PT</small></span><span class="st on">Aktif</span></li></ul>
+            
+            <div class="ft">
+              <div class="meter">2 dari 2 aktif<span><i style="width:100%"></i></span></div>
+              <button class="btn o sm">+ Tambah client</button>
+              <button class="btn o sm" data-goto="detail">Buka →</button>
+            </div>
+          </article>
+          <article class="card gcard">
+            <div class="top">
+              <span class="tile">BK</span>
+              <div class="who">
+                <div class="nm"><a href="#" data-goto="detail">Keluarga Basuki</a> <span class="badge neutral dot">Nonaktif</span></div>
+                <div class="mt">Kontak Basuki · basuki@gmail.com</div>
+              </div>
+              <button class="btn ghost sm" title="Ubah grup">⋯</button>
+            </div>
+            <div class="sec"><span class="lbl">Perusahaan · 1</span></div>
+            <ul><li><span class="tile sm">BS</span><span class="t">Basuki Santoso<small>Pribadi</small></span><span class="st ">Nonaktif</span></li></ul>
+            
+            <div class="ft">
+              <div class="meter">0 dari 1 aktif<span><i style="width:0%"></i></span></div>
+              <button class="btn o sm">+ Tambah client</button>
+              <button class="btn o sm" data-goto="detail">Buka →</button>
+            </div>
+          </article></div>
+          <div class="newcard">
+            <span class="tile">+</span>
+            <b>Buat grup baru</b>
+            <span>Kelompokkan klien yang satu grup usaha.<br><b style="font-size:13px">166 klien</b> belum punya grup.</span>
+            <button class="btn p sm" style="margin-top:6px">Tambah grup</button>
+          </div></div>
+      </section>
+
+      <section class="view" data-v="detail">
+        <div class="crumb">Grup Client <span>›</span> <b>Mitra Group</b></div>
+        <div class="hd">
+          <div style="display:flex;align-items:center;gap:14px">
+            <span class="tile lg">MG</span>
+            <div>
+              <h1>Mitra Group <span class="badge blue dot">Aktif</span></h1>
+              <p class="lead" style="margin-top:4px"><b>3</b> perusahaan · <b>2</b> aktif · Kontak Admin</p>
+            </div>
+          </div>
+          <div class="acts"><button class="btn o">Ubah grup</button><button class="btn p">+ Tambah client</button></div>
+        </div>
+        <div class="split">
+          <section class="card info">
+            <div class="hd2"><div><h3>Informasi grup</h3><div class="cap">Kontak dan catatan internal</div></div></div>
+            <dl class="kv">
+              <div><dt>Kontak</dt><dd>Admin</dd></div>
+              <div><dt>Telepon</dt><dd><a href="#">0812 3456 7890</a></dd></div>
+              <div><dt>Email</dt><dd><a href="#">admin@mitragroup.co.id</a></dd></div>
+              <div><dt>Alamat</dt><dd class="muted">Belum diisi</dd></div>
+              <div><dt>Catatan internal</dt><dd>Laporan pajak semua anggota dikirim ke satu kontak.</dd></div>
+            </dl>
+          </section>
+          <section class="card roster" style="overflow:hidden">
+            <div class="hd2"><div><h3>Perusahaan dalam grup</h3><div class="cap">Klik baris untuk membuka detail klien</div></div></div>
+            <div class="stats"><div><small>Perusahaan</small><b>3</b></div><div><small>Aktif</small><b>2</b></div><div><small>Nonaktif</small><b>1</b></div></div>
+            <div class="rtool" style="padding-top:12px"><div class="search">Cari nama, NPWP, email</div></div>
+            <table>
+              <thead><tr><th><span class="chk"></span></th><th>Klien</th><th>Tipe</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <tr><td><span class="chk"></span></td><td><div class="cl"><span class="tile sm">PA</span><span><span class="p">PT. Abbasy Anugerah Jaya</span><span class="s num">96.686.657-6.722.000 · pt.abbasyanugerahjaya@gmail.com</span></span></div></td><td>Badan · PT</td><td><span class="badge blue dot">Aktif</span></td><td><button class="btn ghost sm">Keluarkan</button></td></tr>
+                <tr><td><span class="chk"></span></td><td><div class="cl"><span class="tile sm">AC</span><span><span class="p">Abe Cell</span><span class="s">NPWP belum diisi</span></span></div></td><td>Badan</td><td><span class="badge neutral dot">Nonaktif</span></td><td><button class="btn ghost sm">Keluarkan</button></td></tr>
+                <tr><td><span class="chk"></span></td><td><div class="cl"><span class="tile sm">CS</span><span><span class="p">CV. Anak Seribu Sungai</span><span class="s">NPWP belum diisi</span></span></div></td><td>Pribadi</td><td><span class="badge blue dot">Aktif</span></td><td><button class="btn ghost sm">Keluarkan</button></td></tr>
+              </tbody>
+            </table>
+          </section>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+</div>
+<p class="note"><b>Daftar:</b> satu kartu per grup dalam grid 2 kolom (bukan panel besar yang ditumpuk), berisi kontak, maksimal 4 perusahaan, meter "aktif", dan aksi <b>Tambah client</b> / <b>Buka</b>. Kartu "Buat grup baru" mengisi grid dan menyebut berapa klien yang belum punya grup. Filter status jadi rail dengan jumlah; pencarian juga mencari nama klien. <b>Detail:</b> daftar perusahaan tidak lagi tampil dua kali; informasi grup selalu terbuka di kiri, tabel anggota (tambah, keluarkan, keluarkan terpilih, cari) di kanan. Avatar tidak lagi diambil dari ui-avatars.com. Warna: biru, tinta, merah saja (hijau emerald, tombol hitam, dan indigo dihapus). Tab Relasi di detail klien ikut memakai warna yang sama.</p>
+<script>
+  const pm = document.getElementById('pm');
+  document.querySelectorAll('[data-theme]').forEach(b => b.onclick = () => { pm.classList.toggle('dark', b.dataset.theme === 'dark'); document.querySelectorAll('[data-theme]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  const show = (v) => { document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.dataset.v === v)); document.querySelectorAll('[data-view]').forEach(x => x.setAttribute('aria-pressed', x.dataset.view === v)); };
+  document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => show(b.dataset.view));
+  document.querySelectorAll('[data-goto]').forEach(b => b.onclick = (e) => { e.preventDefault(); show('detail'); });
+  document.querySelectorAll('[data-many]').forEach(b => b.onclick = () => {
+    const many = b.dataset.many === '1';
+    document.getElementById('more').hidden = !many;
+    document.querySelector('.cnt-g').textContent = many ? '3' : '1';
+    document.querySelector('.cnt-c').textContent = many ? '13' : '3';
+    document.querySelector('.r-all').textContent = many ? '4' : '1';
+    document.querySelector('.r-act').textContent = many ? '3' : '1';
+    document.querySelector('.r-off').textContent = many ? '1' : '0';
+    document.querySelectorAll('[data-many]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  });
+</script>
+</body>
+</html>

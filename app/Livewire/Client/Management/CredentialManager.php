@@ -2,21 +2,37 @@
 
 namespace App\Livewire\Client\Management;
 
+use App\Livewire\Clients\ClientListClickup;
 use App\Models\Application;
 use App\Models\Client;
 use App\Models\ClientCredential;
+use App\Support\Ui\ClientAvatar;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 /**
- * Inline credential editor rendered inside the "Kelola Kredensial" modal on the
- * Client resource table. Lets staff view, edit, and create three groups of
- * credentials at once: client (Core Tax / DJP / Email), per-application, and PIC.
+ * Credential viewer/editor for one client, shown in the Clients list modal and
+ * the Filament "Kelola Kredensial" action. Lets staff view, edit, and create
+ * three groups of credentials at once: client (Core Tax / DJP / Email),
+ * per-application, and PIC.
  */
 class CredentialManager extends Component
 {
+    /**
+     * Client logins, one table row each: [name, icon, account field, secret field, account label].
+     * Fields are keys of $clientCred.
+     */
+    public const CLIENT_LOGINS = [
+        'core_tax' => ['Core Tax', 'heroicon-o-building-library', 'core_tax_user_id', 'core_tax_password', 'User ID'],
+        'djp' => ['DJP Online', 'heroicon-o-globe-alt', 'djp_account', 'djp_password', 'Akun'],
+        'email' => ['Email', 'heroicon-o-envelope', 'email', 'email_password', 'Alamat email'],
+    ];
+
     public int $clientId;
+
+    /** Rendered in a frame of our own (Clients list): shows a close button and handles Escape. */
+    public bool $closable = false;
 
     /** 'view' (read-only, default) or 'edit'. */
     public string $mode = 'view';
@@ -24,6 +40,8 @@ class CredentialManager extends Component
     public string $clientName = '';
 
     public ?string $clientLogo = null;
+
+    public ?string $clientNpwp = null;
 
     /** Core Tax / DJP / Email credentials (ClientCredential). */
     public array $clientCred = [
@@ -51,9 +69,10 @@ class CredentialManager extends Component
     /** [id => name] options for the application select. */
     public array $applicationOptions = [];
 
-    public function mount(int $clientId): void
+    public function mount(int $clientId, bool $closable = false): void
     {
         $this->clientId = $clientId;
+        $this->closable = $closable;
         $this->applicationOptions = Application::orderBy('name')->pluck('name', 'id')->toArray();
         $this->loadData();
     }
@@ -65,6 +84,7 @@ class CredentialManager extends Component
 
         $this->clientName = $client->name;
         $this->clientLogo = $client->logo;
+        $this->clientNpwp = ClientListClickup::formatNpwp($client->NPWP);
 
         $cred = $client->clientCredential;
         $this->clientCred = [
@@ -142,6 +162,20 @@ class CredentialManager extends Component
             'appCreds.*.password'       => ['required', 'string', 'max:255'],
             'clientCred.email'          => ['nullable', 'email', 'max:255'],
             'pic.nik'                   => ['nullable', 'string', 'max:16'],
+        ];
+    }
+
+    protected function messages(): array
+    {
+        return [
+            'appCreds.*.application_id.required' => 'Pilih aplikasinya.',
+            'appCreds.*.username.required' => 'Username wajib diisi.',
+            'appCreds.*.username.max' => 'Username maksimal 255 karakter.',
+            'appCreds.*.password.required' => 'Kata sandi wajib diisi.',
+            'appCreds.*.password.max' => 'Kata sandi maksimal 255 karakter.',
+            'clientCred.email.email' => 'Format email belum benar.',
+            'clientCred.email.max' => 'Email maksimal 255 karakter.',
+            'pic.nik.max' => 'NIK maksimal 16 karakter.',
         ];
     }
 
@@ -236,8 +270,15 @@ class CredentialManager extends Component
             ->send();
     }
 
+    public static function initials(?string $name): string
+    {
+        return ClientAvatar::initials($name);
+    }
+
     public function render()
     {
-        return view('livewire.client.management.credential-manager');
+        return view('livewire.client.management.credential-manager', [
+            'logoUrl' => ClientAvatar::url($this->clientLogo),
+        ]);
     }
 }

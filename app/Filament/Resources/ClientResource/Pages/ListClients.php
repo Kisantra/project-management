@@ -21,6 +21,13 @@ class ListClients extends Page
         return 'Clients';
     }
 
+    public function getSubheading(): ?string
+    {
+        $counts = Client::query()->whereIn('status', ['Active', 'Inactive'])->selectRaw('status, COUNT(*) AS n')->groupBy('status')->pluck('n', 'status');
+
+        return number_format((int) ($counts['Active'] ?? 0), 0, ',', '.') . ' klien aktif · ' . number_format((int) ($counts['Inactive'] ?? 0), 0, ',', '.') . ' nonaktif';
+    }
+
     /**
      * Resolve which client IDs match the current Livewire filter state.
      *

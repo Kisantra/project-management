@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Detail Laporan Pajak · Usulan redesign (12 Nov 2026)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--background, #fff); color: var(--foreground, #111); }
+  .chrome { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding: 2px 2px 12px; font-size: 13px; }
+  .chrome .seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border, #ddd); border-radius: 9px; background: var(--muted, #f4f4f5); }
+  .chrome .seg button { font: inherit; padding: 5px 11px; border: 0; border-radius: 7px; background: transparent; color: var(--muted-foreground, #555); cursor: pointer; }
+  .chrome .seg button[aria-pressed="true"] { background: var(--background, #fff); color: var(--foreground, #111); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 600; }
+  .frame { border: 1px solid var(--border, #ddd); border-radius: 12px; overflow-x: auto; overflow-y: hidden; }
+  .note { margin: 14px 2px 0; font-size: 12.5px; color: var(--muted-foreground, #666); line-height: 1.55; max-width: 980px; }
+  .note b { color: var(--foreground, #111); }
+
+  .pm {
+    --ground: #f1f7f9; --surface: #ffffff; --subtle: #f1f7f9; --subtle-2: #ebf2f4;
+    --ink: #0d1417; --ink-2: #363f43; --ink-3: #626a6f; --ink-4: #8b9497;
+    --line: #dee5e7; --line-soft: #ebf2f4; --line-strong: #ccd4d7;
+    --primary: #157a9c; --primary-700: #10657f; --primary-soft: #dff4fe; --primary-50: #eef9fd;
+    --danger: #cf4232; --danger-text: #af3628; --danger-soft: #fff4f2;
+    --tile: #1790b5;
+    font-family: "Manrope", system-ui, sans-serif; font-size: 14px; line-height: 1.45; color: var(--ink); background: var(--ground);
+    -webkit-font-smoothing: antialiased; display: grid; grid-template-columns: 236px 1fr; min-width: 1240px;
+  }
+  .pm.dark {
+    --ground: #0d1417; --surface: #151c20; --subtle: #1b2327; --subtle-2: #222b30;
+    --ink: #ffffff; --ink-2: #ccd4d7; --ink-3: #8b9497; --ink-4: #626a6f;
+    --line: rgba(255,255,255,.09); --line-soft: rgba(255,255,255,.05); --line-strong: rgba(255,255,255,.16);
+    --primary: #4ab4d2; --primary-700: #89d2ea; --primary-soft: rgba(23,144,181,.18); --primary-50: rgba(23,144,181,.1);
+    --danger: #ef806f; --danger-text: #feac9e; --danger-soft: rgba(207,66,50,.16);
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .pm svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* frame */
+  .side { padding: 14px 10px 14px 12px; }
+  .app { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; }
+  .app .logo { width: 36px; height: 36px; border-radius: 10px; background: var(--tile); display: grid; place-items: center; color: #fff; font-weight: 800; }
+  .app b { display: block; font-size: 14px; font-weight: 800; }
+  .app small { font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+  .grp { font-size: 11.5px; font-weight: 700; color: var(--ink-3); padding: 14px 10px 5px; }
+  .it { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+  .it.on { background: var(--primary-soft); color: var(--primary-700); font-weight: 700; }
+  .panel { margin: 10px 10px 10px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; min-width: 0; }
+  .top { height: 60px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 28px; }
+  .top .search { width: 220px; height: 36px; border-radius: 11px; border: 1px solid var(--line); display: flex; align-items: center; padding: 0 12px; color: var(--ink-4); font-size: 13px; }
+  .top .av { width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: var(--surface); display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+  .page { padding: 24px 32px 40px; }
+
+  /* shared bits */
+  .btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border-radius: 11px; font: inherit; font-size: 13.5px; font-weight: 700; border: 0; cursor: pointer; white-space: nowrap; }
+  .btn.p { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(16,101,127,.25); }
+  .pm.dark .btn.p { background: #157a9c; }
+  .btn.o { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-strong); }
+  .btn.o svg { color: var(--ink-3); }
+  .btn.sm { height: 32px; padding: 0 11px; font-size: 12.5px; border-radius: 9px; }
+  .btn.ghost { background: transparent; color: var(--primary-700); padding: 0 8px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .badge.dot::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: currentColor; }
+  .badge.blue { background: var(--primary-soft); color: var(--primary-700); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-700) 20%, transparent); }
+  .badge.red { background: var(--danger-soft); color: var(--danger-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger-text) 22%, transparent); }
+  .badge.neutral { background: var(--subtle-2); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line); }
+  .badge.outline { background: var(--surface); color: var(--primary-700); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-700) 40%, transparent); }
+  .lbl { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .card { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+
+  /* header */
+  .crumb { display: flex; gap: 8px; align-items: center; font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+  .crumb b { color: var(--ink-2); }
+  .hd { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 8px 0 18px; }
+  .who { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .who .tile { width: 48px; height: 48px; border-radius: 12px; background: var(--primary-soft); color: var(--primary-700); display: grid; place-items: center; font-weight: 800; font-size: 14px; flex: none; }
+  .who h1 { margin: 0; font-size: 25px; font-weight: 800; letter-spacing: -.03em; line-height: 1.15; display: flex; align-items: center; gap: 8px; }
+  .switch { position: relative; }
+  .switch > button { width: 30px; height: 30px; border-radius: 9px; border: 0; background: var(--subtle-2); color: var(--ink-2); display: grid; place-items: center; cursor: pointer; }
+  .pop { position: absolute; top: 38px; left: 0; z-index: 5; width: 320px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 48px -16px rgba(13,20,23,.28), 0 2px 6px rgba(13,20,23,.06); display: none; font-size: 13.5px; font-weight: 600; letter-spacing: 0; }
+  .pop.open { display: block; }
+  .pop .s { margin: 10px; height: 36px; border-radius: 10px; background: var(--subtle); display: flex; align-items: center; gap: 8px; padding: 0 10px; color: var(--ink-4); font-weight: 500; }
+  .pop ul { list-style: none; margin: 0; padding: 0 6px 6px; max-height: 220px; overflow: auto; }
+  .pop li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 9px; color: var(--ink-2); }
+  .pop li:hover { background: var(--subtle); }
+  .pop li.on { color: var(--primary-700); background: var(--primary-50); font-weight: 700; }
+  .pop .ft { border-top: 1px solid var(--line); padding: 8px 14px; font-size: 12px; color: var(--ink-3); }
+  .who .meta { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+  .who .meta b { color: var(--ink); font-weight: 800; }
+  .who .meta .bad { color: var(--danger-text); font-weight: 700; }
+  .acts { display: flex; align-items: center; gap: 8px; }
+  .stepper { display: inline-flex; align-items: center; height: 38px; border-radius: 11px; box-shadow: inset 0 0 0 1px var(--line-strong); background: var(--surface); }
+  .stepper button { height: 38px; width: 34px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; display: grid; place-items: center; }
+  .stepper span { padding: 0 6px; font-size: 13.5px; font-weight: 800; border-inline: 1px solid var(--line); height: 100%; display: flex; align-items: center; }
+
+  /* period bar */
+  .period { display: flex; align-items: center; gap: 14px; padding: 10px 12px; margin-bottom: 14px; }
+  .rail { display: inline-flex; gap: 2px; padding: 3px; border-radius: 11px; background: var(--subtle-2); flex: none; }
+  .rail button { font: inherit; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .rail button i { font-style: normal; font-size: 11px; color: var(--ink-3); background: var(--surface); border-radius: 6px; padding: 0 5px; line-height: 17px; }
+  .rail button.on { background: var(--surface); color: var(--primary-700); box-shadow: 0 1px 2px rgba(13,20,23,.12), 0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent); }
+  .rail button.on i { background: var(--primary-soft); color: var(--primary-700); }
+  .months { flex: 1; display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 4px; }
+  .m { position: relative; height: 44px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); cursor: pointer; transition: background .15s; }
+  .m:hover { background: var(--subtle); }
+  .m small { font-size: 10.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 3px; }
+  .m.ok small { color: var(--primary-700); }
+  .m.bad small { color: var(--danger-text); }
+  .m.bad small::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: var(--danger); }
+  .m.none { color: var(--ink-4); cursor: default; }
+  .m.none:hover { background: transparent; }
+  .m.none small { color: var(--ink-4); font-weight: 600; }
+  .m.cur { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--primary), 0 1px 2px rgba(13,20,23,.08); color: var(--ink); }
+  .m.cur::after { content: ""; position: absolute; bottom: -6px; left: 50%; width: 8px; height: 8px; background: var(--surface); border-right: 1.5px solid var(--primary); border-bottom: 1.5px solid var(--primary); transform: translateX(-50%) rotate(45deg); }
+  .m .act { position: absolute; top: 6px; right: 7px; width: 4px; height: 4px; border-radius: 99px; background: var(--ink-4); }
+  .tipm { position: absolute; top: 50px; left: 50%; transform: translateX(-50%); width: 210px; z-index: 4; background: var(--ink); color: var(--surface); border-radius: 10px; padding: 9px 11px; font-size: 12px; font-weight: 600; text-align: left; display: none; line-height: 1.5; }
+  .m:hover .tipm { display: block; }
+  .tipm b { display: block; font-weight: 800; margin-bottom: 3px; }
+  .tipm span { display: flex; justify-content: space-between; opacity: .85; }
+  .legend { flex: none; display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; font-weight: 600; color: var(--ink-3); padding-left: 12px; border-left: 1px solid var(--line); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+
+  /* tax-type strip */
+  .strip { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .tt { position: relative; background: var(--surface); padding: 14px 16px 15px; cursor: pointer; text-align: left; border: 0; font: inherit; color: inherit; transition: background .15s; }
+  .tt:hover { background: var(--subtle); }
+  .tt.on { background: var(--primary-50); box-shadow: inset 0 -2px 0 var(--primary); }
+  .tt .l { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 800; color: var(--ink); }
+  .tt .v { margin-top: 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+  .tt .v b { font-size: 21px; font-weight: 800; letter-spacing: -.025em; white-space: nowrap; }
+  .tt .v span { font-size: 12.5px; font-weight: 700; color: var(--ink-3); white-space: nowrap; }
+  .tt .v.bad span { color: var(--danger-text); }
+  .tt .c { margin-top: 4px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  .tt.locked { cursor: default; background: var(--surface); }
+  .tt.locked .l, .tt.locked .v b { color: var(--ink-4); }
+  .tt.locked:hover { background: var(--surface); }
+
+  /* workspace */
+  .tabs { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 22px 0 16px; border-bottom: 1px solid var(--line); }
+  .tabs nav { display: flex; gap: 2px; }
+  .tab { font: inherit; display: inline-flex; align-items: center; gap: 7px; height: 40px; padding: 0 12px; border: 0; background: transparent; color: var(--ink-3); font-size: 13.5px; font-weight: 700; cursor: pointer; box-shadow: inset 0 -2px 0 transparent; }
+  .tab:hover { color: var(--ink); }
+  .tab.on { color: var(--primary-700); box-shadow: inset 0 -2px 0 var(--primary); }
+  .tab i { font-style: normal; font-size: 11px; font-weight: 800; padding: 0 6px; line-height: 18px; border-radius: 6px; background: var(--subtle-2); color: var(--ink-3); }
+  .tab.on i { background: var(--primary-soft); color: var(--primary-700); }
+  .tab em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--danger-text); display: inline-flex; align-items: center; gap: 4px; }
+  .tab em::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: var(--danger); }
+  .tabs .ctx { padding-bottom: 10px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  .pane { display: none; }
+  .pane.on { display: block; }
+
+  /* table */
+  .tbar { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .tbar .search { width: 220px; white-space: nowrap; height: 36px; border-radius: 10px; box-shadow: inset 0 0 0 1px var(--line); display: flex; align-items: center; gap: 8px; padding: 0 11px; color: var(--ink-4); font-size: 13px; font-weight: 500; }
+  .tbar .sp { flex: 1; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); background: var(--subtle); padding: 0 12px; height: 36px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 0 12px; height: 52px; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+  td.r, th.r { text-align: right; }
+  td .p { display: block; font-weight: 700; color: var(--ink); }
+  td .s { display: block; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+  tr.grp td { height: 32px; background: var(--subtle); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  tr.grp td b { letter-spacing: 0; color: var(--ink-2); margin-left: 6px; }
+  .av { width: 24px; height: 24px; border-radius: 99px; background: var(--subtle-2); color: var(--ink-2); display: inline-grid; place-items: center; font-size: 10px; font-weight: 800; }
+  .kebab { color: var(--ink-3); }
+  tfoot td { height: 46px; background: var(--subtle); font-weight: 700; color: var(--ink); border-top: 1px solid var(--line); }
+  .pager { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+
+  /* ledger */
+  .split { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .ledger { padding: 6px 0; }
+  .lrow { display: grid; grid-template-columns: 22px 1fr auto auto; align-items: center; gap: 12px; padding: 12px 20px; font-size: 14px; font-weight: 600; color: var(--ink-2); }
+  .lrow .op { color: var(--ink-4); font-weight: 800; text-align: center; }
+  .lrow .n { font-size: 12.5px; color: var(--ink-3); }
+  .lrow .amt { font-weight: 800; color: var(--ink); min-width: 150px; text-align: right; }
+  .lrow.sub { border-top: 1px solid var(--line); margin-top: 2px; }
+  .lrow.total { border-top: 2px solid var(--ink); margin: 4px 20px 0; padding: 14px 0 10px; }
+  .lrow.total .lab { font-size: 15px; font-weight: 800; color: var(--ink); }
+  .lrow.total .amt { font-size: 22px; letter-spacing: -.02em; color: var(--danger-text); }
+  .lrow .edit { font: inherit; border: 0; background: transparent; color: var(--primary-700); font-size: 12.5px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 0; }
+  .ledger h3, .side-card h3 { margin: 0; padding: 16px 20px 6px; font-size: 15px; font-weight: 800; letter-spacing: -.015em; }
+  .ledger .cap, .side-card .cap { padding: 0 20px 8px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  .side-card { padding-bottom: 8px; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 9px 20px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); border-top: 1px solid var(--line-soft); }
+  .kv b { color: var(--ink); font-weight: 800; }
+  .big { padding: 4px 20px 14px; font-size: 26px; font-weight: 800; letter-spacing: -.03em; }
+  .rules { margin: 0; padding: 4px 20px 6px 36px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); line-height: 1.7; }
+
+  /* compensation */
+  .transfer { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; padding: 18px 20px; margin-bottom: 16px; }
+  .transfer p { margin: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--ink-3); }
+  .flow { display: flex; align-items: center; gap: 12px; margin-top: 12px; font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .flow .box { padding: 8px 12px; border-radius: 10px; background: var(--subtle); }
+  .flow .box small { display: block; font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+  .seg2 { display: inline-flex; gap: 2px; padding: 3px; border-radius: 11px; background: var(--subtle-2); margin: 0 0 12px; }
+  .seg2 button { font: inherit; height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+  .seg2 button.on { background: var(--surface); color: var(--primary-700); box-shadow: 0 1px 2px rgba(13,20,23,.12), 0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent); }
+  .rowacts { display: inline-flex; gap: 6px; }
+
+  /* yearly */
+  .ystrip { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 16px; }
+  .ystrip div { background: var(--surface); padding: 12px 16px; }
+  .ystrip small { display: block; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+  .ystrip b { display: block; margin-top: 4px; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+  .ystrip span { font-size: 12px; font-weight: 600; color: var(--ink-3); }
+  .chart { display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 10px; align-items: end; height: 120px; padding: 16px 20px 0; border-bottom: 1px solid var(--line-strong); margin: 0 0 6px; }
+  .chart i { display: block; border-radius: 4px 4px 0 0; background: var(--danger); opacity: .85; }
+  .chart i.cur { opacity: 1; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--danger); }
+  .chart i.zero { height: 2px !important; background: var(--ink-4); border-radius: 2px; }
+  .chartx { display: grid; grid-template-columns: repeat(12, minmax(0,1fr)); gap: 10px; padding: 0 20px 12px; font-size: 11.5px; font-weight: 700; color: var(--ink-3); text-align: center; }
+  tr.curm td { background: var(--primary-50); }
+  tr.nod td { color: var(--ink-4); }
+  .go { color: var(--primary-700); font-weight: 700; font-size: 12.5px; }
+
+  /* spt + activity */
+  .spt { display: grid; grid-template-columns: 340px 1fr; min-height: 320px; }
+  .spt .info { padding: 20px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; }
+  .spt .info h3 { margin: 0; font-size: 15px; font-weight: 800; }
+  .spt .drop { margin: 20px; border: 1.5px dashed var(--line-strong); border-radius: 14px; display: grid; place-items: center; text-align: center; color: var(--ink-3); font-size: 13px; font-weight: 600; padding: 30px; }
+  .spt .drop b { display: block; color: var(--ink); font-size: 14px; margin: 8px 0 4px; }
+  .ask { padding: 18px 20px; display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; margin-bottom: 16px; }
+  .ask h3 { margin: 0; font-size: 15px; font-weight: 800; }
+  .ask p { margin: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--ink-3); max-width: 620px; }
+  .pm .note { color: var(--ink-3); }
+  .pm .note b { color: var(--ink); }
+  .newtag { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; background: #7a5af8; color: #fff; margin-left: 6px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<div class="chrome">
+  <div class="seg" role="group" aria-label="Tema">
+    <button type="button" aria-pressed="true" data-theme="light">Terang</button>
+    <button type="button" aria-pressed="false" data-theme="dark">Gelap</button>
+  </div>
+  <div class="seg" role="group" aria-label="Jenis pajak">
+    <button type="button" aria-pressed="true" data-go="ppn">PPN</button>
+    <button type="button" aria-pressed="false" data-go="pph">PPh</button>
+    <button type="button" aria-pressed="false" data-go="bupot">PPh Unifikasi</button>
+  </div>
+  <span style="color:var(--muted-foreground,#666)">Klik kartu jenis pajak, tab, dan tombol ⌄ di samping nama klien. Data contoh: CV. Mulia Makmur, Februari 2025 (laporan #39).</span>
+</div>
+
+<div class="frame">
+<div class="pm" id="pm">
+  <aside class="side">
+    <div class="app"><span class="logo">K</span><span><b>Project Management</b><small>Kisantra</small></span></div>
+    <div class="grp">Tax Management</div>
+    <div class="it on"><svg class="i" viewBox="0 0 24 24"><path d="M9 14l6-6M9.5 8.5h.01M14.5 13.5h.01M7 3h10a2 2 0 0 1 2 2v16l-3-2-2 2-2-2-2 2-2-2-3 2V5a2 2 0 0 1 2-2z"/></svg>Laporan Pajak</div>
+    <div class="grp">Client Management</div>
+    <div class="it"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/></svg>Clients</div>
+    <div class="it"><svg class="i" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg>Komunikasi Klien</div>
+  </aside>
+
+  <main class="panel">
+    <div class="top"><div class="search">Search</div><div class="av">A</div></div>
+    <div class="page">
+
+      <div class="crumb">Laporan Pajak <span>›</span> <b>CV. Mulia Makmur</b> <span>›</span> <b>Februari 2025</b></div>
+
+      <!-- Header: who + period actions -->
+      <div class="hd">
+        <div class="who">
+          <span class="tile">MM</span>
+          <div>
+            <h1>CV. MULIA MAKMUR
+              <span class="switch">
+                <button type="button" id="swb" aria-label="Ganti klien" title="Ganti klien"><svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+                <span class="pop" id="pop">
+                  <span class="s"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Cari klien…</span>
+                  <ul>
+                    <li>CV. Berkah Sekawan Abadi</li>
+                    <li>CV. Gok Letare Cleaning</li>
+                    <li class="on">CV. Mulia Makmur <span>✓</span></li>
+                    <li>PT. Anugerah Gunung Mangkalapi</li>
+                    <li>PT. Mahatma Sukses Mandiri</li>
+                  </ul>
+                  <div class="ft">42 klien punya laporan Februari 2025</div>
+                </span>
+              </span>
+            </h1>
+            <div class="meta"><span>NPWP 01.234.567.8-901.000</span><span>·</span><span>Kontrak PPN, PPh, PPh Unifikasi</span><span>·</span><span class="bad">0 dari 3 jenis sudah lapor</span></div>
+          </div>
+        </div>
+        <div class="acts">
+          <div class="stepper" title="Pindah bulan">
+            <button type="button" aria-label="Januari 2025"><svg class="i" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg></button>
+            <span class="num">Feb 2025</span>
+            <button type="button" aria-label="Maret 2025"><svg class="i" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></button>
+          </div>
+          <button class="btn o"><svg class="i" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>Ubah laporan</button>
+        </div>
+      </div>
+
+      <!-- Period bar -->
+      <div class="card period">
+        <div class="rail"><button class="on">2025 <i>9</i></button><button>2024 <i>12</i></button></div>
+        <div class="months">
+          <div class="m bad"><span class="act"></span>Jan<small>Belum</small><div class="tipm"><b>Januari 2025</b><span>PPN <em>Belum lapor</em></span><span>PPh <em>Belum lapor</em></span><span>PPh Unifikasi <em>Belum lapor</em></span><span>Faktur <em>96</em></span></div></div>
+          <div class="m bad cur"><span class="act"></span>Feb<small>Belum</small></div>
+          <div class="m bad"><span class="act"></span>Mar<small>Belum</small></div>
+          <div class="m bad"><span class="act"></span>Apr<small>Belum</small></div>
+          <div class="m bad"><span class="act"></span>Mei<small>Belum</small></div>
+          <div class="m bad"><span class="act"></span>Jun<small>Belum</small></div>
+          <div class="m bad"><span class="act"></span>Jul<small>Belum</small></div>
+          <div class="m ok"><span class="act"></span>Agu<small>✓ Lapor</small></div>
+          <div class="m ok">Sep<small>✓ Lapor</small></div>
+          <div class="m none">Okt<small>–</small></div>
+          <div class="m none">Nov<small>–</small></div>
+          <div class="m none">Des<small>–</small></div>
+        </div>
+        <div class="legend">
+          <span style="color:var(--primary-700)">✓ Semua jenis lapor</span>
+          <span><span style="width:6px;height:6px;border-radius:9px;background:var(--danger)"></span>Ada yang belum</span>
+          <span><span style="width:4px;height:4px;border-radius:9px;background:var(--ink-4)"></span>Ada transaksi</span>
+        </div>
+      </div>
+
+      <!-- Tax types: one strip, each cell is a tab -->
+      <div class="strip" role="tablist" aria-label="Jenis pajak">
+        <button class="tt on" data-go="ppn" role="tab">
+          <div class="l">PPN <span class="badge red dot">Belum lapor</span></div>
+          <div class="v bad"><b class="num">Rp 59.472.508</b><span>Kurang bayar</span></div>
+          <div class="c">117 faktur · SPT belum diunggah</div>
+        </button>
+        <button class="tt" data-go="pph" role="tab">
+          <div class="l">PPh <span class="badge red dot">Belum lapor</span></div>
+          <div class="v"><b class="num">Rp 4.180.000</b><span>PPh 21</span></div>
+          <div class="c">12 bukti potong · 14 karyawan aktif</div>
+        </button>
+        <button class="tt" data-go="bupot" role="tab">
+          <div class="l">PPh Unifikasi <span class="badge red dot">Belum lapor</span></div>
+          <div class="v"><b class="num">0</b><span>bupot</span></div>
+          <div class="c">Konfirmasi ada atau tidak ada pemotongan</div>
+        </button>
+        <div class="tt locked" title="Kontrak PPh Badan belum aktif untuk klien ini">
+          <div class="l">PPh Badan <span class="badge neutral"><svg class="i" viewBox="0 0 24 24" style="width:12px;height:12px"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Tidak dikontrak</span></div>
+          <div class="v"><b>–</b></div>
+          <div class="c">Aktifkan kontrak di data klien</div>
+        </div>
+      </div>
+
+      <!-- ============ PPN ============ -->
+      <section class="ws" data-ws="ppn">
+        <div class="tabs">
+          <nav>
+            <button class="tab on" data-tab="faktur">Faktur <i class="num">117</i></button>
+            <button class="tab" data-tab="hitung">Perhitungan</button>
+            <button class="tab" data-tab="komp">Kompensasi</button>
+            <button class="tab" data-tab="tahun">Ringkasan tahunan</button>
+            <button class="tab" data-tab="spt">SPT <em>Belum</em></button>
+          </nav>
+          <div class="ctx">PPN · Februari 2025</div>
+        </div>
+
+        <div class="pane on" data-pane="faktur">
+          <div class="card" style="overflow:hidden">
+            <div class="tbar">
+              <div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Cari faktur</div>
+              <button class="btn o sm"><svg class="i" viewBox="0 0 24 24"><path d="M4 5h16l-6 8v6l-4-2v-4z"/></svg>Filter</button>
+              <button class="btn o sm">Kelompok: Jenis</button>
+              <span class="sp"></span>
+              <button class="btn o sm"><svg class="i" viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>Ekspor</button>
+              <button class="btn o sm">Impor JSON</button>
+              <button class="btn o sm">Input manual</button>
+              <button class="btn p sm"><svg class="i" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6"/></svg>Faktur baru (AI)</button>
+            </div>
+            <table>
+              <thead><tr><th style="width:36px"></th><th>Nomor faktur</th><th>Lawan transaksi</th><th>Tarif</th><th class="r">DPP</th><th class="r">PPN</th><th>Tanggal</th><th>Oleh</th><th></th></tr></thead>
+              <tbody>
+                <tr class="grp"><td colspan="9">Faktur keluaran <b>109</b></td></tr>
+                <tr><td>1</td><td><span class="p num">04002500070113132</span></td><td><span class="p">Graha Prima Energy</span><span class="s num">01.765.432.1-722.000</span></td><td>11%</td><td class="r num">Rp 1.785.000</td><td class="r num">Rp 196.350</td><td class="num">03 Feb 2025</td><td><span class="av">A</span></td><td class="kebab">⋮</td></tr>
+                <tr><td>2</td><td><span class="p num">04002500064063457</span><span class="s">Memiliki 1 revisi</span></td><td><span class="p">Pelayaran Dalam Negeri Wiratimur Segara</span><span class="s num">02.118.904.6-722.000</span></td><td>11%</td><td class="r num">Rp 4.600.000</td><td class="r num">Rp 506.000</td><td class="num">05 Feb 2025</td><td><span class="av">A</span></td><td class="kebab">⋮</td></tr>
+                <tr><td>3</td><td><span class="p num">04002500064063460-REV1</span><span class="s">Revisi #1</span></td><td><span class="p">Pelayaran Dalam Negeri Wiratimur Segara</span><span class="s num">02.118.904.6-722.000</span></td><td>12%</td><td class="r num">Rp 900.000</td><td class="r num">Rp 99.000</td><td class="num">05 Feb 2025</td><td><span class="av">IA</span></td><td class="kebab">⋮</td></tr>
+                <tr class="grp"><td colspan="9">Faktur masukan <b>8</b></td></tr>
+                <tr><td>1</td><td><span class="p num">01002500041120018</span></td><td><span class="p">PT Pertamina Patra Niaga</span><span class="s">Terkait usaha</span></td><td>11%</td><td class="r num">Rp 52.400.000</td><td class="r num">Rp 5.764.000</td><td class="num">10 Feb 2025</td><td><span class="av">A</span></td><td class="kebab">⋮</td></tr>
+                <tr><td>2</td><td><span class="p num">01002500041120231</span></td><td><span class="p">CV Sumber Teknik</span><span class="s">Tidak terkait usaha</span></td><td>11%</td><td class="r num">Rp 3.150.000</td><td class="r num">Rp 346.500</td><td class="num">14 Feb 2025</td><td><span class="av">A</span></td><td class="kebab">⋮</td></tr>
+              </tbody>
+              <tfoot><tr><td></td><td colspan="3">Total semua faktur <span class="s" style="display:inline;margin-left:6px">(117)</span></td><td class="r num">Rp 793.363.000</td><td class="r num">Rp 87.269.948</td><td colspan="3"></td></tr></tfoot>
+            </table>
+            <div class="pager"><span>Menampilkan 1–10 dari 117</span><span>‹ 1 2 3 … 12 ›</span></div>
+          </div>
+        </div>
+
+        <div class="pane" data-pane="hitung">
+          <div class="split">
+            <div class="card ledger">
+              <h3>Perhitungan PPN Februari 2025</h3>
+              <div class="cap">Dihitung ulang setiap faktur berubah. Kompensasi manual bisa diubah di sini.</div>
+              <div class="lrow"><span class="op"></span><span class="lab">PPN keluaran</span><span class="n num">109 faktur</span><span class="amt num">Rp 73.371.228</span></div>
+              <div class="lrow"><span class="op">−</span><span class="lab">PPN masukan yang dikreditkan</span><span class="n num">8 faktur</span><span class="amt num">Rp 13.898.720</span></div>
+              <div class="lrow sub"><span class="op">=</span><span class="lab"><b style="color:var(--ink)">Selisih</b></span><span class="n">Kurang bayar</span><span class="amt num">Rp 59.472.508</span></div>
+              <div class="lrow"><span class="op">−</span><span class="lab">Kompensasi diterima</span><span class="n">dari periode sebelumnya</span><span class="amt num">Rp 0</span></div>
+              <div class="lrow"><span class="op">−</span><span class="lab">Kompensasi manual <button class="edit">Ubah</button></span><span class="n">tanpa catatan</span><span class="amt num">Rp 0</span></div>
+              <div class="lrow total"><span class="op"></span><span class="lab">Saldo akhir</span><span><span class="badge red dot">Kurang bayar</span></span><span class="amt num">Rp 59.472.508</span></div>
+            </div>
+            <div style="display:grid;gap:16px">
+              <div class="card side-card">
+                <h3>Peredaran bruto</h3>
+                <div class="cap">Total DPP faktur keluaran yang dihitung</div>
+                <div class="big num">Rp 667.011.163</div>
+              </div>
+              <div class="card side-card">
+                <h3>Faktur</h3>
+                <div class="kv"><span>Faktur keluaran</span><b class="num">109</b></div>
+                <div class="kv"><span>Faktur masukan</span><b class="num">8</b></div>
+                <div class="kv"><span>Dikecualikan (kode 02, 03, 07, 08)</span><b class="num">0</b></div>
+                <div class="kv"><span>Total</span><b class="num">117</b></div>
+              </div>
+              <div class="card side-card">
+                <h3>Aturan perhitungan</h3>
+                <ul class="rules"><li>Faktur kode 02, 03, 07, 08 dikecualikan</li><li>Revisi terbaru menggantikan faktur asli</li><li>Faktur masukan dihitung bila terkait usaha</li><li>Peredaran bruto dari DPP</li></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane" data-pane="komp">
+          <div class="card transfer">
+            <div>
+              <div class="lbl">Kompensasi ke periode berikutnya</div>
+              <h3 style="margin:6px 0 0;font-size:15px;font-weight:800">Tidak ada lebih bayar untuk dikompensasi</h3>
+              <p>Kompensasi hanya bisa dibuat saat saldo akhir lebih bayar. Saldo Februari 2025 kurang bayar Rp 59.472.508.</p>
+              <div class="flow"><span class="box">Februari 2025<small>Kurang bayar Rp 59.472.508</small></span><span>→</span><span class="box">Maret 2025<small>Kurang bayar Rp 38.990.140</small></span></div>
+            </div>
+            <button class="btn o" disabled style="opacity:.55;cursor:not-allowed">Buat kompensasi ke Maret</button>
+          </div>
+          <div class="seg2"><button class="on">Diterima <span class="badge neutral" style="height:18px">1</span></button><button>Diberikan <span class="badge neutral" style="height:18px">1</span></button></div>
+          <div class="card" style="overflow:hidden">
+            <table>
+              <thead><tr><th>Dari periode</th><th class="r">Jumlah</th><th>Status</th><th>Catatan</th><th>Disetujui</th><th></th></tr></thead>
+              <tbody>
+                <tr><td><span class="p">Desember 2024</span><span class="s">Lebih bayar Rp 4.120.000</span></td><td class="r num"><b style="color:var(--ink)">Rp 4.120.000</b></td><td><span class="badge blue dot">Disetujui</span></td><td>Sisa lebih bayar akhir tahun</td><td><span class="p">Iqal Azhari</span><span class="s num">12 Jan 2025</span></td><td><span class="rowacts"><button class="btn o sm">Revisi</button><button class="btn ghost sm">Batal</button></span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note" style="margin-left:0">Kompensasi yang menunggu persetujuan tampil dengan tombol <b>Setujui</b> / <b>Tolak</b> / <b>Batal</b>; banner merah muncul bila kompensasi melebihi lebih bayar terbaru (aksi <b>Revisi</b>).</p>
+        </div>
+
+        <div class="pane" data-pane="tahun">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+            <div><div style="font-size:15px;font-weight:800">PPN tahun 2025</div><div style="font-size:12.5px;font-weight:600;color:var(--ink-3)">9 dari 12 bulan punya laporan</div></div>
+            <div style="display:flex;gap:8px"><button class="btn o sm">Unduh PDF</button><button class="btn o sm">Unduh Excel</button></div>
+          </div>
+          <div class="ystrip">
+            <div><small>Total kurang bayar</small><b class="num" style="color:var(--danger-text)">Rp 297.115.137</b><span>7 bulan</span></div>
+            <div><small>Total lebih bayar</small><b class="num">Rp 0</b><span>0 bulan</span></div>
+            <div><small>Peredaran bruto</small><b class="num">Rp 4.902.330.560</b><span>DPP keluaran</span></div>
+            <div><small>Sudah lapor</small><b class="num">2 <span style="font-size:14px;color:var(--ink-3)">/ 9</span></b><span>7 bulan belum</span></div>
+          </div>
+          <div class="card" style="overflow:hidden">
+            <div class="chart">
+              <i style="height:55%"></i><i class="cur" style="height:80%"></i><i style="height:52%"></i><i style="height:37%"></i><i style="height:62%"></i><i style="height:45%"></i><i style="height:69%"></i><i class="zero"></i><i class="zero"></i><span></span><span></span><span></span>
+            </div>
+            <div class="chartx"><span>Jan</span><span style="color:var(--ink)">Feb</span><span>Mar</span><span>Apr</span><span>Mei</span><span>Jun</span><span>Jul</span><span>Agu</span><span>Sep</span><span>Okt</span><span>Nov</span><span>Des</span></div>
+            <table>
+              <thead><tr><th>Bulan</th><th class="r">PPN masukan</th><th class="r">PPN keluaran</th><th class="r">Kompensasi</th><th class="r">Saldo akhir</th><th>Status</th><th>Lapor</th><th></th></tr></thead>
+              <tbody>
+                <tr><td><span class="p">Januari</span></td><td class="r num">Rp 9.880.400</td><td class="r num">Rp 51.085.700</td><td class="r num">Rp 0</td><td class="r num"><b style="color:var(--ink)">Rp 41.205.300</b></td><td><span class="badge red dot">Kurang bayar</span></td><td><span class="badge red">Belum</span></td><td class="go">Buka →</td></tr>
+                <tr class="curm"><td><span class="p">Februari</span><span class="s">Bulan ini</span></td><td class="r num">Rp 13.898.720</td><td class="r num">Rp 73.371.228</td><td class="r num">Rp 0</td><td class="r num"><b style="color:var(--ink)">Rp 59.472.508</b></td><td><span class="badge red dot">Kurang bayar</span></td><td><span class="badge red">Belum</span></td><td></td></tr>
+                <tr><td><span class="p">Maret</span></td><td class="r num">Rp 12.410.000</td><td class="r num">Rp 51.400.140</td><td class="r num">Rp 0</td><td class="r num"><b style="color:var(--ink)">Rp 38.990.140</b></td><td><span class="badge red dot">Kurang bayar</span></td><td><span class="badge red">Belum</span></td><td class="go">Buka →</td></tr>
+                <tr><td><span class="p">Agustus</span></td><td class="r num">Rp 0</td><td class="r num">Rp 0</td><td class="r num">Rp 0</td><td class="r num"><b style="color:var(--ink)">Rp 0</b></td><td><span class="badge neutral dot">Nihil</span></td><td><span class="badge blue">✓ 14 Sep</span></td><td class="go">Buka →</td></tr>
+                <tr class="nod"><td>Oktober</td><td colspan="6">Belum ada laporan</td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="pane" data-pane="spt">
+          <div class="card spt">
+            <div class="info">
+              <div><div class="lbl">SPT Masa PPN</div><h3 style="margin-top:6px">Februari 2025</h3></div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="badge red dot">Belum lapor</span><span class="badge red dot">Belum bayar</span></div>
+              <div class="kv" style="padding:9px 0"><span>Tanggal lapor</span><b>–</b></div>
+              <div class="kv" style="padding:9px 0;margin-top:-14px"><span>Nomor bukti lapor</span><b>–</b></div>
+              <p style="margin:0;font-size:12.5px;font-weight:600;color:var(--ink-3)">Mengunggah SPT menandai PPN sudah lapor dan sudah bayar, lalu memberi tahu klien.</p>
+              <button class="btn p" style="align-self:flex-start"><svg class="i" viewBox="0 0 24 24"><path d="M12 16V4m0 0-4 4m4-4 4 4M5 20h14"/></svg>Unggah SPT</button>
+            </div>
+            <div class="drop"><div><svg class="i" viewBox="0 0 24 24" style="width:28px;height:28px;color:var(--ink-4)"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg><b>Belum ada berkas SPT</b>PDF atau gambar bukti lapor tampil di sini setelah diunggah.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ PPh ============ -->
+      <section class="ws" data-ws="pph" hidden>
+        <div class="tabs">
+          <nav>
+            <button class="tab on" data-tab="p21">PPh 21 <i class="num">12</i></button>
+            <button class="tab" data-tab="phitung">Perhitungan</button>
+            <button class="tab" data-tab="kary">Karyawan <i class="num">14</i></button>
+            <button class="tab" data-tab="pspt">SPT <em>Belum</em></button>
+          </nav>
+          <div class="ctx">PPh · Februari 2025</div>
+        </div>
+        <div class="pane on" data-pane="p21">
+          <div class="card" style="overflow:hidden">
+            <div class="tbar">
+              <div class="search"><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Cari nama, NPWP, nomor bukti</div>
+              <span class="sp"></span>
+              <button class="btn o sm">Ekspor Excel</button>
+              <button class="btn p sm">Impor Excel DJP</button>
+            </div>
+            <table>
+              <thead><tr><th>Nomor bukti potong</th><th>Nama</th><th>NPWP</th><th class="r">DPP</th><th class="r">PPh</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <tr><td class="num"><span class="p">2500118842</span></td><td><span class="p">Rahmat Hidayat</span><span class="s">Masa 02/2025</span></td><td class="num">35.123.456.7-722.000</td><td class="r num">Rp 6.500.000</td><td class="r num"><b style="color:var(--ink)">Rp 325.000</b></td><td><span class="badge neutral">Normal</span></td><td class="kebab">⋮</td></tr>
+                <tr><td class="num"><span class="p">2500118843</span></td><td><span class="p">Siti Aminah</span><span class="s">Masa 02/2025</span></td><td class="num">35.987.654.3-722.000</td><td class="r num">Rp 5.200.000</td><td class="r num"><b style="color:var(--ink)">Rp 260.000</b></td><td><span class="badge outline">Pembetulan</span></td><td class="kebab">⋮</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note" style="margin-left:0">Tab <b>Ringkasan tahunan</b>, <b>Catatan</b>, dan <b>Riwayat</b> PPh sekarang hanya tulisan "akan tersedia". Usulan: disembunyikan sampai fiturnya ada (lihat keputusan di bawah).</p>
+        </div>
+        <div class="pane" data-pane="phitung"><div class="card ledger"><h3>Perhitungan PPh Februari 2025</h3><div class="cap">PPh 21 dari 12 bukti potong</div><div class="lrow"><span class="op"></span><span class="lab">DPP PPh 21</span><span class="n">12 bukti potong</span><span class="amt num">Rp 83.600.000</span></div><div class="lrow total"><span class="op"></span><span class="lab">PPh 21 terutang</span><span></span><span class="amt num" style="color:var(--ink)">Rp 4.180.000</span></div></div></div>
+        <div class="pane" data-pane="kary"><div class="card" style="padding:20px;color:var(--ink-3);font-weight:600">Tabel karyawan (filter status, tipe, status kawin; tambah, ubah, ekspor) tetap seperti sekarang, dengan gaya tabel yang sama.</div></div>
+        <div class="pane" data-pane="pspt"><div class="card" style="padding:20px;color:var(--ink-3);font-weight:600">Sama dengan SPT PPN.</div></div>
+      </section>
+
+      <!-- ============ PPh Unifikasi ============ -->
+      <section class="ws" data-ws="bupot" hidden>
+        <div class="tabs"><nav><button class="tab on">Bukti potong <i>0</i></button><button class="tab">SPT <em>Belum</em></button></nav><div class="ctx">PPh Unifikasi · Februari 2025</div></div>
+        <div class="card ask">
+          <div>
+            <h3>Ada pemotongan PPh Unifikasi pada Februari 2025?</h3>
+            <p>PPh Unifikasi hanya wajib dilapor bila ada pemotongan. Tanpa konfirmasi, masa ini terus dihitung sebagai tunggakan di dashboard.</p>
+          </div>
+          <div style="display:flex;gap:8px"><button class="btn o">Tidak ada aktivitas</button><button class="btn p">Ada, unggah SPT</button></div>
+        </div>
+        <div class="card" style="overflow:hidden">
+          <div class="tbar"><div class="search">Cari bukti potong</div><span class="sp"></span><button class="btn p sm">Tambah bupot</button></div>
+          <div style="padding:34px;text-align:center;color:var(--ink-3);font-weight:600">Belum ada bukti potong. <span class="newtag">Usulan</span><br><span style="font-size:12.5px">Kelola bupot langsung di sini (sekarang hanya ada di halaman Ubah laporan).</span></div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+</div>
+
+<p class="note"><b>Yang berubah:</b> judul jadi nama klien + periode (bukan "View Laporan Pajak"); navigasi bulan jadi satu baris dengan status per bulan dan tooltip; empat kartu jenis pajak + statistik header + pil status digabung jadi <b>satu strip</b> yang sekaligus tab, menampilkan angka yang penting (saldo PPN, PPh 21, bupot) dan status per jenis; status keseluruhan dihitung dari jenis yang <b>dikontrak</b> saja; Perhitungan jadi satu buku besar (keluaran − masukan − kompensasi = saldo akhir) dengan kompensasi manual bisa diubah di tempat; Ringkasan tahunan jadi tabel 12 bulan + grafik + total (yang selama ini dihitung tapi tidak ditampilkan); SPT punya panel info + pratinjau. Semua aksi lama tetap ada (Ekspor, Faktur baru AI, Impor JSON, Input manual, revisi, bukti setor, kompensasi setujui/tolak/batal/revisi, ekspor tahunan, unggah/hapus SPT, tandai tidak ada aktivitas). Hanya tiga warna: biru, tinta, merah.</p>
+
+<script>
+  const pm = document.getElementById('pm');
+  document.querySelectorAll('[data-theme]').forEach(b => b.onclick = () => {
+    pm.classList.toggle('dark', b.dataset.theme === 'dark');
+    document.querySelectorAll('[data-theme]').forEach(x => x.setAttribute('aria-pressed', x === b));
+  });
+  const go = (k) => {
+    document.querySelectorAll('.ws').forEach(s => s.hidden = s.dataset.ws !== k);
+    document.querySelectorAll('.tt[data-go]').forEach(t => t.classList.toggle('on', t.dataset.go === k));
+    document.querySelectorAll('.chrome [data-go]').forEach(t => t.setAttribute('aria-pressed', t.dataset.go === k));
+  };
+  document.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+  document.querySelectorAll('.ws').forEach(ws => ws.querySelectorAll('.tab[data-tab]').forEach(t => t.onclick = () => {
+    ws.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === t));
+    ws.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === t.dataset.tab));
+  }));
+  document.getElementById('swb').onclick = (e) => { e.stopPropagation(); document.getElementById('pop').classList.toggle('open'); };
+  document.addEventListener('click', () => document.getElementById('pop').classList.remove('open'));
+</script>
+</body>
+</html>

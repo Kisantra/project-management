@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Ui\Tone;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -22,10 +23,17 @@ class ProjectStatus extends Model
 
     public const SHAPES = ['empty', 'dashed', 'half', 'clock', 'check', 'x'];
 
+    /** Design-system tone (App\Support\Ui\Tone); `color` is kept for the dashboard charts. */
+    public function getToneSwatchAttribute(): array
+    {
+        return Tone::swatch(Tone::forProjectStatus($this));
+    }
+
     protected $fillable = [
         'key',
         'label',
         'color',
+        'tone',
         'shape',
         'category',
         'sort_order',

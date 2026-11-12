@@ -1,493 +1,208 @@
-<div class="space-y-8">
+{{--
+    PPN compensation (Kompensasi tab). Summary strip from the stored PPN summary,
+    the carry-over to the next period, and the history of compensations received
+    and given. Modals below are opened by the methods of TaxReportKompensasi.
+--}}
+@php
+    use App\Support\TaxPeriod;
+    use App\Support\Ui\Tone;
 
-    {{-- ============================================
-    SECTION 1: CALCULATION SUMMARY
-    ============================================ --}}
-    <div class="space-y-4">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-            Ringkasan Perhitungan Kompensasi
-        </h2>
+    $rp = fn ($amount) => 'Rp ' . number_format(abs((float) $amount), 0, ',', '.');
+    $period = fn ($report) => $report ? TaxPeriod::label($report->month, $report->year ?? $report->created_at?->year) : '–';
+    $statusText = fn (?string $status) => $status ? ucfirst(mb_strtolower($status)) : 'Belum dihitung';
+    $here = TaxPeriod::label($taxReport->month, $taxReport->year ?? $taxReport->created_at?->year);
+    $nextIndex = TaxPeriod::index($taxReport->month) % 12 + 1;
+    $nextLabel = TaxPeriod::label($nextIndex, (int) ($taxReport->year ?? $taxReport->created_at?->year) + ($nextIndex === 1 ? 1 : 0));
+    $compStatus = [
+        'pending' => ['Menunggu', Tone::OUTLINE],
+        'approved' => ['Disetujui', Tone::BLUE],
+        'rejected' => ['Ditolak', Tone::RED],
+    ];
+@endphp
 
-        {{-- Four-Step Calculation Cards --}}
-        <div class="grid gap-4 lg:grid-cols-4">
+<div class="kis-komp">
 
-            {{-- Card 1: Saldo Awal --}}
-            <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                <div class="mb-2 flex items-center gap-2">
-                    <span
-                        class="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold dark:bg-gray-800">1</span>
-                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Saldo Awal</span>
-                </div>
-                <p class="text-xl font-bold text-gray-900 dark:text-white">
-                    Rp {{ number_format(abs($saldoSebelumKompensasi), 0, ',', '.') }}
-                </p>
-                <div class="mt-2 flex items-center gap-1.5">
-                    <div
-                        class="h-1.5 w-1.5 rounded-full {{ $statusSebelum === 'Lebih Bayar' ? 'bg-green-500' : ($statusSebelum === 'Kurang Bayar' ? 'bg-orange-500' : 'bg-gray-400') }}">
-                    </div>
-                    <span class="text-xs text-gray-600 dark:text-gray-400">{{ $statusSebelum }}</span>
-                </div>
-            </div>
-
-            {{-- Card 2: Kompensasi Diterima --}}
-            <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                <div class="mb-2 flex items-center gap-2">
-                    <span
-                        class="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold dark:bg-gray-800">2</span>
-                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Kompensasi Diterima</span>
-                </div>
-                <p class="text-xl font-bold text-gray-900 dark:text-white">
-                    Rp {{ number_format($kompensasiDiterima, 0, ',', '.') }}
-                </p>
-                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    {{ $receivedCompensations->count() }} transaksi
-                </p>
-            </div>
-
-            {{-- Card 3: Kompensasi Manual --}}
-            <div class="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-500/10">
-                <div class="mb-2 flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <span
-                            class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">3</span>
-                        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Kompensasi Manual</span>
-                    </div>
-                    <button wire:click="openManualKompensasiForm"
-                        class="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                        title="Edit Kompensasi Manual">
-                        <x-filament::icon icon="heroicon-m-pencil-square" class="h-4 w-4" />
-                    </button>
-                </div>
-                <p class="text-xl font-bold text-blue-700 dark:text-blue-400">
-                    Rp {{ number_format($manualKompensasi, 0, ',', '.') }}
-                </p>
-                <p class="mt-2 text-xs text-gray-600 dark:text-gray-400 truncate" title="{{ $manualKompensasiNotes }}">
-                    {{ $manualKompensasiNotes ?: 'Tidak ada catatan' }}
-                </p>
-            </div>
-
-            {{-- Card 4: Saldo Akhir --}}
-            <div
-                class="rounded-lg border-2 p-4 {{ $statusSetelah === 'Lebih Bayar' ? 'border-green-500 bg-green-50 dark:border-green-600 dark:bg-green-500/10' : ($statusSetelah === 'Kurang Bayar' ? 'border-orange-500 bg-orange-50 dark:border-orange-600 dark:bg-orange-500/10' : 'border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-900') }}">
-                <div class="mb-2 flex items-center gap-2">
-                    <span
-                        class="flex h-6 w-6 items-center justify-center rounded-full {{ $statusSetelah === 'Lebih Bayar' ? 'bg-green-100 dark:bg-green-500/20' : ($statusSetelah === 'Kurang Bayar' ? 'bg-orange-100 dark:bg-orange-500/20' : 'bg-gray-100 dark:bg-gray-800') }} text-xs font-semibold">
-                        <x-filament::icon icon="heroicon-m-check"
-                            class="h-3.5 w-3.5 {{ $statusSetelah === 'Lebih Bayar' ? 'text-green-700 dark:text-green-400' : ($statusSetelah === 'Kurang Bayar' ? 'text-orange-700 dark:text-orange-400' : 'text-gray-600 dark:text-gray-400') }}" />
-                    </span>
-                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Saldo Akhir</span>
-                </div>
-                <p
-                    class="text-xl font-bold {{ $statusSetelah === 'Lebih Bayar' ? 'text-green-700 dark:text-green-400' : ($statusSetelah === 'Kurang Bayar' ? 'text-orange-700 dark:text-orange-400' : 'text-gray-900 dark:text-white') }}">
-                    Rp {{ number_format(abs($saldoSetelahKompensasi), 0, ',', '.') }}
-                </p>
-                <div class="mt-2 flex items-center gap-1.5">
-                    <div
-                        class="h-1.5 w-1.5 rounded-full {{ $statusSetelah === 'Lebih Bayar' ? 'bg-green-500' : ($statusSetelah === 'Kurang Bayar' ? 'bg-orange-500' : 'bg-gray-400') }}">
-                    </div>
-                    <span
-                        class="text-xs font-medium {{ $statusSetelah === 'Lebih Bayar' ? 'text-green-700 dark:text-green-400' : ($statusSetelah === 'Kurang Bayar' ? 'text-orange-700 dark:text-orange-400' : 'text-gray-600 dark:text-gray-400') }}">
-                        {{ $statusSetelah }}
-                    </span>
-                </div>
-            </div>
+    {{-- Summary: one card split into cells --}}
+    <div class="kis-sumstrip">
+        <div class="kis-sumstrip__cell">
+            <span class="kis-sumstrip__label">Selisih sebelum kompensasi</span>
+            <b class="kis-sumstrip__value">{{ $rp($saldoSebelumKompensasi) }}</b>
+            <span class="kis-sumstrip__meta">{{ $statusText($statusSebelum) }}</span>
         </div>
-
-        {{-- Calculation Formula --}}
-        @if($manualKompensasi > 0)
-        <div class="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-500/5">
-            <div class="flex items-center gap-2 text-sm">
-                <x-filament::icon icon="heroicon-o-calculator" class="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span class="font-medium text-gray-700 dark:text-gray-300">Formula:</span>
-                <span class="text-gray-600 dark:text-gray-400">
-                    {{ number_format(abs($saldoSebelumKompensasi), 0, ',', '.') }}
-                    - {{ number_format($kompensasiDiterima, 0, ',', '.') }}
-                    - {{ number_format($manualKompensasi, 0, ',', '.') }}
-                    = <strong>{{ number_format(abs($saldoSetelahKompensasi), 0, ',', '.') }}</strong>
-                </span>
-            </div>
+        <div class="kis-sumstrip__cell">
+            <span class="kis-sumstrip__label">Kompensasi diterima</span>
+            <b class="kis-sumstrip__value">{{ $rp($kompensasiDiterima) }}</b>
+            <span class="kis-sumstrip__meta">{{ $receivedCompensations->count() }} transaksi</span>
         </div>
-        @endif
+        <div class="kis-sumstrip__cell">
+            <span class="kis-sumstrip__label">
+                Kompensasi manual
+                <button type="button" wire:click="openManualKompensasiForm" class="kis-ledger__edit">Ubah</button>
+            </span>
+            <b class="kis-sumstrip__value">{{ $rp($manualKompensasi) }}</b>
+            <span class="kis-sumstrip__meta" title="{{ $manualKompensasiNotes }}">{{ $manualKompensasiNotes ? \Illuminate\Support\Str::limit($manualKompensasiNotes, 48) : 'Tanpa catatan' }}</span>
+        </div>
+        <div class="kis-sumstrip__cell">
+            <span class="kis-sumstrip__label">Saldo akhir</span>
+            <b @class(['kis-sumstrip__value', 'is-bad' => $statusSetelah === 'Kurang Bayar'])>{{ $rp($saldoSetelahKompensasi) }}</b>
+            <span class="kis-sumstrip__meta"><x-kis.badge :tone="Tone::forPaymentStatus($statusSetelah)" dot size="sm">{{ $statusText($statusSetelah) }}</x-kis.badge></span>
+        </div>
     </div>
 
-    {{-- ============================================
-    STALE COMPENSATION WARNING BANNER
-    ============================================ --}}
-    @if($this->staleGivenCompensations->isNotEmpty())
-    <div class="rounded-xl border {{ $this->isOverCompensated ? 'border-red-300 bg-red-50 dark:border-red-700 dark:bg-red-950/40' : 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40' }} p-4">
-        <div class="flex items-start gap-3">
-            <div class="flex-shrink-0 mt-0.5">
-                @if($this->isOverCompensated)
-                <x-filament::icon icon="heroicon-o-exclamation-triangle" class="h-5 w-5 text-red-600 dark:text-red-400" />
-                @else
-                <x-filament::icon icon="heroicon-o-information-circle" class="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                @endif
-            </div>
-            <div class="flex-1 min-w-0">
-                <p class="text-sm font-semibold {{ $this->isOverCompensated ? 'text-red-800 dark:text-red-200' : 'text-amber-800 dark:text-amber-200' }}">
-                    @if($this->isOverCompensated)
-                        Kompensasi Melebihi Surplus Terkini
+    {{-- Approved compensation no longer matches the surplus (invoices changed afterwards) --}}
+    @if ($this->staleGivenCompensations->isNotEmpty())
+        <div @class(['kis-callout', 'is-red' => $this->isOverCompensated]) role="alert">
+            <x-filament::icon :icon="$this->isOverCompensated ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-information-circle'" class="kis-callout__icon" />
+            <div class="kis-callout__body">
+                <p class="kis-callout__title">{{ $this->isOverCompensated ? 'Kompensasi melebihi lebih bayar terbaru' : 'Kompensasi tidak sama dengan lebih bayar terbaru' }}</p>
+                <p>
+                    @if ($this->isOverCompensated)
+                        Faktur yang berubah mengurangi lebih bayar, sehingga kompensasi yang sudah disetujui <b>melebihi saldo tersedia</b>. Revisi supaya datanya konsisten.
                     @else
-                        Nilai Kompensasi Tidak Sesuai Surplus Terkini
+                        Faktur yang berubah mengubah lebih bayar periode ini. Kompensasi yang disetujui berbeda dengan angka terbaru; pertimbangkan merevisinya.
                     @endif
                 </p>
-                <p class="mt-1 text-xs {{ $this->isOverCompensated ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300' }}">
-                    @if($this->isOverCompensated)
-                        Penambahan faktur telah mengubah surplus sehingga jumlah kompensasi yang sudah disetujui
-                        <strong>melebihi saldo tersedia</strong>. Revisi diperlukan untuk menjaga konsistensi data.
-                    @else
-                        Penambahan faktur mengubah surplus periode ini. Jumlah kompensasi yang disetujui
-                        berbeda dengan surplus terkini. Pertimbangkan untuk merevisi.
-                    @endif
-                </p>
-                <div class="mt-3 flex flex-wrap gap-2">
-                    @foreach($this->staleGivenCompensations as $staleComp)
-                    <button wire:click="openReviseModal({{ $staleComp->id }})"
-                        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors
-                            {{ $this->isOverCompensated
-                                ? 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600'
-                                : 'bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-700 dark:hover:bg-amber-600' }}">
-                        <x-filament::icon icon="heroicon-m-pencil-square" class="h-3.5 w-3.5" />
-                        Revisi ke {{ $staleComp->targetTaxReport->month }}
-                        (Rp {{ number_format($staleComp->amount_compensated, 0, ',', '.') }})
-                    </button>
+                <div class="kis-callout__actions">
+                    @foreach ($this->staleGivenCompensations as $staleComp)
+                        <button type="button" wire:click="openReviseModal({{ $staleComp->id }})" class="kis-btn kis-btn--sm kis-btn--outline">
+                            Revisi ke {{ $period($staleComp->targetTaxReport) }} ({{ $rp($staleComp->amount_compensated) }})
+                        </button>
                     @endforeach
                 </div>
             </div>
         </div>
-    </div>
     @endif
 
-    {{-- ============================================
-    SECTION 2: NEXT PERIOD COMPENSATION
-    ============================================ --}}
-    @if($statusSetelah === 'Lebih Bayar' && $kompensasiTersedia > 0)
-    <div class="space-y-4">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-            Kompensasi ke Periode Berikutnya
-        </h2>
-
-        @if($nextMonthExists)
-        {{-- Next Month Card --}}
-        <div
-            class="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-6 dark:border-gray-700 dark:from-gray-900 dark:to-gray-800">
-            {{-- Header --}}
-            <div class="mb-6 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <div
-                        class="flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/20">
-                        <x-filament::icon icon="heroicon-o-calendar-days" class="h-7 w-7 text-white" />
+    {{-- Carry-over to the next period --}}
+    <section class="kis-card kis-carry">
+        <div class="kis-carry__main">
+            <span class="kis-carry__eyebrow">Kompensasi ke periode berikutnya</span>
+            @if ($statusSetelah === 'Lebih Bayar' && $kompensasiTersedia > 0)
+                @if ($nextMonthExists)
+                    <h3 class="kis-carry__title">{{ $rp($maxCompensationAmount) }} bisa dikompensasikan ke {{ $nextLabel }}</h3>
+                    <p class="kis-carry__text">{{ $this->compensationTypeDescription }}.</p>
+                    <div class="kis-carry__flow">
+                        <span class="kis-carry__box"><b>{{ $here }}</b><small>Lebih bayar {{ $rp($saldoSetelahKompensasi) }} · sisa {{ $rp($kompensasiTersedia) }}</small></span>
+                        <x-heroicon-m-arrow-right class="kis-carry__arrow" />
+                        <span class="kis-carry__box"><b>{{ $nextLabel }}</b><small>{{ $statusText($this->nextMonthInfo['status']) }} {{ $this->nextMonthInfo['formatted_saldo'] }}</small></span>
                     </div>
-                    <div>
-                        <h3 class="text-xl font-bold text-gray-900 dark:text-white">
-                            {{ $this->nextMonthInfo['month'] }} {{ $this->nextMonthInfo['year'] }}
-                        </h3>
-                        <p class="text-sm text-gray-600 dark:text-gray-400">
-                            Periode target kompensasi
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Info Grid --}}
-            <div class="mb-6 grid gap-4 md:grid-cols-3">
-                {{-- Status Card --}}
-                <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                    <div class="flex items-center gap-2 mb-2">
-                        <x-filament::icon icon="heroicon-o-clipboard-document-check" class="h-4 w-4 text-gray-400" />
-                        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Status Periode</span>
-                    </div>
-                    <p class="text-lg font-bold text-gray-900 dark:text-white">
-                        {{ $this->nextMonthInfo['status'] }}
-                    </p>
-                </div>
-
-                {{-- Current Balance Card --}}
-                <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                    <div class="flex items-center gap-2 mb-2">
-                        <x-filament::icon icon="heroicon-o-banknotes" class="h-4 w-4 text-gray-400" />
-                        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">Saldo Saat Ini</span>
-                    </div>
-                    <p class="text-lg font-bold text-gray-900 dark:text-white">
-                        {{ $this->nextMonthInfo['formatted_saldo'] }}
-                    </p>
-                </div>
-
-                {{-- Available to Compensate Card --}}
-                <div
-                    class="rounded-lg border-2 border-green-200 bg-gradient-to-br from-green-50 to-emerald-50 p-4 dark:border-green-800 dark:from-green-950 dark:to-emerald-950">
-                    <div class="flex items-center gap-2 mb-2">
-                        <x-filament::icon icon="heroicon-o-arrow-trending-up"
-                            class="h-4 w-4 text-green-600 dark:text-green-400" />
-                        <span class="text-xs font-medium text-green-700 dark:text-green-300">Dapat Dikompensasi</span>
-                    </div>
-                    <p class="text-lg font-bold text-green-700 dark:text-green-300">
-                        Rp {{ number_format($maxCompensationAmount, 0, ',', '.') }}
-                    </p>
-                </div>
-            </div>
-
-            {{-- Description Box --}}
-            <div class="mb-6 rounded-lg border border-blue-100 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-950/30">
-                <div class="flex gap-3">
-                    <x-filament::icon icon="heroicon-o-information-circle"
-                        class="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                    <div class="text-sm text-blue-900 dark:text-blue-100">
-                        <p class="font-medium mb-1">{{ $this->compensationTypeDescription }}</p>
-                        <p class="text-xs text-blue-700 dark:text-blue-300">
-                            Kompensasi akan mengurangi pajak terutang periode {{ $this->nextMonthInfo['month'] }}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Action Button --}}
-            @if($this->canCreateCompensation)
-            <div class="flex justify-end">
-                <x-filament::button wire:click="openCompensationModal" icon="heroicon-m-arrow-right-circle" size="lg">
-                    Buat Kompensasi ke {{ $this->nextMonthInfo['month'] }}
-                </x-filament::button>
-            </div>
-            @endif
-        </div>
-        @else
-        {{-- Next Month Not Created Yet --}}
-        <div
-            class="rounded-xl border-2 border-dashed border-orange-200 bg-orange-50/50 p-8 text-center dark:border-orange-800 dark:bg-orange-950/20">
-            <div
-                class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/30">
-                <x-filament::icon icon="heroicon-o-calendar-days"
-                    class="h-8 w-8 text-orange-600 dark:text-orange-400" />
-            </div>
-            <h3 class="text-base font-semibold text-gray-900 dark:text-white mb-2">
-                Periode Berikutnya Belum Dibuat
-            </h3>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Buat laporan pajak untuk bulan berikutnya terlebih dahulu untuk dapat menggunakan kompensasi lebih bayar
-            </p>
-            <div class="inline-flex items-center gap-2 text-xs text-orange-700 dark:text-orange-300">
-                <x-filament::icon icon="heroicon-m-arrow-right" class="h-4 w-4" />
-                <span>Anda dapat membuat periode baru di menu Laporan Pajak</span>
-            </div>
-        </div>
-        @endif
-    </div>
-    @endif
-
-    {{-- ============================================
-    SECTION 3: COMPENSATION HISTORY
-    ============================================ --}}
-    <div class="space-y-4" x-data="{ activeTab: 'received' }">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-            Riwayat Kompensasi
-        </h2>
-
-        {{-- Tab Navigation --}}
-        <div class="border-b border-gray-200 dark:border-gray-700">
-            <nav class="-mb-px flex gap-6">
-                <button @click="activeTab = 'received'"
-                    :class="activeTab === 'received' ? 'border-gray-900 text-gray-900 dark:border-white dark:text-white' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'"
-                    class="flex items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium">
-                    <x-filament::icon icon="heroicon-o-arrow-down-circle" class="h-5 w-5" />
-                    <span>Diterima</span>
-                    <span
-                        :class="activeTab === 'received' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-600 dark:bg-gray-800'"
-                        class="rounded-full px-2 py-0.5 text-xs font-medium">
-                        {{ $receivedCompensations->count() }}
-                    </span>
-                </button>
-
-                <button @click="activeTab = 'given'"
-                    :class="activeTab === 'given' ? 'border-gray-900 text-gray-900 dark:border-white dark:text-white' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'"
-                    class="flex items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium">
-                    <x-filament::icon icon="heroicon-o-arrow-right-circle" class="h-5 w-5" />
-                    <span>Diberikan</span>
-                    <span
-                        :class="activeTab === 'given' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-600 dark:bg-gray-800'"
-                        class="rounded-full px-2 py-0.5 text-xs font-medium">
-                        {{ $givenCompensations->count() }}
-                    </span>
-                </button>
-            </nav>
-        </div>
-
-        {{-- Received Compensations Tab --}}
-        <div x-show="activeTab === 'received'" x-transition>
-            @if($receivedCompensations->isEmpty())
-            <div
-                class="rounded-lg border border-gray-200 bg-white p-12 text-center dark:border-gray-700 dark:bg-gray-900">
-                <x-filament::icon icon="heroicon-o-inbox" class="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Belum Ada Kompensasi Diterima</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Periode ini belum menerima kompensasi dari periode sebelumnya
-                </p>
-            </div>
+                @else
+                    <h3 class="kis-carry__title">Laporan {{ $nextLabel }} belum dibuat</h3>
+                    <p class="kis-carry__text">Lebih bayar {{ $rp($kompensasiTersedia) }} baru bisa dikompensasikan setelah laporan pajak {{ $nextLabel }} dibuat di menu Laporan Pajak.</p>
+                @endif
             @else
-            <div class="space-y-3">
-                @foreach($receivedCompensations as $compensation)
-                <div
-                    class="rounded-lg border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow dark:border-gray-700 dark:bg-gray-900">
-                    <div class="mb-3 flex items-center gap-3">
-                        <span class="text-xs text-gray-500 dark:text-gray-400">
-                            Dari: <span class="font-medium text-gray-900 dark:text-white">{{
-                                $compensation->sourceTaxReport->month }}</span>
-                        </span>
-                        <span class="text-xs text-gray-400">•</span>
-                        <span class="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                            <x-filament::icon icon="heroicon-m-check-circle" class="h-3.5 w-3.5" />
-                            Disetujui
-                        </span>
-                    </div>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                        Rp {{ number_format($compensation->amount_compensated, 0, ',', '.') }}
-                    </p>
-                    @if($compensation->notes)
-                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        {{ $compensation->notes }}
-                    </p>
+                <h3 class="kis-carry__title">Tidak ada lebih bayar untuk dikompensasikan</h3>
+                <p class="kis-carry__text">
+                    Kompensasi hanya bisa dibuat saat saldo akhir lebih bayar.
+                    @if ($statusSetelah === 'Lebih Bayar')
+                        Seluruh lebih bayar {{ $here }} sudah dikompensasikan.
+                    @else
+                        Saldo {{ $here }}: {{ mb_strtolower($statusText($statusSetelah)) }}{{ $statusSetelah === 'Nihil' ? '' : ' ' . $rp($saldoSetelahKompensasi) }}.
                     @endif
-                    <div class="mt-3 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                        <span>{{ $compensation->created_at->format('d M Y H:i') }}</span>
-                        @if($compensation->approvedBy)
-                        <span>•</span>
-                        <span>{{ $compensation->approvedBy->name }}</span>
-                        @endif
-                    </div>
-                </div>
-                @endforeach
-            </div>
-            @endif
-        </div>
-
-        {{-- Given Compensations Tab --}}
-        <div x-show="activeTab === 'given'" x-transition>
-            @if($givenCompensations->isEmpty())
-            <div
-                class="rounded-lg border border-gray-200 bg-white p-12 text-center dark:border-gray-700 dark:bg-gray-900">
-                <x-filament::icon icon="heroicon-o-inbox" class="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Belum Ada Kompensasi Diberikan</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    Periode ini belum memberikan kompensasi ke periode berikutnya
                 </p>
-            </div>
-            @else
-            <div class="space-y-3">
-                @foreach($givenCompensations as $compensation)
-                <div
-                    class="rounded-lg border border-gray-200 bg-white p-5 hover:shadow-md transition-shadow dark:border-gray-700 dark:bg-gray-900">
-                    <div class="flex items-start justify-between gap-4">
-                        <div class="flex-1">
-                            <div class="mb-3 flex items-center gap-3">
-                                <span class="text-xs text-gray-500 dark:text-gray-400">
-                                    Ke: <span class="font-medium text-gray-900 dark:text-white">{{
-                                        $compensation->targetTaxReport->month }}</span>
-                                </span>
-                                <span class="text-xs text-gray-400">•</span>
-                                @if($compensation->status === 'pending')
-                                <span class="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
-                                    <x-filament::icon icon="heroicon-m-clock" class="h-3.5 w-3.5" />
-                                    Menunggu
-                                </span>
-                                @elseif($compensation->status === 'approved')
-                                <span class="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                                    <x-filament::icon icon="heroicon-m-check-circle" class="h-3.5 w-3.5" />
-                                    Disetujui
-                                </span>
-                                @elseif($compensation->status === 'rejected')
-                                <span class="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
-                                    <x-filament::icon icon="heroicon-m-x-circle" class="h-3.5 w-3.5" />
-                                    Ditolak
-                                </span>
-                                @endif
-                            </div>
-
-                            <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                                Rp {{ number_format($compensation->amount_compensated, 0, ',', '.') }}
-                            </p>
-
-                            @if($compensation->notes)
-                            <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                {{ $compensation->notes }}
-                            </p>
-                            @endif
-
-                            @if($compensation->status === 'rejected' && $compensation->rejection_reason)
-                            <div
-                                class="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-500/10">
-                                <p class="text-xs font-medium text-red-900 dark:text-red-200">Alasan Penolakan:</p>
-                                <p class="mt-1 text-sm text-red-700 dark:text-red-300">{{
-                                    $compensation->rejection_reason }}</p>
-                            </div>
-                            @endif
-
-                            @if($compensation->targetTaxReport->ppnSummary)
-                            <div
-                                class="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
-                                <p class="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">Info Periode
-                                    Target:</p>
-                                <div class="grid grid-cols-2 gap-3 text-sm">
-                                    <div>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400">Status</p>
-                                        <p class="font-semibold text-gray-900 dark:text-white">
-                                            {{ $compensation->targetTaxReport->ppnSummary->status_final }}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p class="text-xs text-gray-500 dark:text-gray-400">Saldo</p>
-                                        <p class="font-semibold text-gray-900 dark:text-white">
-                                            Rp {{
-                                            number_format(abs($compensation->targetTaxReport->ppnSummary->saldo_final),
-                                            0, ',', '.') }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                            @endif
-
-                            <div class="mt-3 flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                                <span>{{ $compensation->created_at->format('d M Y H:i') }}</span>
-                                @if($compensation->approvedBy)
-                                <span>•</span>
-                                <span>{{ $compensation->approvedBy->name }}</span>
-                                @endif
-                            </div>
-                        </div>
-
-                        @if($compensation->status === 'pending')
-                        <div class="flex flex-col gap-2">
-                            <x-filament::button wire:click="openApproveModal({{ $compensation->id }})" color="success"
-                                size="sm" icon="heroicon-m-check">
-                                Setujui
-                            </x-filament::button>
-                            <x-filament::button wire:click="openRejectModal({{ $compensation->id }})" color="danger"
-                                size="sm" icon="heroicon-m-x-mark">
-                                Tolak
-                            </x-filament::button>
-                            <x-filament::button wire:click="cancelCompensation({{ $compensation->id }})"
-                                wire:confirm="Yakin ingin membatalkan?" color="gray" size="sm" icon="heroicon-m-trash">
-                                Batal
-                            </x-filament::button>
-                        </div>
-                        @elseif($compensation->status === 'approved')
-                        <div class="flex flex-col gap-2">
-                            <x-filament::button wire:click="openReviseModal({{ $compensation->id }})"
-                                color="warning" size="sm" icon="heroicon-m-pencil-square">
-                                Revisi
-                            </x-filament::button>
-                            <x-filament::button wire:click="cancelCompensation({{ $compensation->id }})"
-                                wire:confirm="Yakin ingin membatalkan kompensasi yang sudah disetujui ini?"
-                                color="gray" size="sm" icon="heroicon-m-trash">
-                                Batal
-                            </x-filament::button>
-                        </div>
-                        @endif
-                    </div>
-                </div>
-                @endforeach
-            </div>
             @endif
         </div>
-    </div>
+        @if ($this->canCreateCompensation)
+            <x-filament::button wire:click="openCompensationModal" icon="heroicon-m-arrow-right">
+                Buat kompensasi ke {{ TaxPeriod::name($nextIndex) }}
+            </x-filament::button>
+        @elseif ($statusSetelah === 'Lebih Bayar' && $kompensasiTersedia > 0 && $nextMonthExists)
+            <span class="kis-carry__hint">Masih ada kompensasi yang menunggu persetujuan</span>
+        @endif
+    </section>
+
+    {{-- History --}}
+    <section x-data="{ list: @js($givenCompensations->where('status', 'pending')->isNotEmpty() ? 'given' : 'received') }">
+        <div class="kis-komp__head">
+            <h3 class="kis-card__title">Riwayat kompensasi</h3>
+            <div class="kis-rail__wrap kis-komp__seg" role="tablist" aria-label="Riwayat kompensasi">
+                <button type="button" role="tab" class="kis-rail__chip" x-bind:class="list === 'received' && 'is-on'" x-bind:aria-selected="list === 'received'" x-on:click="list = 'received'">
+                    Diterima <em>{{ $receivedCompensations->count() }}</em>
+                </button>
+                <button type="button" role="tab" class="kis-rail__chip" x-bind:class="list === 'given' && 'is-on'" x-bind:aria-selected="list === 'given'" x-on:click="list = 'given'">
+                    Diberikan <em>{{ $givenCompensations->count() }}</em>
+                </button>
+            </div>
+        </div>
+
+        {{-- Received --}}
+        <div class="kis-card kis-tbl" x-show="list === 'received'" @style(['display: none' => $givenCompensations->where('status', 'pending')->isNotEmpty()])>
+            @if ($receivedCompensations->isEmpty())
+                <p class="kis-tbl__empty"><b>Belum ada kompensasi diterima.</b> {{ $here }} belum menerima kompensasi dari periode sebelumnya.</p>
+            @else
+                <table>
+                    <thead>
+                        <tr><th>Dari periode</th><th class="is-num">Jumlah</th><th>Status</th><th>Catatan</th><th>Disetujui</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($receivedCompensations as $compensation)
+                            <tr wire:key="komp-in-{{ $compensation->id }}">
+                                <td><span class="kis-tbl__primary">{{ $period($compensation->sourceTaxReport) }}</span></td>
+                                <td class="is-num"><b>{{ $rp($compensation->amount_compensated) }}</b></td>
+                                <td><x-kis.badge tone="blue" dot size="sm">Disetujui</x-kis.badge></td>
+                                <td class="kis-tbl__wrap">{{ $compensation->notes ?: '–' }}</td>
+                                <td>
+                                    <span class="kis-tbl__primary">{{ $compensation->approvedBy?->name ?? '–' }}</span>
+                                    <span class="kis-tbl__meta">{{ TaxPeriod::date($compensation->created_at) }}, {{ $compensation->created_at->format('H:i') }}</span>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+        </div>
+
+        {{-- Given --}}
+        <div class="kis-card kis-tbl" x-show="list === 'given'" @style(['display: none' => $givenCompensations->where('status', 'pending')->isEmpty()])>
+            @if ($givenCompensations->isEmpty())
+                <p class="kis-tbl__empty"><b>Belum ada kompensasi diberikan.</b> {{ $here }} belum memberi kompensasi ke periode berikutnya.</p>
+            @else
+                <table>
+                    <thead>
+                        <tr><th>Ke periode</th><th class="is-num">Jumlah</th><th>Status</th><th>Catatan</th><th>Dibuat</th><th><span class="sr-only">Aksi</span></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($givenCompensations as $compensation)
+                            @php
+                                [$label, $tone] = $compStatus[$compensation->status] ?? [$compensation->status, Tone::NEUTRAL];
+                                $target = $compensation->targetTaxReport;
+                            @endphp
+                            <tr wire:key="komp-out-{{ $compensation->id }}">
+                                <td>
+                                    <span class="kis-tbl__primary">{{ $period($target) }}</span>
+                                    @if ($target?->ppnSummary)
+                                        <span class="kis-tbl__meta">{{ $statusText($target->ppnSummary->status_final) }} {{ $rp($target->ppnSummary->saldo_final) }}</span>
+                                    @endif
+                                </td>
+                                <td class="is-num"><b>{{ $rp($compensation->amount_compensated) }}</b></td>
+                                <td>
+                                    <x-kis.badge :tone="$tone" dot size="sm">{{ $label }}</x-kis.badge>
+                                    @if ($compensation->status === 'rejected' && $compensation->rejection_reason)
+                                        <span class="kis-tbl__meta is-bad">{{ $compensation->rejection_reason }}</span>
+                                    @endif
+                                </td>
+                                <td class="kis-tbl__wrap">{{ $compensation->notes ?: '–' }}</td>
+                                <td>
+                                    <span class="kis-tbl__primary">{{ TaxPeriod::date($compensation->created_at) }}</span>
+                                    <span class="kis-tbl__meta">{{ $compensation->approvedBy?->name ? 'Disetujui ' . $compensation->approvedBy->name : $compensation->createdBy?->name }}</span>
+                                </td>
+                                <td class="kis-tbl__actions">
+                                    @if ($compensation->status === 'pending')
+                                        <x-filament::button size="sm" wire:click="openApproveModal({{ $compensation->id }})" icon="heroicon-m-check">Setujui</x-filament::button>
+                                        <x-filament::button size="sm" color="gray" wire:click="openRejectModal({{ $compensation->id }})">Tolak</x-filament::button>
+                                        <x-filament::button size="sm" color="gray" wire:click="cancelCompensation({{ $compensation->id }})" wire:confirm="Batalkan kompensasi ini?">Batal</x-filament::button>
+                                    @elseif ($compensation->status === 'approved')
+                                        <x-filament::button size="sm" color="gray" wire:click="openReviseModal({{ $compensation->id }})" icon="heroicon-m-pencil-square">Revisi</x-filament::button>
+                                        <x-filament::button size="sm" color="gray" wire:click="cancelCompensation({{ $compensation->id }})" wire:confirm="Batalkan kompensasi yang sudah disetujui ini?">Batal</x-filament::button>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+        </div>
+    </section>
 
     {{-- ============================================
     MODALS
@@ -501,7 +216,7 @@
                     <x-filament::icon icon="heroicon-o-pencil-square"
                         class="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
-                <span>Edit Kompensasi Manual</span>
+                <span>Ubah kompensasi manual</span>
             </div>
         </x-slot>
 
@@ -588,20 +303,20 @@
                     $predictedSaldo = $saldoSebelumKompensasi - $kompensasiDiterima - $tempManualKompensasi;
                     $predictedStatus = $predictedSaldo > 0 ? 'Kurang Bayar' : ($predictedSaldo < 0 ? 'Lebih Bayar'
                         : 'Nihil' ); $statusColor=$predictedStatus==='Lebih Bayar'
-                        ? 'text-green-600 dark:text-green-400' : ($predictedStatus==='Kurang Bayar'
-                        ? 'text-orange-600 dark:text-orange-400' : 'text-gray-600 dark:text-gray-400' );
-                        $bgColor=$predictedStatus==='Lebih Bayar' ? 'bg-green-50 dark:bg-green-500/10' :
-                        ($predictedStatus==='Kurang Bayar' ? 'bg-orange-50 dark:bg-orange-500/10'
+                        ? 'text-primary-700 dark:text-primary-300' : ($predictedStatus==='Kurang Bayar'
+                        ? 'text-danger-700 dark:text-danger-300' : 'text-gray-600 dark:text-gray-400' );
+                        $bgColor=$predictedStatus==='Lebih Bayar' ? 'bg-primary-50 dark:bg-primary-500/10' :
+                        ($predictedStatus==='Kurang Bayar' ? 'bg-danger-50 dark:bg-danger-500/10'
                         : 'bg-gray-50 dark:bg-gray-800' ); $borderColor=$predictedStatus==='Lebih Bayar'
-                        ? 'border-green-200 dark:border-green-800' : ($predictedStatus==='Kurang Bayar'
-                        ? 'border-orange-200 dark:border-orange-800' : 'border-gray-200 dark:border-gray-700' ); @endphp
+                        ? 'border-primary-200 dark:border-primary-800' : ($predictedStatus==='Kurang Bayar'
+                        ? 'border-danger-200 dark:border-danger-800' : 'border-gray-200 dark:border-gray-700' ); @endphp
                         <div class="rounded-lg border p-3 {{ $borderColor }} {{ $bgColor }}">
                         <div class="flex justify-between items-center">
                             <div class="flex items-center gap-2">
                                 <span class="font-semibold text-gray-900 dark:text-white">Saldo Akhir:</span>
                                 <div class="flex items-center gap-1.5">
                                     <div
-                                        class="h-1.5 w-1.5 rounded-full {{ $predictedStatus === 'Lebih Bayar' ? 'bg-green-500' : ($predictedStatus === 'Kurang Bayar' ? 'bg-orange-500' : 'bg-gray-400') }}">
+                                        class="h-1.5 w-1.5 rounded-full {{ $predictedStatus === 'Lebih Bayar' ? 'bg-primary-500' : ($predictedStatus === 'Kurang Bayar' ? 'bg-danger-500' : 'bg-gray-400') }}">
                                     </div>
                                     <span class="text-xs font-medium {{ $statusColor }}">{{ $predictedStatus }}</span>
                                 </div>
@@ -671,7 +386,7 @@
                 <div>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Periode Saat Ini</p>
                     <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">{{ $taxReport->month }}</p>
-                    <span class="mt-1 text-xs text-green-600 dark:text-green-400">{{ $statusSetelah }}</span>
+                    <span class="mt-1 text-xs text-primary-700 dark:text-primary-300">{{ $statusSetelah }}</span>
                 </div>
                 <div>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Periode Target</p>
@@ -744,8 +459,8 @@
 <x-filament::modal id="approve-compensation-modal" width="md">
     <x-slot name="heading">
         <div class="flex items-center gap-3">
-            <div class="rounded-lg bg-green-100 p-2 dark:bg-green-500/20">
-                <x-filament::icon icon="heroicon-o-check-circle" class="h-6 w-6 text-green-600 dark:text-green-400" />
+            <div class="rounded-lg bg-primary-100 p-2 dark:bg-primary-500/20">
+                <x-filament::icon icon="heroicon-o-check-circle" class="h-6 w-6 text-primary-700 dark:text-primary-300" />
             </div>
             <span>Setujui Kompensasi</span>
         </div>
@@ -761,7 +476,7 @@
         <x-filament::button color="gray" x-on:click="$dispatch('close-modal', { id: 'approve-compensation-modal' })">
             Batal
         </x-filament::button>
-        <x-filament::button color="success" wire:click="approveCompensation">
+        <x-filament::button color="primary" wire:click="approveCompensation">
             Ya, Setujui
         </x-filament::button>
     </x-slot>
@@ -825,12 +540,12 @@
                     ke {{ $rc->targetTaxReport->month }}
                 </p>
             </div>
-            <div class="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-800 dark:bg-green-950/40">
-                <p class="text-xs text-green-700 dark:text-green-300 mb-1">Surplus Terkini</p>
-                <p class="text-lg font-bold text-green-700 dark:text-green-300">
+            <div class="rounded-lg border border-primary-200 bg-primary-50 p-3 dark:border-primary-800 dark:bg-primary-950/40">
+                <p class="text-xs text-primary-700 dark:text-primary-300 mb-1">Surplus Terkini</p>
+                <p class="text-lg font-bold text-primary-700 dark:text-primary-300">
                     Rp {{ number_format($this->taxReport->ppnSummary?->kompensasi_tersedia ?? 0, 0, ',', '.') }}
                 </p>
-                <p class="text-xs text-green-600 dark:text-green-400 mt-1">
+                <p class="text-xs text-primary-700 dark:text-primary-300 mt-1">
                     tersedia untuk dikompensasi
                 </p>
             </div>
@@ -882,7 +597,7 @@
     </div>
 
     <x-slot name="footerActions">
-        <x-filament::button wire:click="confirmRevise" color="warning" icon="heroicon-m-pencil-square">
+        <x-filament::button wire:click="confirmRevise" color="primary" icon="heroicon-m-pencil-square">
             Konfirmasi Revisi
         </x-filament::button>
         <x-filament::button color="gray"

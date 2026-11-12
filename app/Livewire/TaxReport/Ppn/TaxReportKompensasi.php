@@ -55,6 +55,9 @@ class TaxReportKompensasi extends Component
         'refreshKompensasi' => 'loadData',
         'compensationCreated' => 'loadData',
         'compensationUpdated' => 'loadData',
+        'tax-report-changed' => 'loadData',
+        // "Ubah" on the PPN calculation ledger.
+        'open-manual-kompensasi' => 'openManualKompensasiForm',
     ];
 
     /**
@@ -253,6 +256,8 @@ class TaxReportKompensasi extends Component
             $this->dispatch('close-modal', id: 'manual-kompensasi-modal');
             $this->editingManualKompensasi = false;
             $this->loadData();
+            // The PPN ledger and the page strip show the saldo too.
+            $this->dispatch('tax-report-changed');
             
         } catch (\Exception $e) {
             Notification::make()

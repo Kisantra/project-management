@@ -369,71 +369,51 @@ class BupotsRelationManager extends RelationManager
             ]);
     }
 
+    /** Bupot count and status on the tax report page follow the table. */
+    public function bupotsChanged(): void
+    {
+        $this->dispatch('tax-report-changed', taxReportId: $this->getOwnerRecord()->getKey());
+    }
+
     public function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with('createdBy'))
+            ->heading('Bukti potong PPh Unifikasi')
             ->recordTitleAttribute('company_name')
             ->columns([
-                Tables\Columns\ImageColumn::make('user_avatar')
-                    ->label('Dibuat Oleh')
-                    ->circular()
-                    ->state(function ($record) {
-                        // If we have a created_by value
-                        if ($record->created_by) {
-                            $user = \App\Models\User::find($record->created_by);
-                            if ($user && method_exists($user, 'getAvatarUrl')) {
-                                return $user->getAvatarUrl();
-                            }
-                        }
-                        return null;
-                    })
-                    ->defaultImageUrl(asset('images/default-avatar.png'))
-                    ->size(40)
-                    ->tooltip(function ($record): string {
-                        if ($record->created_by) {
-                            $user = \App\Models\User::find($record->created_by);
-                            return $user ? $user->name : 'User #' . $record->created_by;
-                        }
-                        return 'System';
-                    })
-                    ->defaultImageUrl(asset('images/default-avatar.png'))
-                    ->size(40)
-                    ->tooltip(function ($record): string {
-                        return $record->creator?->name ?? 'System';
-                    }),
                 Tables\Columns\TextColumn::make('company_name')
-                    ->label('Nama Perusahaan')
+                    ->label('Lawan transaksi')
+                    ->weight('semibold')
+                    ->description(fn ($record) => \App\Livewire\Clients\ClientListClickup::formatNpwp($record->npwp))
                     ->searchable()
-                    ->badge()
-                    ->color('gray')
                     ->sortable(),
-                    
+                // Shown under the counterparty; kept as a column so it stays searchable.
                 Tables\Columns\TextColumn::make('npwp')
                     ->label('NPWP')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                     
-                Tables\Columns\BadgeColumn::make('bupot_type')
-                    ->label('Jenis Bukti Potong')
-                    ->colors([
-                        'success' => 'Bupot Keluaran',
-                        'warning' => 'Bupot Masukan',
-                    ]),
-                    
-                Tables\Columns\BadgeColumn::make('pph_type')
-                    ->label('Jenis PPh')
-                    ->colors([
-                        'primary' => 'PPh 21',
-                        'info' => 'PPh 23',
-                    ]),
-                    
+                Tables\Columns\TextColumn::make('bupot_type')
+                    ->label('Jenis')
+                    ->badge()
+                    ->color('gray'),
+
+                Tables\Columns\TextColumn::make('pph_type')
+                    ->label('PPh')
+                    ->badge()
+                    ->color('gray'),
+
                 Tables\Columns\TextColumn::make('dpp')
                     ->label('DPP')
-                    ->money('IDR')
+                    ->formatStateUsing(fn ($state) => \App\Services\TaxReport\ReportOverview::rupiah((float) $state))
+                    ->alignEnd()
                     ->sortable(),
-                    
+
                 Tables\Columns\TextColumn::make('bupot_amount')
-                    ->label('Nilai Bupot')
-                    ->money('IDR')
+                    ->label('Nilai bupot')
+                    ->formatStateUsing(fn ($state) => \App\Services\TaxReport\ReportOverview::rupiah((float) $state))
+                    ->alignEnd()
                     ->sortable(),
                     
                 // New column for bukti setor
@@ -445,7 +425,7 @@ class BupotsRelationManager extends RelationManager
                     })
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-x-circle')
-                    ->trueColor('success')
+                    ->trueColor('primary')
                     ->falseColor('danger')
                     ->tooltip(function ($record) {
                         if (!empty($record->bukti_setor)) {
@@ -465,6 +445,11 @@ class BupotsRelationManager extends RelationManager
                     ->dateTime('d M Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+
+                Tables\Columns\TextColumn::make('createdBy.name')
+                    ->label('Oleh')
+                    ->placeholder('Sistem')
+                    ->toggleable(),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
@@ -554,7 +539,8 @@ class BupotsRelationManager extends RelationManager
                                 );
                             }
                         }
-                    }),
+                    })
+                    ->after(fn () => $this->bupotsChanged()),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
@@ -564,14 +550,15 @@ class BupotsRelationManager extends RelationManager
                         ->modalWidth('7xl'),
                         
                     Tables\Actions\EditAction::make()
-                        ->label('Edit')
-                        ->modalWidth('7xl'),
+                        ->label('Ubah')
+                        ->modalWidth('7xl')
+                        ->after(fn () => $this->bupotsChanged()),
                     
                     // New action for uploading bukti setor
                     Tables\Actions\Action::make('upload_bukti_setor')
                         ->label('Upload Bukti Setor')
                         ->icon('heroicon-o-cloud-arrow-up')
-                        ->color('info')
+                        ->color('gray')
                         ->visible(fn ($record) => empty($record->bukti_setor))
                         ->form(function ($record) {
                             return [
@@ -621,7 +608,7 @@ class BupotsRelationManager extends RelationManager
                     Tables\Actions\Action::make('view_bukti_setor')
                         ->label('Lihat Bukti Setor')
                         ->icon('heroicon-o-eye')
-                        ->color('success')
+                        ->color('gray')
                         ->visible(fn ($record) => !empty($record->bukti_setor))
                         ->url(fn ($record) => asset('storage/' . $record->bukti_setor))
                         ->openUrlInNewTab()
@@ -630,7 +617,7 @@ class BupotsRelationManager extends RelationManager
                     Tables\Actions\Action::make('download')
                         ->label('Unduh Berkas')
                         ->icon('heroicon-o-arrow-down-tray')
-                        ->color('success')
+                        ->color('gray')
                         ->url(fn ($record) => $record->file_path ? asset('storage/' . $record->file_path) : null)
                         ->openUrlInNewTab()
                         ->visible(fn ($record) => $record->file_path)
@@ -639,7 +626,8 @@ class BupotsRelationManager extends RelationManager
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus')
                         ->modalHeading('Hapus Bukti Potong')
-                        ->modalDescription('Apakah Anda yakin ingin menghapus bukti potong ini? Tindakan ini tidak dapat dibatalkan.'),
+                        ->modalDescription('Apakah Anda yakin ingin menghapus bukti potong ini? Tindakan ini tidak dapat dibatalkan.')
+                        ->after(fn () => $this->bupotsChanged()),
                 ]),
             ])
             ->bulkActions([
@@ -647,7 +635,8 @@ class BupotsRelationManager extends RelationManager
                     Tables\Actions\DeleteBulkAction::make()
                         ->label('Hapus')
                         ->modalHeading('Hapus Bukti Potong Terpilih')
-                        ->modalDescription('Apakah Anda yakin ingin menghapus bukti potong yang terpilih? Tindakan ini tidak dapat dibatalkan.'),
+                        ->modalDescription('Apakah Anda yakin ingin menghapus bukti potong yang terpilih? Tindakan ini tidak dapat dibatalkan.')
+                        ->after(fn () => $this->bupotsChanged()),
                         
                     Tables\Actions\BulkAction::make('export')
                         ->label('Ekspor ke Excel')

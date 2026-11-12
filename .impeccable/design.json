@@ -1,0 +1,701 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-11T12:00:00+07:00",
+  "title": "Design System: Kisantra Project Management",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Desk Ground",
+        "canonical": "oklch(0.972 0.007 215)",
+        "tonalRamp": [
+          "oklch(0.15 0.007 215)",
+          "oklch(0.27 0.007 215)",
+          "oklch(0.39 0.007 215)",
+          "oklch(0.51 0.007 215)",
+          "oklch(0.63 0.007 215)",
+          "oklch(0.75 0.007 215)",
+          "oklch(0.86 0.007 215)",
+          "oklch(0.95 0.007 215)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Panel Surface",
+        "canonical": "oklch(0.997 0.002 215)",
+        "tonalRamp": [
+          "oklch(0.15 0.004 215)",
+          "oklch(0.27 0.004 215)",
+          "oklch(0.39 0.004 215)",
+          "oklch(0.51 0.004 215)",
+          "oklch(0.63 0.004 215)",
+          "oklch(0.75 0.004 215)",
+          "oklch(0.86 0.004 215)",
+          "oklch(0.95 0.004 215)"
+        ]
+      },
+      "subtle": {
+        "role": "neutral",
+        "displayName": "Quiet Wash",
+        "canonical": "oklch(0.956 0.008 215)",
+        "tonalRamp": [
+          "oklch(0.15 0.008 215)",
+          "oklch(0.27 0.008 215)",
+          "oklch(0.39 0.008 215)",
+          "oklch(0.51 0.008 215)",
+          "oklch(0.63 0.008 215)",
+          "oklch(0.75 0.008 215)",
+          "oklch(0.86 0.008 215)",
+          "oklch(0.95 0.008 215)"
+        ]
+      },
+      "subtle-strong": {
+        "role": "neutral",
+        "displayName": "Quiet Wash Strong",
+        "canonical": "oklch(0.937 0.009 215)",
+        "tonalRamp": [
+          "oklch(0.15 0.009 215)",
+          "oklch(0.27 0.009 215)",
+          "oklch(0.39 0.009 215)",
+          "oklch(0.51 0.009 215)",
+          "oklch(0.63 0.009 215)",
+          "oklch(0.75 0.009 215)",
+          "oklch(0.86 0.009 215)",
+          "oklch(0.95 0.009 215)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(0.917 0.008 215)",
+        "tonalRamp": [
+          "oklch(0.15 0.008 215)",
+          "oklch(0.27 0.008 215)",
+          "oklch(0.39 0.008 215)",
+          "oklch(0.51 0.008 215)",
+          "oklch(0.63 0.008 215)",
+          "oklch(0.75 0.008 215)",
+          "oklch(0.86 0.008 215)",
+          "oklch(0.95 0.008 215)"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Hairline Strong",
+        "canonical": "oklch(0.865 0.01 215)",
+        "tonalRamp": [
+          "oklch(0.15 0.010 215)",
+          "oklch(0.27 0.010 215)",
+          "oklch(0.39 0.010 215)",
+          "oklch(0.51 0.010 215)",
+          "oklch(0.63 0.010 215)",
+          "oklch(0.75 0.010 215)",
+          "oklch(0.86 0.010 215)",
+          "oklch(0.95 0.010 215)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(0.22 0.014 230)",
+        "tonalRamp": [
+          "oklch(0.15 0.014 230)",
+          "oklch(0.27 0.014 230)",
+          "oklch(0.39 0.014 230)",
+          "oklch(0.51 0.014 230)",
+          "oklch(0.63 0.014 230)",
+          "oklch(0.75 0.014 230)",
+          "oklch(0.86 0.014 230)",
+          "oklch(0.95 0.014 230)"
+        ]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Ink Secondary",
+        "canonical": "oklch(0.43 0.014 230)",
+        "tonalRamp": [
+          "oklch(0.15 0.014 230)",
+          "oklch(0.27 0.014 230)",
+          "oklch(0.39 0.014 230)",
+          "oklch(0.51 0.014 230)",
+          "oklch(0.63 0.014 230)",
+          "oklch(0.75 0.014 230)",
+          "oklch(0.86 0.014 230)",
+          "oklch(0.95 0.014 230)"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Ink Muted",
+        "canonical": "oklch(0.52 0.013 230)",
+        "tonalRamp": [
+          "oklch(0.15 0.013 230)",
+          "oklch(0.27 0.013 230)",
+          "oklch(0.39 0.013 230)",
+          "oklch(0.51 0.013 230)",
+          "oklch(0.63 0.013 230)",
+          "oklch(0.75 0.013 230)",
+          "oklch(0.86 0.013 230)",
+          "oklch(0.95 0.013 230)"
+        ]
+      },
+      "tile-blue": {
+        "role": "secondary",
+        "displayName": "Tile Blue (app colour)",
+        "canonical": "oklch(0.60 0.105 225)",
+        "tonalRamp": [
+          "oklch(0.15 0.067 225)",
+          "oklch(0.27 0.079 225)",
+          "oklch(0.39 0.090 225)",
+          "oklch(0.51 0.101 225)",
+          "oklch(0.63 0.097 225)",
+          "oklch(0.75 0.086 225)",
+          "oklch(0.86 0.076 225)",
+          "oklch(0.95 0.067 225)"
+        ]
+      },
+      "arm-blue": {
+        "role": "secondary",
+        "displayName": "Arm Blue",
+        "canonical": "oklch(0.47 0.085 222)",
+        "tonalRamp": [
+          "oklch(0.15 0.054 222)",
+          "oklch(0.27 0.064 222)",
+          "oklch(0.39 0.073 222)",
+          "oklch(0.51 0.082 222)",
+          "oklch(0.63 0.079 222)",
+          "oklch(0.75 0.070 222)",
+          "oklch(0.86 0.061 222)",
+          "oklch(0.95 0.054 222)"
+        ]
+      },
+      "action-blue": {
+        "role": "primary",
+        "displayName": "Action Blue",
+        "canonical": "oklch(0.535 0.095 223)",
+        "tonalRamp": [
+          "oklch(0.15 0.061 223)",
+          "oklch(0.27 0.071 223)",
+          "oklch(0.39 0.081 223)",
+          "oklch(0.51 0.092 223)",
+          "oklch(0.63 0.088 223)",
+          "oklch(0.75 0.078 223)",
+          "oklch(0.86 0.068 223)",
+          "oklch(0.95 0.061 223)"
+        ]
+      },
+      "action-blue-soft": {
+        "role": "primary",
+        "displayName": "Action Blue Soft",
+        "canonical": "oklch(0.955 0.026 225)",
+        "tonalRamp": [
+          "oklch(0.15 0.026 225)",
+          "oklch(0.27 0.026 225)",
+          "oklch(0.39 0.026 225)",
+          "oklch(0.51 0.026 225)",
+          "oklch(0.63 0.026 225)",
+          "oklch(0.75 0.026 225)",
+          "oklch(0.86 0.026 225)",
+          "oklch(0.95 0.026 225)"
+        ]
+      },
+      "action-blue-text": {
+        "role": "primary",
+        "displayName": "Action Blue Text",
+        "canonical": "oklch(0.47 0.095 222)",
+        "tonalRamp": [
+          "oklch(0.15 0.061 222)",
+          "oklch(0.27 0.071 222)",
+          "oklch(0.39 0.081 222)",
+          "oklch(0.51 0.092 222)",
+          "oklch(0.63 0.088 222)",
+          "oklch(0.75 0.078 222)",
+          "oklch(0.86 0.068 222)",
+          "oklch(0.95 0.061 222)"
+        ]
+      },
+      "signal-red": {
+        "role": "tertiary",
+        "displayName": "Signal Red",
+        "canonical": "oklch(0.55 0.17 30)",
+        "tonalRamp": [
+          "oklch(0.15 0.109 30)",
+          "oklch(0.27 0.127 30)",
+          "oklch(0.39 0.146 30)",
+          "oklch(0.51 0.164 30)",
+          "oklch(0.63 0.158 30)",
+          "oklch(0.75 0.139 30)",
+          "oklch(0.86 0.123 30)",
+          "oklch(0.95 0.109 30)"
+        ]
+      },
+      "signal-red-text": {
+        "role": "tertiary",
+        "displayName": "Signal Red Text",
+        "canonical": "oklch(0.51 0.16 30)",
+        "tonalRamp": [
+          "oklch(0.15 0.102 30)",
+          "oklch(0.27 0.120 30)",
+          "oklch(0.39 0.137 30)",
+          "oklch(0.51 0.154 30)",
+          "oklch(0.63 0.148 30)",
+          "oklch(0.75 0.131 30)",
+          "oklch(0.86 0.115 30)",
+          "oklch(0.95 0.102 30)"
+        ]
+      },
+      "signal-red-soft": {
+        "role": "tertiary",
+        "displayName": "Signal Red Soft",
+        "canonical": "oklch(0.962 0.022 30)",
+        "tonalRamp": [
+          "oklch(0.15 0.022 30)",
+          "oklch(0.27 0.022 30)",
+          "oklch(0.39 0.022 30)",
+          "oklch(0.51 0.022 30)",
+          "oklch(0.63 0.022 30)",
+          "oklch(0.75 0.022 30)",
+          "oklch(0.86 0.022 30)",
+          "oklch(0.95 0.022 30)"
+        ]
+      },
+      "on-action": {
+        "role": "neutral",
+        "displayName": "On Action",
+        "canonical": "oklch(0.99 0.005 225)",
+        "tonalRamp": [
+          "oklch(0.15 0.005 225)",
+          "oklch(0.27 0.005 225)",
+          "oklch(0.39 0.005 225)",
+          "oklch(0.51 0.005 225)",
+          "oklch(0.63 0.005 225)",
+          "oklch(0.75 0.005 225)",
+          "oklch(0.86 0.005 225)",
+          "oklch(0.95 0.005 225)"
+        ]
+      },
+      "dark-ground": {
+        "role": "neutral",
+        "displayName": "Dark Ground",
+        "canonical": "oklch(0.185 0.012 230)",
+        "tonalRamp": [
+          "oklch(0.15 0.012 230)",
+          "oklch(0.27 0.012 230)",
+          "oklch(0.39 0.012 230)",
+          "oklch(0.51 0.012 230)",
+          "oklch(0.63 0.012 230)",
+          "oklch(0.75 0.012 230)",
+          "oklch(0.86 0.012 230)",
+          "oklch(0.95 0.012 230)"
+        ],
+        "theme": "dark"
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "Dark Surface",
+        "canonical": "oklch(0.22 0.013 230)",
+        "tonalRamp": [
+          "oklch(0.15 0.013 230)",
+          "oklch(0.27 0.013 230)",
+          "oklch(0.39 0.013 230)",
+          "oklch(0.51 0.013 230)",
+          "oklch(0.63 0.013 230)",
+          "oklch(0.75 0.013 230)",
+          "oklch(0.86 0.013 230)",
+          "oklch(0.95 0.013 230)"
+        ],
+        "theme": "dark"
+      },
+      "dark-subtle": {
+        "role": "neutral",
+        "displayName": "Dark Subtle",
+        "canonical": "oklch(0.255 0.014 230)",
+        "tonalRamp": [
+          "oklch(0.15 0.014 230)",
+          "oklch(0.27 0.014 230)",
+          "oklch(0.39 0.014 230)",
+          "oklch(0.51 0.014 230)",
+          "oklch(0.63 0.014 230)",
+          "oklch(0.75 0.014 230)",
+          "oklch(0.86 0.014 230)",
+          "oklch(0.95 0.014 230)"
+        ],
+        "theme": "dark"
+      },
+      "dark-line": {
+        "role": "neutral",
+        "displayName": "Dark Line",
+        "canonical": "oklch(0.30 0.014 230)",
+        "tonalRamp": [
+          "oklch(0.15 0.014 230)",
+          "oklch(0.27 0.014 230)",
+          "oklch(0.39 0.014 230)",
+          "oklch(0.51 0.014 230)",
+          "oklch(0.63 0.014 230)",
+          "oklch(0.75 0.014 230)",
+          "oklch(0.86 0.014 230)",
+          "oklch(0.95 0.014 230)"
+        ],
+        "theme": "dark"
+      },
+      "dark-line-strong": {
+        "role": "neutral",
+        "displayName": "Dark Line Strong",
+        "canonical": "oklch(0.36 0.015 230)",
+        "tonalRamp": [
+          "oklch(0.15 0.015 230)",
+          "oklch(0.27 0.015 230)",
+          "oklch(0.39 0.015 230)",
+          "oklch(0.51 0.015 230)",
+          "oklch(0.63 0.015 230)",
+          "oklch(0.75 0.015 230)",
+          "oklch(0.86 0.015 230)",
+          "oklch(0.95 0.015 230)"
+        ],
+        "theme": "dark"
+      },
+      "dark-ink": {
+        "role": "neutral",
+        "displayName": "Dark Ink",
+        "canonical": "oklch(0.95 0.006 225)",
+        "tonalRamp": [
+          "oklch(0.15 0.006 225)",
+          "oklch(0.27 0.006 225)",
+          "oklch(0.39 0.006 225)",
+          "oklch(0.51 0.006 225)",
+          "oklch(0.63 0.006 225)",
+          "oklch(0.75 0.006 225)",
+          "oklch(0.86 0.006 225)",
+          "oklch(0.95 0.006 225)"
+        ],
+        "theme": "dark"
+      },
+      "dark-ink-secondary": {
+        "role": "neutral",
+        "displayName": "Dark Ink Secondary",
+        "canonical": "oklch(0.80 0.010 225)",
+        "tonalRamp": [
+          "oklch(0.15 0.010 225)",
+          "oklch(0.27 0.010 225)",
+          "oklch(0.39 0.010 225)",
+          "oklch(0.51 0.010 225)",
+          "oklch(0.63 0.010 225)",
+          "oklch(0.75 0.010 225)",
+          "oklch(0.86 0.010 225)",
+          "oklch(0.95 0.010 225)"
+        ],
+        "theme": "dark"
+      },
+      "dark-ink-muted": {
+        "role": "neutral",
+        "displayName": "Dark Ink Muted",
+        "canonical": "oklch(0.68 0.012 225)",
+        "tonalRamp": [
+          "oklch(0.15 0.012 225)",
+          "oklch(0.27 0.012 225)",
+          "oklch(0.39 0.012 225)",
+          "oklch(0.51 0.012 225)",
+          "oklch(0.63 0.012 225)",
+          "oklch(0.75 0.012 225)",
+          "oklch(0.86 0.012 225)",
+          "oklch(0.95 0.012 225)"
+        ],
+        "theme": "dark"
+      },
+      "dark-action-blue-text": {
+        "role": "primary",
+        "displayName": "Dark Action Blue Text",
+        "canonical": "oklch(0.78 0.095 220)",
+        "tonalRamp": [
+          "oklch(0.15 0.061 220)",
+          "oklch(0.27 0.071 220)",
+          "oklch(0.39 0.081 220)",
+          "oklch(0.51 0.092 220)",
+          "oklch(0.63 0.088 220)",
+          "oklch(0.75 0.078 220)",
+          "oklch(0.86 0.068 220)",
+          "oklch(0.95 0.061 220)"
+        ],
+        "theme": "dark"
+      },
+      "dark-action-blue-soft": {
+        "role": "primary",
+        "displayName": "Dark Action Blue Soft",
+        "canonical": "oklch(0.30 0.050 225)",
+        "tonalRamp": [
+          "oklch(0.15 0.032 225)",
+          "oklch(0.27 0.037 225)",
+          "oklch(0.39 0.043 225)",
+          "oklch(0.51 0.048 225)",
+          "oklch(0.63 0.046 225)",
+          "oklch(0.75 0.041 225)",
+          "oklch(0.86 0.036 225)",
+          "oklch(0.95 0.032 225)"
+        ],
+        "theme": "dark"
+      },
+      "dark-signal-red-text": {
+        "role": "tertiary",
+        "displayName": "Dark Signal Red Text",
+        "canonical": "oklch(0.75 0.13 30)",
+        "tonalRamp": [
+          "oklch(0.15 0.083 30)",
+          "oklch(0.27 0.097 30)",
+          "oklch(0.39 0.111 30)",
+          "oklch(0.51 0.125 30)",
+          "oklch(0.63 0.121 30)",
+          "oklch(0.75 0.107 30)",
+          "oklch(0.86 0.094 30)",
+          "oklch(0.95 0.083 30)"
+        ],
+        "theme": "dark"
+      },
+      "dark-signal-red-soft": {
+        "role": "tertiary",
+        "displayName": "Dark Signal Red Soft",
+        "canonical": "oklch(0.29 0.055 30)",
+        "tonalRamp": [
+          "oklch(0.15 0.035 30)",
+          "oklch(0.27 0.041 30)",
+          "oklch(0.39 0.047 30)",
+          "oklch(0.51 0.053 30)",
+          "oklch(0.63 0.051 30)",
+          "oklch(0.75 0.045 30)",
+          "oklch(0.86 0.040 30)",
+          "oklch(0.95 0.035 30)"
+        ],
+        "theme": "dark"
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles and the dashboard greeting."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Summary-strip values; tabular figures."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Panel and section titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Default reading text, log entries."
+      },
+      "row": {
+        "displayName": "Row",
+        "purpose": "Primary text of a table row or list item."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Buttons, pills, nav items, segmented options."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Meta lines, subtitles, footers."
+      },
+      "badge": {
+        "displayName": "Badge",
+        "purpose": "Status and category badges."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase table headers and group labels."
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel-whisper",
+        "value": "0 1px 2px oklch(0.3 0.02 230 / .04)",
+        "purpose": "The inset workspace panel."
+      },
+      {
+        "name": "floating-layer",
+        "value": "0 24px 48px -16px oklch(0.25 0.03 230 / .28), 0 2px 6px oklch(0.25 0.02 230 / .06)",
+        "purpose": "Popovers and dropdowns (month picker, SOP list)."
+      },
+      {
+        "name": "raised-segment",
+        "value": "0 1px 2px oklch(0.3 0.03 230 / .12), 0 0 0 1px oklch(0.47 0.095 222 / .22)",
+        "purpose": "Active chip in a segmented rail."
+      },
+      {
+        "name": "primary-press",
+        "value": "0 1px 2px oklch(0.35 0.08 225 / .25)",
+        "purpose": "Primary buttons."
+      },
+      {
+        "name": "tile-glow",
+        "value": "0 1px 1px oklch(0.3 0.02 230 / .08), 0 8px 18px -10px #1790b5",
+        "purpose": "App logo tile only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-quint",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "All state transitions; 150–250ms; colour, opacity, transform and shadow only."
+      },
+      {
+        "name": "duration-fast",
+        "value": "150ms",
+        "purpose": "Hover and press feedback."
+      },
+      {
+        "name": "duration-popover",
+        "value": "200ms",
+        "purpose": "Popover open/close (opacity + 4px translate)."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "lg",
+        "value": "1024px",
+        "purpose": "Sidebar collapses below this (Filament lg)."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "One primary action per page header (New Project, Buat Laporan Pajak).",
+      "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\"><path d=\"M12 4.5v15m7.5-7.5h-15\"/></svg>New Project</button>",
+      "css": ".ds-btn-primary { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 16px; border: 0; border-radius: 11px; background: #157a9c; color: #f8fdfe; font-size: 13.5px; font-weight: 700; box-shadow: 0 1px 2px oklch(0.35 0.08 225 / .25); cursor: pointer; transition: background .18s cubic-bezier(.22,1,.36,1); } .ds-btn-primary:hover { background: #10657f; } .ds-btn-primary:focus-visible { outline: 2px solid #157a9c; outline-offset: 2px; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary actions (Export, Impor) and compact row actions (Kredensial).",
+      "html": "<button class=\"ds-btn-outline\">Export</button>",
+      "css": ".ds-btn-outline { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; height: 38px; padding: 0 16px; border: 1px solid #ccd4d7; border-radius: 11px; background: #fdfeff; color: #141c20; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: background .18s; } .ds-btn-outline:hover { background: #ebf2f4; } .ds-btn-outline:focus-visible { outline: 2px solid #157a9c; outline-offset: 2px; }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "input-search",
+      "description": "Topbar and toolbar search with a key-cap hint.",
+      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 24 24\" width=\"17\" height=\"17\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"><path d=\"m21 21-5.2-5.2m0 0A7.5 7.5 0 1 0 5.2 5.2a7.5 7.5 0 0 0 10.6 10.6Z\"/></svg><input placeholder=\"Cari nama, NPWP, atau email…\"><kbd>⌘K</kbd></label>",
+      "css": ".ds-search { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; display: flex; align-items: center; gap: 9px; height: 38px; width: 330px; padding: 0 14px; border-radius: 11px; background: #ebf2f4; color: #626a6f; } .ds-search input { flex: 1; border: 0; outline: 0; background: transparent; font: inherit; font-size: 13.5px; font-weight: 500; color: #141c20; } .ds-search input::placeholder { color: #626a6f; } .ds-search:focus-within { box-shadow: 0 0 0 2px #157a9c; } .ds-search kbd { font: 700 11px Manrope, sans-serif; color: #626a6f; background: #fdfeff; border: 1px solid #dee5e7; border-radius: 6px; padding: 1px 6px; }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Items on Desk Ground; the active item is soft blue with a solid count pill.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item\">Dashboard</a><a class=\"ds-nav-item is-active\">Projects<span>93</span></a><a class=\"ds-nav-item\">Clients<span>96</span></a></nav>",
+      "css": ".ds-nav { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; display: grid; gap: 2px; width: 220px; padding: 8px; background: #f1f7f9; } .ds-nav-item { display: flex; align-items: center; height: 36px; padding: 0 10px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: #485156; text-decoration: none; cursor: pointer; } .ds-nav-item span { margin-left: auto; font-size: 11.5px; font-weight: 700; color: #626a6f; } .ds-nav-item:hover { background: #e4ecee; color: #141c20; } .ds-nav-item.is-active { background: #dff4fe; color: #006681; font-weight: 700; } .ds-nav-item.is-active span { background: #157a9c; color: #f8fdfe; border-radius: 999px; padding: 0 7px; line-height: 19px; } .ds-nav-item:focus-visible { outline: 2px solid #157a9c; outline-offset: 1px; }"
+    },
+    {
+      "name": "Status Badges",
+      "kind": "chip",
+      "refersTo": "badge-blue",
+      "description": "Three tones only: blue, neutral, red; statuses get a dot, categories do not.",
+      "html": "<div class=\"ds-badges\"><span class=\"ds-badge ds-blue ds-dot\">Active</span><span class=\"ds-badge ds-neutral ds-dot\">Draft</span><span class=\"ds-badge ds-red ds-dot\">Kurang Bayar</span><span class=\"ds-badge ds-neutral\">Pribadi</span><span class=\"ds-badge ds-outline\">PKP</span></div>",
+      "css": ".ds-badges { display: flex; gap: 8px; flex-wrap: wrap; } .ds-badge { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: 7px; font-size: 12px; font-weight: 700; white-space: nowrap; } .ds-dot::before { content: \"\"; width: 6px; height: 6px; border-radius: 50%; background: currentColor; } .ds-blue { background: #dff4fe; color: #006681; box-shadow: inset 0 0 0 1px oklch(0.47 0.095 222 / .2); } .ds-neutral { background: #ebf2f4; color: #485156; box-shadow: inset 0 0 0 1px #dee5e7; } .ds-red { background: #ffedea; color: #af3628; box-shadow: inset 0 0 0 1px oklch(0.51 0.16 30 / .22); } .ds-outline { background: #fdfeff; color: #006681; box-shadow: inset 0 0 0 1px oklch(0.47 0.095 222 / .38); }"
+    },
+    {
+      "name": "SOP Filter Rail",
+      "kind": "chip",
+      "refersTo": "filter-chip-active",
+      "description": "One-row segmented rail; overflow goes behind \"+N lainnya\".",
+      "html": "<div class=\"ds-rail\"><button class=\"ds-chip is-on\">Semua <em>139</em></button><button class=\"ds-chip\">Lapor SPT Tahunan Badan <em>35</em></button><button class=\"ds-chip\">Laporan Keuangan <em>25</em></button><button class=\"ds-more\">+12 lainnya</button></div>",
+      "css": ".ds-rail { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; display: inline-flex; align-items: center; gap: 2px; padding: 4px; background: #ebf2f4; border: 1px solid #dee5e7; border-radius: 13px; } .ds-chip { height: 32px; padding: 0 11px; border: 0; border-radius: 9px; background: transparent; font: inherit; font-size: 13px; font-weight: 700; color: #485156; cursor: pointer; display: inline-flex; gap: 7px; align-items: center; white-space: nowrap; flex: none; } .ds-chip em { font-style: normal; font-size: 11px; font-weight: 800; color: #626a6f; } .ds-chip:hover { background: oklch(1 0 0 / .7); color: #141c20; } .ds-chip.is-on { background: #fdfeff; color: #006681; box-shadow: 0 1px 2px oklch(0.3 0.03 230 / .12), 0 0 0 1px oklch(0.47 0.095 222 / .22); } .ds-chip.is-on em { color: #006681; background: #dff4fe; border-radius: 6px; padding: 1px 6px; } .ds-more { height: 32px; padding: 0 12px; border: 0; border-radius: 9px; background: #fdfeff; box-shadow: inset 0 0 0 1px #dee5e7; font: inherit; font-size: 13px; font-weight: 700; color: #006681; cursor: pointer; white-space: nowrap; flex: none; } .ds-chip:focus-visible, .ds-more:focus-visible { outline: 2px solid #157a9c; outline-offset: 1px; }"
+    },
+    {
+      "name": "Month Cell",
+      "kind": "custom",
+      "refersTo": "month-cell-selected",
+      "description": "Cell in the Periode multi-select grid: month, report count, checkbox mark.",
+      "html": "<div class=\"ds-months\"><button class=\"ds-mo is-on\"><b>Okt</b><small>2 laporan</small></button><button class=\"ds-mo is-now\"><b>Nov</b><small>2 laporan</small></button><button class=\"ds-mo\" disabled><b>Des</b><small>Tidak ada</small></button></div>",
+      "css": ".ds-months { display: grid; grid-template-columns: repeat(3, 84px); gap: 6px; } .ds-mo { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; position: relative; height: 60px; padding: 9px 10px; border-radius: 11px; border: 1px solid #dee5e7; background: #fdfeff; text-align: left; color: #141c20; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; } .ds-mo b { font-size: 13.5px; font-weight: 800; } .ds-mo small { font-size: 11px; font-weight: 600; color: #626a6f; } .ds-mo:hover { background: #ebf2f4; } .ds-mo.is-on { background: #dff4fe; border-color: oklch(0.47 0.095 222 / .45); } .ds-mo.is-on b, .ds-mo.is-on small { color: #006681; } .ds-mo.is-now b::after { content: \"\"; display: inline-block; width: 6px; height: 6px; margin-left: 6px; border-radius: 50%; background: #1790b5; vertical-align: middle; } .ds-mo:disabled { cursor: not-allowed; background: #ebf2f4; border-color: transparent; opacity: .6; } .ds-mo:focus-visible { outline: 2px solid #157a9c; outline-offset: 2px; }"
+    },
+    {
+      "name": "Panel Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Content panel: hairline border, no resting shadow, header + optional footer link.",
+      "html": "<section class=\"ds-card\"><header><h3>Proyek selesai</h3><p>86 selesai dalam 12 bulan terakhir</p></header><div class=\"ds-card-body\">…</div><footer>Bulan terbaik: <b>Juni 2026</b><a>Lihat proyek selesai →</a></footer></section>",
+      "css": ".ds-card { font-family: Manrope, ui-sans-serif, system-ui, sans-serif; width: 420px; background: #fdfeff; border: 1px solid #dee5e7; border-radius: 14px; overflow: hidden; color: #141c20; } .ds-card header { padding: 16px 20px 12px; } .ds-card h3 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.015em; } .ds-card p { margin: 2px 0 0; font-size: 12.5px; font-weight: 600; color: #626a6f; } .ds-card-body { padding: 8px 20px 16px; color: #626a6f; } .ds-card footer { display: flex; gap: 6px; align-items: center; padding: 12px 20px; border-top: 1px solid #dee5e7; font-size: 12.5px; font-weight: 600; color: #626a6f; } .ds-card footer b { color: #141c20; } .ds-card footer a { margin-left: auto; color: #006681; font-weight: 700; cursor: pointer; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Calm Operations Desk",
+    "overview": "Kisantra staff sit at this desk for the whole working day: moving SOP projects forward, keeping client records straight, and watching monthly tax filings. The desk is quiet by default. Surfaces are light and tinted toward a cool blue-gray, type is crisp and dense, and nothing competes for attention until something is actually wrong. When it is (a filing not reported, an overdue project, a payable balance), one signal red appears, always with words beside it. Calm is the default; sharpness is reserved for problems.\n\nThe desk is one of a family. It shares its frame with Kisantra Platform and Client Management: Manrope, a light ground with the sidebar sitting directly on it, all content inside a single inset rounded panel, filter pills with counts, and the per-app colour system in which Project Management's own colour is the blue tile `#1790b5` with a deep `#10657f` arm. Identity comes from that shared frame, not from decoration on individual screens.\n\nThis system explicitly rejects the default Filament admin look (white cards with gray rings, amber/primary pills everywhere, stock sidebar), generic SaaS template dashboards (identical KPI card grids, pastel tiles, decorative gradients), pale flat screens where everything is the same light gray, and rainbow status colouring where every state gets its own pill colour. It is a light-first system with a matched dark mode; the light theme is the reference, dark mode maps the same roles to dark tokens.",
+    "keyCharacteristics": [
+      "Sidebar on the ground (244px), content in one inset panel (18px radius, 10px gutter), 60px topbar inside the panel, 24–26px page padding.",
+      "Three voices only: action blue, ink, signal red, plus tinted neutrals.",
+      "Dense rows (≥ 48px), two-level row text (name + meta), tabular figures right-aligned.",
+      "Depth from 1px borders and tonal layers; shadows only on floating layers.",
+      "Filters stay on one row; overflow goes into a searchable popover; the active filter is always visible.",
+      "Same information as the current screens, new skin. Never drop or invent widgets, columns, filters or actions."
+    ],
+    "rules": [
+      {
+        "name": "The Meaning Rule",
+        "body": "Neutral is normal. Colour appears only for an action, a selection, or a problem. A report filed on time, an active client, a Nihil balance: all neutral or quiet blue, never green.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three Voices Rule",
+        "body": "Blue, ink and red, plus neutrals. No green, amber, violet or indigo status colours anywhere in the panel. If a new state seems to need a fourth colour, it needs a label instead.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tile Is Decoration Rule",
+        "body": "Tile Blue (#1790b5) never carries small text: white on it is only 3.6:1. Buttons and text use Action Blue or Action Blue Text.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "Manrope only. No display face, no serif, no mono. Hierarchy comes from weight and size, never from a second family.",
+        "section": "typography"
+      },
+      {
+        "name": "The Aligned Figures Rule",
+        "body": "Money, counts, dates in columns and KPI values use tabular figures and right alignment (`Rp 62.769.500` with Indonesian grouping). Prose never does.",
+        "section": "typography"
+      },
+      {
+        "name": "The Border-First Rule",
+        "body": "If two things need separating, use a hairline or a tonal step first. A shadow on a resting card is a bug.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Status-Only Badge Rule",
+        "body": "Badges are for statuses and categories. Names, groups and priorities stay as text (Urgent is red text with its flag icon, not a badge).",
+        "section": "components"
+      },
+      {
+        "name": "The One-Row Filter Rule",
+        "body": "A filter with many options never wraps to a second row. Show what fits, put the rest in a searchable popover, keep the active choice visible.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** keep every widget, column, filter and action the current screen has; change hierarchy, spacing and colour only.",
+      "**Do** put the sidebar directly on Desk Ground and all content in one 18px-radius inset panel, like Kisantra Platform and Client Management.",
+      "**Do** use Action Blue (#157a9c) for actions and selection, Tile Blue (#1790b5) for the logo, charts and progress only.",
+      "**Do** pair every coloured state with words or a glyph (\"Belum\", \"✓ 28 Okt\", \"Kurang Bayar\").",
+      "**Do** right-align money and counts with tabular figures and Indonesian grouping.",
+      "**Do** keep text at ≥ 4.5:1 in both themes; use the tuned Ink Muted (oklch(0.52 0.013 230)) for small meta text.",
+      "**Do** write user-facing copy in Bahasa Indonesia, short and direct."
+    ],
+    "donts": [
+      "**Don't** ship the default Filament admin look (white cards with gray rings, amber/primary pills everywhere, stock sidebar).",
+      "**Don't** build generic SaaS template dashboards: identical KPI card grids, pastel tiles, decorative gradients.",
+      "**Don't** make pale, flat screens where everything is the same light gray and nothing has hierarchy.",
+      "**Don't** use rainbow status colouring (every state its own pill colour), as the old Clients and Tax Report screens did; no gradient card headers.",
+      "**Don't** use a dark sidebar; the frame stays light in light mode.",
+      "**Don't** use `border-left` or `border-right` wider than 1px as a coloured accent on cards, rows or callouts.",
+      "**Don't** use gradient text, glassmorphism, or a modal where an inline panel or popover works.",
+      "**Don't** use native `<select>` for filters with many options or multi-select; use the popover patterns above.",
+      "**Don't** put white text on Tile Blue, or a fourth status colour anywhere.",
+      "**Don't** use em dashes in UI copy."
+    ]
+  }
+}

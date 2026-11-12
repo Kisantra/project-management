@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
-use SolutionForest\FilamentAccessManagement\Concerns\FilamentUserHelpers;
+use Spatie\Permission\Traits\HasRoles;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use League\CommonMark\Node\Block\Document;
@@ -21,7 +21,7 @@ use Edwink\FilamentUserActivity\Traits\UserActivityTrait;
 class User extends Authenticatable implements FilamentUser, HasAvatar
 {
     use HasApiTokens, HasFactory, Notifiable, CausesActivity;
-    use FilamentUserHelpers;
+    use HasRoles;
     use UserActivityTrait;
     /**
      * The attributes that are mass assignable.
@@ -217,6 +217,11 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         if ($value) {
             $this->attributes['avatar_url'] = 'storage/' . $value;
         }
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole(\App\Support\Access\PathPermission::SUPER_ADMIN_ROLE);
     }
 
     public function canAccessPanel(Panel $panel): bool

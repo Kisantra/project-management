@@ -4,959 +4,4856 @@
 @config 'tailwind.config.js';
 
 /*
- * Dashboard Laporan Pajak
- * Token discoped ke .tp-dash supaya tidak mempengaruhi halaman admin lain.
+ * Bingkai Kisantra (redesign fase 1). Acuan: DESIGN.md dan
+ * docs/mockups/redesign-project-management.html.
  *
- * Aturan warna: netral di-tint ke hue cyan (mengikuti primary Filament).
- * Warna hanya dipakai untuk masalah. "Sudah Lapor" sengaja netral, karena
- * itu kondisi normal dan tidak berhak menarik mata.
- *
- * Rasio kontras terhadap --tp-surface sudah dihitung, target WCAG AA:
- *   --tp-text        9.9:1   teks normal
- *   --tp-text-muted  4.9:1   teks normal
- *   --tp-text-faint  3.3:1   HANYA teks besar (>=18.66px bold atau >=24px)
- *   --tp-overdue     4.9:1   teks normal
- *   --tp-due         4.8:1   teks normal
- *   --tp-accent-text 4.9:1   teks normal
+ * Warna datang dari palet panel (AdminPanelProvider::palette), jadi aturan di
+ * sini hanya memakai rgb(var(--primary-*)) / rgb(var(--gray-*)). Sidebar duduk
+ * langsung di latar (gray-50 / gray-950), semua konten ada di satu panel
+ * membulat. Override shell hanya berlaku di lg ke atas; di layar kecil sidebar
+ * tetap overlay bawaan Filament.
  */
-.tp-dash {
-    /*
-     * Pemisahan figure/ground dikerjakan oleh border + shadow, bukan dengan
-     * menggelapkan latar halaman. Latar halaman tetap milik Filament.
-     */
-    --tp-surface: oklch(0.995 0.002 235);
-    --tp-surface-sunken: oklch(0.975 0.004 235);
-    --tp-border: oklch(0.885 0.008 235);
-    --tp-border-strong: oklch(0.8 0.01 235);
+@media (min-width: 1024px) {
+    .fi-main-ctn {
+        margin: 0.625rem 0.625rem 0.625rem 0;
+        min-height: calc(100dvh - 1.25rem);
+        border: 1px solid rgb(var(--gray-200));
+        border-radius: 18px;
+        background-color: white;
+        box-shadow: 0 1px 2px rgba(var(--gray-950), 0.04);
+    }
 
-    /*
-     * Pita judul panel memakai --tp-surface-sunken, netral.
-     *
-     * Dua versi berwarna sudah dicoba dan dibatalkan setelah dilihat langsung:
-     * tint cyan halus (#e9f6fb) dan brand penuh (#005f79). Keduanya lolos AA,
-     * jadi yang menggugurkan bukan aksesibilitas melainkan pilihan bahwa isi
-     * halaman ini harus mendominasi, bukan chrome-nya. Karakter kepala panel
-     * datang dari judul 16px semibold.
-     *
-     * Kalau versi berwarna dicoba lagi: satu-satunya batas keras yang berlaku
-     * adalah cyan di halaman ini berarti "bisa diklik". Header aman karena jelas
-     * bukan elemen interaktif; batang chart, bar progres, dan chip TIDAK aman,
-     * karena di situ tombol primer berhenti terbaca sebagai aksi.
-     */
+    .fi-main-ctn:not(.fi-main-ctn-sidebar-open) {
+        margin-left: 0.625rem;
+    }
 
-    /*
-     * Bayangan berlapis dua: satu garis rapat untuk menegaskan tepi, satu
-     * sebaran lembut untuk mengangkat. Tetap dalam porsi, tidak ada shadow besar.
-     */
-    --tp-shadow: 0 1px 2px oklch(0.3 0.02 240 / 0.05), 0 1px 3px oklch(0.3 0.02 240 / 0.06);
-    --tp-shadow-sm: 0 1px 2px oklch(0.3 0.02 240 / 0.06);
-    --tp-ring: oklch(0.55 0.104 225 / 0.35);
+    .dark .fi-main-ctn {
+        border-color: rgb(255 255 255 / 0.06);
+        background-color: rgb(var(--gray-900));
+        box-shadow: none;
+    }
 
-    /*
-     * Identitas jenis pajak.
-     *
-     * Ini satu-satunya warna dekoratif-tampak yang punya tugas nyata: PPN, PPh,
-     * dan Bupot adalah dimensi kategori utama seluruh domain ini, dan itulah
-     * yang dipindai mata di daftar. Dipakai hanya sebagai titik kecil dan isi
-     * bar progres, tidak pernah sebagai latar bidang, jadi luasnya tetap kecil.
-     *
-     * Hue dipilih agar jauh dari merah (27), amber (50), dan cyan aksen (225),
-     * supaya tidak pernah tertukar dengan sinyal urgensi.
-     */
-    --tp-ppn: oklch(0.55 0.15 270);
-    --tp-pph: oklch(0.53 0.14 150);
-    --tp-bupot: oklch(0.55 0.16 315);
+    /* Topbar ikut di dalam panel: permukaan sama dengan panel, garis tipis di
+       bawah. Sudutnya ikut panel; panel sengaja tidak memakai overflow: clip
+       supaya dropdown di dekat tepi bawah tidak terpotong. */
+    .fi-topbar > nav {
+        border-radius: 17px 17px 0 0;
+        border-bottom: 1px solid rgb(var(--gray-200));
+        background-color: white;
+        box-shadow: none;
+    }
 
-    --tp-text: oklch(0.27 0.012 240);
-    --tp-text-muted: oklch(0.47 0.01 240);
-    --tp-text-faint: oklch(0.58 0.008 240);
+    .dark .fi-topbar > nav {
+        border-bottom-color: rgb(255 255 255 / 0.06);
+        background-color: rgb(var(--gray-900));
+    }
 
-    /*
-     * Chroma tiap warna di bawah ini sudah dijepit ke maksimum yang masih muat
-     * di gamut sRGB pada lightness dan hue-nya. Nilai di luar gamut tetap
-     * tampil karena browser meng-clamp-nya, tapi hasilnya bukan warna yang
-     * ditulis dan hue-nya bisa bergeser.
-     */
+    .fi-sidebar-header {
+        padding-inline: 1rem 0.75rem;
+        background-color: transparent;
+        box-shadow: none;
+    }
 
-    /*
-     * Aksen: hanya untuk aksi primer, seleksi, dan penanda keadaan.
-     * Tidak pernah dekorasi.
-     *
-     * --tp-accent-solid adalah latar tombol primer. Lightness-nya sengaja 0.50,
-     * lebih gelap dari --tp-accent, supaya teks putih di atasnya mencapai 5,8:1.
-     * Memakai --tp-accent langsung hanya menghasilkan 3,6:1 dan gagal AA.
-     */
-    --tp-accent: oklch(0.55 0.104 225);
-    --tp-accent-text: oklch(0.47 0.092 228);
-    --tp-accent-bg: oklch(0.96 0.02 225);
-    --tp-accent-border: oklch(0.85 0.06 225);
-    --tp-accent-solid: oklch(0.5 0.095 225);
-    --tp-accent-solid-hover: oklch(0.44 0.088 225);
-    --tp-accent-on: oklch(0.99 0.005 225);
+    .dark .fi-sidebar-header {
+        background-color: transparent;
+    }
 
-    /* Lewat jatuh tempo. Satu-satunya hal yang boleh berteriak. */
-    --tp-overdue: oklch(0.47 0.19 27);
-    --tp-overdue-bg: oklch(0.96 0.019 27);
-    --tp-overdue-border: oklch(0.88 0.06 27);
-
-    /*
-     * Mendekati tenggat (<= 3 hari).
-     * Hue 50, bukan 58: memaksa kontras AA di atas putih menekan lightness ke
-     * ~0.55, dan pada lightness itu hue 58 terbaca sebagai cokelat mustard,
-     * bukan peringatan. Hue 50 menghasilkan oranye bakar yang jelas maksudnya
-     * dan masih 23 derajat dari merah di hue 27, jadi keduanya tetap terbedakan.
-     */
-    --tp-due: oklch(0.55 0.145 50);
-    --tp-due-bg: oklch(0.965 0.021 60);
-    --tp-due-border: oklch(0.88 0.07 55);
-
-    /*
-     * Tanda data (batang chart, bar progres, rel garis waktu).
-     * Bukan --tp-border-strong: itu warna garis pemisah dengan kontras 1.6:1,
-     * dan memakainya untuk batang chart membuat datanya nyaris tak terbaca.
-     */
-    --tp-mark: oklch(0.64 0.018 240);
-    --tp-mark-quiet: oklch(0.86 0.008 240);
-
-    /*
-     * Garis waktu tenggat.
-     *
-     * --tp-track-fill (bagian bulan yang sudah lewat) bernada aksen, tapi
-     * lightness-nya 0.66 dan bukan 0.55 seperti --tp-accent. Alasannya: penanda
-     * "Hari ini" berwarna --tp-accent dan berdiri TEPAT di batas isian ini.
-     * Kalau keduanya sama, garis itu lenyap ke dalam isian yang diakhirinya.
-     * Pada 0.66 isian tetap 3:1 terhadap panel (syarat tanda data) sekaligus
-     * 1,55:1 terhadap aksen, jadi penanda hari ini tetap terbaca.
-     */
-    --tp-track: oklch(0.93 0.006 235);
-    --tp-track-fill: oklch(0.66 0.075 225);
-
-    /* Tooltip: permukaan gelap di tema terang, konvensi yang sudah mapan. */
-    --tp-tip-bg: oklch(0.26 0.014 240);
-    --tp-tip-border: oklch(0.26 0.014 240);
-    --tp-tip-text: oklch(0.98 0.004 240);
-    --tp-tip-muted: oklch(0.8 0.008 240);
-    --tp-tip-hint: oklch(0.68 0.008 240);
-    --tp-shadow-pop: 0 4px 6px oklch(0.3 0.02 240 / 0.1), 0 10px 20px oklch(0.3 0.02 240 / 0.12);
-
-    /*
-     * Skala tipografi, fixed rem (bukan fluid).
-     * Langkah kecilnya rapat (~1.08-1.15) karena register product punya banyak
-     * elemen teks dan kontras berlebih di sana justru jadi kebisingan. Yang
-     * penting rentangnya benar-benar dipakai: 2xl untuk angka yang jadi subjek,
-     * xl untuk judul halaman. Versi sebelumnya mendefinisikan rentang ini tapi
-     * praktiknya semua menumpuk di 11-16px, dan itulah yang membuatnya datar.
-     */
-    --tp-size-2xs: 0.6875rem;
-    --tp-size-xs: 0.75rem;
-    --tp-size-sm: 0.8125rem;
-    --tp-size-base: 0.875rem;
-    --tp-size-md: 1rem;
-    --tp-size-lg: 1.125rem;
-    --tp-size-xl: 1.75rem;
-    --tp-size-2xl: 2.5rem;
-
-    /*
-     * Radius. 8px/4px terbaca teknis dan kaku; 12px/6px memberi permukaan yang
-     * sama rasa yang jauh lebih modern tanpa mengubah satu pun warna.
-     */
-    --tp-radius-sm: 0.375rem;
-    --tp-radius: 0.75rem;
-
-    /* Motion: 150-250ms, ease-out kuartik. Tanpa bounce. */
-    --tp-ease: cubic-bezier(0.25, 1, 0.5, 1);
-    --tp-dur: 180ms;
-
-    color: var(--tp-text);
-    font-size: var(--tp-size-base);
+    .fi-sidebar-nav {
+        gap: 1.25rem;
+        padding: 0.75rem 0.75rem 1.5rem 1rem;
+    }
 }
 
-.dark .tp-dash {
-    --tp-surface: oklch(0.245 0.012 240);
-    --tp-surface-sunken: oklch(0.21 0.012 240);
-    --tp-border: oklch(0.36 0.012 240);
-    --tp-border-strong: oklch(0.46 0.014 240);
-
-    /* Bayangan nyaris tak berguna di atas permukaan gelap, jadi tepinya
-       ditanggung border yang sedikit lebih terang. */
-    --tp-shadow: 0 1px 2px oklch(0 0 0 / 0.3), 0 1px 3px oklch(0 0 0 / 0.25);
-    --tp-shadow-sm: 0 1px 2px oklch(0 0 0 / 0.3);
-    --tp-ring: oklch(0.68 0.11 225 / 0.45);
-
-    --tp-ppn: oklch(0.72 0.14 270);
-    --tp-pph: oklch(0.72 0.15 150);
-    --tp-bupot: oklch(0.72 0.15 315);
-
-    --tp-text: oklch(0.96 0.004 240);
-    --tp-text-muted: oklch(0.74 0.008 240);
-    --tp-text-faint: oklch(0.62 0.008 240);
-
-    --tp-mark: oklch(0.62 0.018 240);
-    --tp-mark-quiet: oklch(0.38 0.012 240);
-
-    /* Di mode gelap arahnya dibalik: isian lebih GELAP dari --tp-accent (0.68),
-       supaya penanda hari ini tetap menonjol di atasnya. */
-    --tp-track: oklch(0.32 0.008 240);
-    --tp-track-fill: oklch(0.52 0.075 225);
-
-    /*
-     * Di tema gelap tidak ada satu pun lightness yang sekaligus terpisah dari
-     * panel DAN cukup kontras untuk teks kalem di atasnya: yang lebih terang
-     * mematikan keterbacaan teks, yang lebih gelap kehilangan pemisahan.
-     * Jadi fill-nya dibuat nyaris hitam (teks utama 18:1) dan pemisahan
-     * ditanggung border, strategi yang sama dengan permukaan gelap lain di sini.
-     */
-    --tp-tip-bg: oklch(0.16 0.012 240);
-    --tp-tip-border: oklch(0.42 0.014 240);
-    --tp-tip-text: oklch(0.98 0.004 240);
-    --tp-tip-muted: oklch(0.8 0.008 240);
-    --tp-tip-hint: oklch(0.72 0.008 240);
-    --tp-shadow-pop: 0 4px 6px oklch(0 0 0 / 0.4), 0 10px 20px oklch(0 0 0 / 0.35);
-
-    --tp-accent: oklch(0.68 0.11 225);
-    --tp-accent-text: oklch(0.72 0.11 225);
-    --tp-accent-bg: oklch(0.3 0.04 225);
-    --tp-accent-border: oklch(0.42 0.07 225);
-    /*
-     * Rentangnya sempit di mode gelap: harus cukup gelap agar teks putih lolos
-     * AA (batas atas ~0.555) tapi cukup terang agar tombolnya terpisah dari
-     * panel gelap (batas bawah ~0.52). Termasuk keadaan hover.
-     */
-    --tp-accent-solid: oklch(0.52 0.099 225);
-    --tp-accent-solid-hover: oklch(0.55 0.105 225);
-    --tp-accent-on: oklch(0.99 0.005 225);
-
-    --tp-overdue: oklch(0.72 0.15 27);
-    --tp-overdue-bg: oklch(0.31 0.06 27);
-    --tp-overdue-border: oklch(0.43 0.1 27);
-
-    --tp-due: oklch(0.78 0.115 55);
-    --tp-due-bg: oklch(0.32 0.05 55);
-    --tp-due-border: oklch(0.44 0.08 55);
-}
-
-/*
- * Angka rata kolom. Wajib untuk kolom Rupiah dan hitungan hari:
- * tanpa ini digit bergeser tiap kali nilainya berubah dan kolom terlihat goyang.
- */
-.tp-num {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: 'tnum' 1;
-}
-
-.tp-panel {
-    background: var(--tp-surface);
-    border: 1px solid var(--tp-border);
-    border-radius: var(--tp-radius);
-    box-shadow: var(--tp-shadow);
-    overflow: hidden;
-}
-
-/*
- * Pita judul panel. Latar cekung membuat tiap panel punya kepala yang jelas,
- * dan halaman jadi berirama pita-isi-pita-isi alih-alih satu bidang putih
- * panjang tanpa sendi.
- */
-/*
- * Pita judul panel. Latar cekung netral memberi tiap panel kepala yang jelas
- * dan halaman jadi berirama pita-isi-pita-isi.
- */
-.tp-panel-header {
-    background: var(--tp-surface-sunken);
-    border-bottom: 1px solid var(--tp-border);
-}
-
-
-/*
- * Judul panel.
- *
- * Dipisahkan dari .tp-label karena keduanya beda tugas. Sebelumnya judul panel
- * memakai label 11px uppercase, sehingga tiap panel praktis tidak punya kepala,
- * cuma bisikan. Teks normal 16px semibold membuatnya benar-benar jadi judul.
- *
- * .tp-label tetap 11px uppercase untuk yang memang label: kepala kolom tabel,
- * baris meta tenggat, penanda toolbar.
- */
-.tp-panel-title {
-    font-size: var(--tp-size-md);
+/* Footer sidebar (EasyFooter): satu baris kecil, rata kiri, bukan dua baris tengah. */
+.fi-footer.fi-sidebar {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 0.375rem;
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border-color: rgb(var(--gray-200));
+    font-size: 0.75rem;
     font-weight: 600;
-    letter-spacing: -0.01em;
-    color: var(--tp-text);
+    white-space: nowrap;
 }
 
-/*
- * Label kecil. Memakai --tp-text, bukan --tp-text-muted: saat semua label
- * berwarna abu-abu, halaman kehilangan seluruh jangkarnya dan tidak ada satu
- * pun yang menahan mata.
- */
-.tp-label {
-    font-size: var(--tp-size-2xs);
+.dark .fi-footer.fi-sidebar {
+    border-color: rgb(255 255 255 / 0.06);
+}
+
+.fi-footer.fi-sidebar img {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+/* Navigasi: label padat, item aktif biru lembut, angka badge netral. */
+.fi-sidebar-nav-groups {
+    gap: 1.25rem;
+}
+
+.fi-sidebar-group-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgb(var(--gray-500));
+}
+
+.dark .fi-sidebar-group-label {
+    color: rgb(var(--gray-400));
+}
+
+.fi-sidebar-item-button {
+    border-radius: 11px;
+    padding: 0.4375rem 0.625rem;
+}
+
+.fi-sidebar-item-label {
+    font-size: 0.84375rem;
     font-weight: 600;
-    letter-spacing: 0.07em;
-    text-transform: uppercase;
-    color: var(--tp-text);
 }
 
-/* Varian kalem, untuk label yang memang sekunder (kepala kolom tabel). */
-.tp-label-quiet {
-    color: var(--tp-text-muted);
-    font-weight: 500;
+.fi-sidebar-item-active > .fi-sidebar-item-button {
+    background-color: rgb(var(--primary-100));
 }
 
-/*
- * Penanda tenggat di garis waktu.
- *
- * Titiknya kecil (12px), jadi tombolnya dibuat jauh lebih lebar dari titiknya
- * dan bagian yang bisa diklik meluas ke label tanggal di bawahnya. Tanpa itu
- * sasaran kliknya terlalu kecil untuk dipakai dengan nyaman.
- */
-.tp-pin {
-    position: absolute;
-    transform: translateX(-50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    background: none;
-    border: 0;
-    padding: 0 0.75rem;
-    cursor: pointer;
+.fi-sidebar-item-active > .fi-sidebar-item-button .fi-sidebar-item-label {
+    font-weight: 700;
+    color: rgb(var(--primary-700));
 }
 
-.tp-pin:focus-visible {
-    outline: 2px solid var(--tp-accent);
-    outline-offset: 2px;
-    border-radius: var(--tp-radius-sm);
+.dark .fi-sidebar-item-active > .fi-sidebar-item-button {
+    background-color: rgba(var(--primary-500), 0.14);
 }
 
-/* Kepala lollipop. Skalanya naik saat hover supaya ia terbaca sebagai sasaran,
-   bukan sekadar hiasan. Transform, bukan width/height, jadi tidak memicu reflow. */
-.tp-pin-dot {
-    height: 0.75rem;
-    width: 0.75rem;
+.dark .fi-sidebar-item-active > .fi-sidebar-item-button .fi-sidebar-item-label {
+    color: rgb(var(--primary-300));
+}
+
+.fi-sidebar-item .fi-badge:is(.fi-color-primary, .fi-color-gray) {
+    background-color: transparent;
+    box-shadow: none;
+    color: rgb(var(--gray-500));
+    font-weight: 700;
+}
+
+.dark .fi-sidebar-item .fi-badge:is(.fi-color-primary, .fi-color-gray) {
+    color: rgb(var(--gray-400));
+}
+
+.fi-sidebar-item-active > .fi-sidebar-item-button .fi-badge:is(.fi-color-primary, .fi-color-gray) {
     border-radius: 9999px;
-    border: 2px solid var(--tp-pin-color);
-    background: var(--tp-pin-fill);
-    transition: transform var(--tp-dur) var(--tp-ease);
+    background-color: rgb(var(--primary-600));
+    color: white;
 }
 
-.tp-pin:hover .tp-pin-dot,
-.tp-pin[aria-pressed='true'] .tp-pin-dot {
-    transform: scale(1.25);
+.dark .fi-sidebar-item-active > .fi-sidebar-item-button .fi-badge:is(.fi-color-primary, .fi-color-gray) {
+    color: white;
 }
 
-.tp-pin-stem {
-    width: 2px;
-    height: 0.5rem;
-    background: var(--tp-pin-color);
+/* Kontrol: sudut 11px, berat 700. Tombol primary tetap #157a9c di dua tema
+   (teks putih 4.9:1); bawaan Filament memakai shade 500 di mode gelap yang
+   hanya 3.6:1. */
+.fi-btn {
+    border-radius: 11px;
+    font-weight: 700;
 }
 
-.tp-pin-day {
-    margin-top: 0.6875rem;
-    font-size: var(--tp-size-xs);
-    font-weight: 600;
-    color: var(--tp-pin-label);
-    transition: color var(--tp-dur) var(--tp-ease);
+.fi-btn:is(.fi-btn-color-primary, .fi-btn-color-success, .fi-btn-color-info):not(.fi-btn-outlined) {
+    box-shadow: 0 1px 2px rgba(var(--primary-800), 0.25);
 }
 
-.tp-pin:hover .tp-pin-day,
-.tp-pin[aria-pressed='true'] .tp-pin-day {
-    color: var(--tp-pin-color);
+.fi-btn:is(.fi-btn-color-primary, .fi-btn-color-success, .fi-btn-color-info):not(.fi-btn-outlined):hover {
+    background-color: rgb(var(--primary-700));
 }
 
-/* Garis bawah tipis menandai tenggat yang sedang disorot, tanpa menambah warna. */
-.tp-pin[aria-pressed='true'] .tp-pin-day {
-    box-shadow: 0 2px 0 -1px currentColor;
+.dark .fi-btn:is(.fi-btn-color-primary, .fi-btn-color-success, .fi-btn-color-info):not(.fi-btn-outlined) {
+    background-color: rgb(var(--primary-600));
 }
 
-/*
- * Tenggat yang jatuh tepat pada hari ini.
- *
- * Cincin aksen di sekeliling titik menggantikan garis "Hari ini" yang berdiri
- * sendiri. Tanpa ini, pada tanggal 10, 20, dan 30 dua tanda bertumpuk di posisi
- * yang sama persis dan garisnya tertutup pin. Cincin memakai box-shadow, bukan
- * border, supaya tidak menggeser ukuran titik dan merusak keselarasannya.
- */
-.tp-pin[data-today='true'] .tp-pin-dot {
+.dark .fi-btn:is(.fi-btn-color-primary, .fi-btn-color-success, .fi-btn-color-info):not(.fi-btn-outlined):hover {
+    background-color: rgb(var(--primary-700));
+}
+
+.fi-input-wrp {
+    border-radius: 11px;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+
+/* Wadah: kedalaman dari garis tipis, bukan bayangan (Border-First Rule). */
+.fi-section:not(.fi-section-not-contained),
+.fi-ta-ctn,
+.fi-wi-stats-overview-stat,
+.fi-tabs {
+    border-radius: 14px;
+    --tw-shadow: 0 0 #0000;
+    --tw-shadow-colored: 0 0 #0000;
+}
+
+.fi-dropdown-panel {
+    border-radius: 14px;
     box-shadow:
-        0 0 0 2px var(--tp-surface),
-        0 0 0 4px var(--tp-accent);
+        0 24px 48px -16px rgba(var(--gray-950), 0.28),
+        0 2px 6px rgba(var(--gray-950), 0.06),
+        0 0 0 1px rgba(var(--gray-950), 0.05);
 }
 
-.tp-pin[data-today='true'] .tp-pin-stem {
-    background: var(--tp-accent);
+.fi-modal-window {
+    border-radius: 18px;
 }
 
-/*
- * Tooltip bersama, dipakai penanda tenggat di garis waktu dan batang chart.
- *
- * Menggantikan atribut title bawaan browser, yang muncul setelah jeda ~1 detik,
- * tidak bisa distyle, dan menempel di kursor alih-alih di elemennya.
- *
- * Diletakkan DI BAWAH pin, bukan di atas: .tp-panel memakai overflow:hidden
- * untuk merapikan sudut pita judul, dan tooltip di atas pin akan terpotong.
- *
- * pointer-events:none wajib. Tanpa itu tooltip menutupi tombolnya sendiri
- * begitu muncul, dan kliknya jadi tidak sampai.
- */
-.tp-tip {
-    position: absolute;
-    top: calc(100% + 0.5rem);
-    z-index: 30;
-    width: max-content;
-    max-width: 14rem;
-    padding: 0.5rem 0.625rem;
-    border-radius: var(--tp-radius-sm);
-    background: var(--tp-tip-bg);
-    border: 1px solid var(--tp-tip-border);
-    box-shadow: var(--tp-shadow-pop);
-    text-align: left;
-    white-space: normal;
-    pointer-events: none;
+.fi-badge {
+    border-radius: 7px;
+    font-weight: 700;
+}
 
-    opacity: 0;
-    transform: translateY(-0.25rem) scale(0.97);
-    transition:
-        opacity var(--tp-dur) var(--tp-ease),
-        transform var(--tp-dur) var(--tp-ease);
+.fi-header-heading {
+    font-size: 1.5625rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+/* Kepala tabel: label kapital kecil, seperti client-management. */
+.fi-ta-header-cell-label {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--gray-500));
+}
+
+.dark .fi-ta-header-cell-label {
+    color: rgb(var(--gray-400));
 }
 
 /*
- * Perataan mengikuti posisi pin di dalam bulan. Pin tanggal 30 duduk di ~97%,
- * dan tooltip yang ditengahkan di sana akan meluber melewati tepi panel lalu
- * terpotong overflow:hidden.
+ * Komponen kis (redesign fase 2): resources/views/components/kis/*.blade.php,
+ * perilaku di resources/js/kis-ui.js. Tiga nada status (DESIGN.md):
+ * biru = normal/progres, merah = masalah, netral = lainnya, garis biru = menunggu.
  */
-.tp-tip[data-align='center'] {
-    left: 50%;
-    transform: translate(-50%, -0.25rem) scale(0.97);
-}
-
-/* Rata tepat di tepi tombol, bukan menjorok keluar 4px: pin terakhir hanya
-   menyisakan ~2px ke tepi panel, dan menjorok akan memotongnya. */
-.tp-tip[data-align='start'] {
-    left: 0;
-}
-
-.tp-tip[data-align='end'] {
-    right: 0;
-}
-
-/* Jeda muncul 90ms supaya tooltip tidak berkedip saat kursor menyapu lewat.
-   Menghilangnya tanpa jeda, karena menunda kepergian terasa lengket. */
-.tp-pin:hover .tp-tip,
-.tp-pin:focus-visible .tp-tip,
-.tp-bar:hover .tp-tip,
-.tp-bar:focus-visible .tp-tip {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    transition-delay: 90ms;
-}
-
-.tp-pin:hover .tp-tip[data-align='center'],
-.tp-pin:focus-visible .tp-tip[data-align='center'],
-.tp-bar:hover .tp-tip[data-align='center'],
-.tp-bar:focus-visible .tp-tip[data-align='center'] {
-    transform: translate(-50%, 0) scale(1);
-}
-
-/* Pin yang sedang di-hover naik ke depan, kalau tidak tooltipnya bisa tertutup
-   pin tetangga yang dirender belakangan. */
-.tp-pin:hover,
-.tp-pin:focus-visible {
-    z-index: 30;
-}
-
-/* Kerucut penunjuk. Bujur sangkar diputar 45 derajat, dengan dua sisi atasnya
-   saja yang berborder supaya menyatu dengan badan tooltip. */
-.tp-tip::before {
-    content: '';
-    position: absolute;
-    top: -0.3125rem;
-    width: 0.5rem;
-    height: 0.5rem;
-    background: var(--tp-tip-bg);
-    border-left: 1px solid var(--tp-tip-border);
-    border-top: 1px solid var(--tp-tip-border);
-    transform: rotate(45deg);
-}
-
-.tp-tip[data-align='center']::before {
-    left: 50%;
-    margin-left: -0.25rem;
-}
-
-.tp-tip[data-align='start']::before {
-    left: 0.875rem;
-}
-
-.tp-tip[data-align='end']::before {
-    right: 0.875rem;
-}
-
-.tp-tip-title {
-    display: block;
-    font-size: var(--tp-size-sm);
-    font-weight: 600;
-    color: var(--tp-tip-text);
-    line-height: 1.3;
-}
-
-.tp-tip-meta {
-    margin-top: 0.1875rem;
-    font-size: var(--tp-size-xs);
-    color: var(--tp-tip-muted);
-}
-
-.tp-tip-hint {
-    margin-top: 0.375rem;
-    padding-top: 0.375rem;
-    border-top: 1px solid oklch(1 0 0 / 0.12);
-    font-size: var(--tp-size-2xs);
-    color: var(--tp-tip-hint);
-}
-
-/*
- * Batang chart saldo akhir.
- *
- * Warnanya seragam di keluarga aksen, tidak dibedakan menurut tanda. Merah dan
- * hijau untuk kurang/lebih bayar akan bentrok dengan merah "lewat tempo" yang
- * sudah punya arti tegas di halaman ini, sementara tandanya sendiri sudah
- * dikodekan lewat posisi di atas atau di bawah garis nol.
- */
-.tp-bar {
-    position: relative;
-    flex: 1 1 0;
-    min-width: 0;
-    background: none;
-    border: 0;
-    padding: 0;
-    cursor: pointer;
-}
-
-.tp-bar:focus-visible {
-    outline: 2px solid var(--tp-accent);
-    outline-offset: 2px;
-    border-radius: var(--tp-radius-sm);
-}
-
-.tp-bar-fill {
-    position: absolute;
-    left: 0;
-    right: 0;
-    border-radius: 3px;
-    background: var(--tp-track-fill);
-    transition: background-color var(--tp-dur) var(--tp-ease);
-}
-
-.tp-bar:hover .tp-bar-fill {
-    background: var(--tp-accent);
-}
-
-.tp-bar[aria-current='true'] .tp-bar-fill {
-    background: var(--tp-accent-solid);
-}
-
-/* Latar hover selebar kolom: sasaran kliknya tetap besar walau batangnya pendek. */
-.tp-bar-hit {
-    position: absolute;
-    inset: 0;
-    border-radius: var(--tp-radius-sm);
-    background: var(--tp-surface-sunken);
-    opacity: 0;
-    transition: opacity var(--tp-dur) var(--tp-ease);
-}
-
-.tp-bar:hover .tp-bar-hit,
-.tp-bar:focus-visible .tp-bar-hit {
-    opacity: 1;
-}
-
-/*
- * Pemilih bentuk tampilan. Dua tombol ikon rapat dalam satu bingkai, pola
- * segmented control yang lazim untuk pilihan yang saling meniadakan.
- */
-.tp-seg {
+.kis-badge {
     display: inline-flex;
     align-items: center;
-    padding: 2px;
-    gap: 2px;
-    border: 1px solid var(--tp-border);
-    border-radius: var(--tp-radius-sm);
-    background: var(--tp-surface);
-}
-
-.tp-seg button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 1.625rem;
-    width: 1.75rem;
-    border-radius: calc(var(--tp-radius-sm) - 2px);
-    color: var(--tp-text-muted);
-    transition:
-        background-color var(--tp-dur) var(--tp-ease),
-        color var(--tp-dur) var(--tp-ease);
-}
-
-.tp-seg button:hover {
-    background: var(--tp-surface-sunken);
-    color: var(--tp-text);
-}
-
-.tp-seg button[aria-pressed='true'] {
-    background: var(--tp-accent-solid);
-    color: var(--tp-accent-on);
-}
-
-.tp-seg button:focus-visible {
-    outline: 2px solid var(--tp-accent);
-    outline-offset: 1px;
-}
-
-/* Varian dengan label teks (mis. "Tahunan" / "Per masa"), bukan ikon. */
-.tp-seg--text button {
-    width: auto;
-    padding: 0 0.6rem;
-    font-size: var(--tp-size-2xs);
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    white-space: nowrap;
-}
-
-/*
- * Baris kelengkapan yang bisa diklik untuk menyaring.
- *
- * Baris pembayaran memakai varian -static: ia bukan jenis pajak dan tidak punya
- * padanan di filter tax_type, jadi ia sengaja tidak bisa diklik ketimbang
- * mengarang filter yang tidak ada.
- */
-.tp-prow {
-    display: flex;
-    width: 100%;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.625rem 0.5rem;
-    margin: 0 -0.5rem;
-    border-radius: var(--tp-radius-sm);
-    text-align: left;
-    cursor: pointer;
-    transition: background-color var(--tp-dur) var(--tp-ease);
-}
-
-.tp-prow:hover {
-    background: var(--tp-surface-sunken);
-}
-
-.tp-prow[aria-pressed='true'] {
-    background: var(--tp-accent-bg);
-    box-shadow: inset 2px 0 0 var(--tp-accent);
-}
-
-.tp-prow:focus-visible {
-    outline: 2px solid var(--tp-accent);
-    outline-offset: -2px;
-}
-
-.tp-prow-static {
-    cursor: default;
-}
-
-.tp-prow-static:hover {
-    background: transparent;
-}
-
-/*
- * Bentuk kolom. Batang vertikal 0-100%, warnanya sama dengan bentuk baris
- * supaya berpindah tampilan tidak berarti belajar pemetaan warna dari nol.
- */
-.tp-col {
-    display: flex;
-    flex: 1 1 0;
-    min-width: 0;
-    height: 100%;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
     gap: 0.375rem;
-    padding: 0.25rem;
-    border-radius: var(--tp-radius-sm);
-    cursor: pointer;
-    transition: background-color var(--tp-dur) var(--tp-ease);
-}
-
-.tp-col:hover {
-    background: var(--tp-surface-sunken);
-}
-
-.tp-col[aria-pressed='true'] {
-    background: var(--tp-accent-bg);
-}
-
-.tp-col:focus-visible {
-    outline: 2px solid var(--tp-accent);
-    outline-offset: -2px;
-}
-
-.tp-col-static {
-    cursor: default;
-}
-
-.tp-col-static:hover {
-    background: transparent;
-}
-
-.tp-col-value {
-    font-size: var(--tp-size-sm);
-    font-weight: 600;
-    color: var(--tp-text);
+    height: 1.5rem;
+    padding: 0 0.5625rem;
+    border-radius: 7px;
+    font-size: 0.75rem;
+    font-weight: 700;
     line-height: 1;
-}
-
-.tp-col-track {
-    position: relative;
-    width: 100%;
-    max-width: 3.5rem;
-    flex: 1 1 auto;
-    display: flex;
-    align-items: flex-end;
-    border-radius: var(--tp-radius-sm);
-    background: var(--tp-surface-sunken);
-    box-shadow: inset 0 0 0 1px var(--tp-border);
-    overflow: hidden;
-}
-
-.tp-col-fill {
-    width: 100%;
-    border-radius: var(--tp-radius-sm);
-    background: var(--tp-col-color);
-}
-
-/*
- * Masa tanpa aktivitas: track digaris putus-putus dan tanpa latar.
- * Bentuknya sendiri yang membedakan "tidak wajib lapor" dari "nol persen",
- * jadi maknanya tidak bergantung pada membaca angka di bawahnya.
- */
-.tp-col-track-idle {
-    background: transparent;
-    box-shadow: none;
-    border: 1px dashed var(--tp-border-strong);
-}
-
-.tp-col-label {
-    font-size: var(--tp-size-2xs);
-    font-weight: 500;
-    color: var(--tp-text);
-    text-align: center;
-    line-height: 1.2;
-}
-
-.tp-col-count {
-    font-size: var(--tp-size-2xs);
-    color: var(--tp-text-muted);
-    line-height: 1;
-}
-
-.tp-row {
-    transition: background-color var(--tp-dur) var(--tp-ease);
-}
-
-.tp-row:hover {
-    background: var(--tp-surface-sunken);
-}
-
-.tp-focus:focus-visible {
-    outline: 2px solid var(--tp-accent);
-    outline-offset: 2px;
-    border-radius: var(--tp-radius-sm);
-}
-
-/*
- * Kosakata tombol.
- *
- * Select-nya sekarang dirender komponen Filament Forms, jadi bentuknya sudah
- * konsisten dengan seluruh panel admin dan tidak perlu ditulis ulang di sini.
- *
- * shadcn/ui adalah komponen React di atas Radix, jadi tidak bisa dipasang di
- * stack Blade/Livewire ini. Yang diambil adalah bahasanya: tinggi kontrol tetap
- * 2.25rem, border 1px yang tegas, shadow rambut, radius terukur, dan focus ring
- * melingkar (bukan outline kotak) yang muncul bersama perubahan warna border.
- */
-.tp-btn {
-    height: 2.25rem;
-    border: 1px solid var(--tp-border);
-    border-radius: var(--tp-radius-sm);
-    background-color: var(--tp-surface);
-    color: var(--tp-text);
-    font-size: var(--tp-size-sm);
-    box-shadow: var(--tp-shadow-sm);
-    transition:
-        border-color var(--tp-dur) var(--tp-ease),
-        box-shadow var(--tp-dur) var(--tp-ease),
-        background-color var(--tp-dur) var(--tp-ease);
-}
-
-.tp-btn:focus-visible {
-    outline: none;
-    border-color: var(--tp-accent);
-    box-shadow: 0 0 0 3px var(--tp-ring);
-}
-
-.tp-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.375rem;
-    font-weight: 500;
-    padding: 0 0.75rem;
     white-space: nowrap;
+    vertical-align: middle;
 }
 
-.tp-btn:hover:not(:disabled) {
-    background: var(--tp-surface-sunken);
-    border-color: var(--tp-border-strong);
-}
-
-.tp-btn:active:not(:disabled) {
-    background: var(--tp-surface-sunken);
-    box-shadow: none;
-}
-
-.tp-btn:disabled {
-    color: var(--tp-text-faint);
-    cursor: not-allowed;
-    box-shadow: none;
-}
-
-/*
- * Aksi primer. Ini satu-satunya bidang berwarna penuh di dashboard, dan ia ada
- * karena seluruh halaman ini tentang "lakukan sesuatu": tanpa satu pun elemen
- * yang menyatakan mana yang harus dikerjakan, aksen jadi tidak terpakai dan
- * halaman kehilangan titik fokusnya.
- */
-.tp-btn-primary {
-    background: var(--tp-accent-solid);
-    border-color: var(--tp-accent-solid);
-    color: var(--tp-accent-on);
-    font-weight: 600;
-}
-
-.tp-btn-primary:hover:not(:disabled) {
-    background: var(--tp-accent-solid-hover);
-    border-color: var(--tp-accent-solid-hover);
-}
-
-/*
- * Lencana hitung di dalam tombol.
- *
- * Tanpa wadah sendiri, angkanya menempel jadi bagian label: "PPh 21 & Unifikasi 1"
- * terbaca seolah nama kewajibannya "Unifikasi 1". Pil dengan latar dan border
- * memisahkannya secara tegas.
- */
-.tp-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 1.25rem;
+.kis-badge--sm {
+    gap: 0.25rem;
     height: 1.25rem;
     padding: 0 0.375rem;
-    margin-left: 0.125rem;
+    border-radius: 7px;
+    font-size: 0.65625rem;
+}
+
+.kis-badge--dot::before {
+    content: '';
+    flex: none;
+    width: 6px;
+    height: 6px;
     border-radius: 9999px;
-    background: var(--tp-surface-sunken);
-    border: 1px solid var(--tp-border);
-    font-size: var(--tp-size-2xs);
-    font-weight: 600;
-    line-height: 1;
-    color: var(--tp-text-muted);
-    font-variant-numeric: tabular-nums;
+    background-color: currentColor;
+}
+
+.kis-badge--neutral {
+    background-color: rgb(var(--gray-100));
+    color: rgb(var(--gray-600));
+    box-shadow: inset 0 0 0 1px rgb(var(--gray-200));
+}
+
+.kis-badge--blue {
+    background-color: rgb(var(--primary-100));
+    color: rgb(var(--primary-700));
+    box-shadow: inset 0 0 0 1px rgba(var(--primary-700), 0.2);
+}
+
+.kis-badge--outline {
+    background-color: white;
+    color: rgb(var(--primary-700));
+    box-shadow: inset 0 0 0 1px rgba(var(--primary-700), 0.38);
+}
+
+.kis-badge--outline.kis-badge--dot::before {
+    width: 7px;
+    height: 7px;
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1.6px currentColor;
+}
+
+.kis-badge--red {
+    background-color: rgb(var(--danger-50));
+    color: rgb(var(--danger-700));
+    box-shadow: inset 0 0 0 1px rgba(var(--danger-700), 0.22);
+}
+
+.dark .kis-badge--neutral {
+    background-color: rgb(255 255 255 / 0.05);
+    color: rgb(var(--gray-300));
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+
+.dark .kis-badge--blue {
+    background-color: rgba(var(--primary-500), 0.16);
+    color: rgb(var(--primary-300));
+    box-shadow: inset 0 0 0 1px rgba(var(--primary-300), 0.22);
+}
+
+.dark .kis-badge--outline {
+    background-color: transparent;
+    color: rgb(var(--primary-300));
+    box-shadow: inset 0 0 0 1px rgba(var(--primary-300), 0.4);
+}
+
+.dark .kis-badge--red {
+    background-color: rgba(var(--danger-500), 0.16);
+    color: rgb(var(--danger-300));
+    box-shadow: inset 0 0 0 1px rgba(var(--danger-300), 0.24);
 }
 
 /*
- * Di atas tombol primer, lencananya GELAP transparan, bukan terang.
- * Menerangkan latar teal justru menurunkan kontras teks putih ke 3,2:1 dan
- * gagal AA; menggelapkannya menaikkannya ke ~6,9:1.
+ * The same tones as custom properties, for older markup that paints itself
+ * from --s-color / --s-bg (project list status pills, status-shape icons):
+ * put data-kis-tone="blue|outline|neutral|red" on the element.
  */
-.tp-btn-primary .tp-count {
-    background: oklch(0 0 0 / 0.25);
-    border-color: oklch(1 0 0 / 0.22);
-    color: var(--tp-accent-on);
+[data-kis-tone='blue'] {
+    --s-color: rgb(var(--primary-700));
+    --s-bg: rgb(var(--primary-100));
 }
 
-.tp-btn-ghost {
-    background: transparent;
-    border-color: transparent;
-    color: var(--tp-text-muted);
-    box-shadow: none;
+[data-kis-tone='outline'] {
+    --s-color: rgb(var(--primary-700));
+    --s-bg: white;
 }
 
-.tp-btn-ghost:hover:not(:disabled) {
-    background: var(--tp-surface-sunken);
-    border-color: var(--tp-border);
-    color: var(--tp-text);
+[data-kis-tone='neutral'] {
+    --s-color: rgb(var(--gray-600));
+    --s-bg: rgb(var(--gray-100));
+}
+
+[data-kis-tone='red'] {
+    --s-color: rgb(var(--danger-700));
+    --s-bg: rgb(var(--danger-50));
+}
+
+.dark [data-kis-tone='blue'] {
+    --s-color: rgb(var(--primary-300));
+    --s-bg: rgba(var(--primary-500), 0.16);
+}
+
+.dark [data-kis-tone='outline'] {
+    --s-color: rgb(var(--primary-300));
+    --s-bg: transparent;
+}
+
+.dark [data-kis-tone='neutral'] {
+    --s-color: rgb(var(--gray-300));
+    --s-bg: rgb(255 255 255 / 0.05);
+}
+
+.dark [data-kis-tone='red'] {
+    --s-color: rgb(var(--danger-300));
+    --s-bg: rgba(var(--danger-500), 0.16);
+}
+
+.kis-tone-ink {
+    color: var(--s-color);
 }
 
 /*
- * Chip kewajiban. Selalu memuat teks jenis pajaknya, jadi tetap terbaca
- * tanpa persepsi warna. Warna hanya menambah lapisan urgensi di atas teks.
+ * Ordinal chart ramp for project statuses (Tone::projectStatusChart): b1..b6 is
+ * the workflow from just started to done, n1/n2 are not started and closed.
+ * Checked with the dataviz ordinal validator against white and gray-900.
+ * Dark mode flips the blue steps so later stages stay the most visible.
  */
-.tp-chip {
+:root {
+    --kis-ramp-b1: #4ab4d2;
+    --kis-ramp-b2: #1790b5;
+    --kis-ramp-b3: #157a9c;
+    --kis-ramp-b4: #10657f;
+    --kis-ramp-b5: #005065;
+    --kis-ramp-b6: #053b4d;
+    --kis-ramp-n1: #8b9497;
+    --kis-ramp-n2: #485156;
+}
+
+.dark {
+    --kis-ramp-b1: #10657f;
+    --kis-ramp-b2: #157a9c;
+    --kis-ramp-b3: #1790b5;
+    --kis-ramp-b4: #4ab4d2;
+    --kis-ramp-b5: #89d2ea;
+    --kis-ramp-b6: #bce8f8;
+    --kis-ramp-n1: #626a6f;
+    --kis-ramp-n2: #8b9497;
+}
+
+/* Tombol kecil di dalam komponen kis (bukan pengganti fi-btn). */
+.kis-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.3125rem;
-    border: 1px solid var(--tp-border);
-    border-radius: var(--tp-radius-sm);
-    background: var(--tp-surface);
-    color: var(--tp-text);
-    font-size: var(--tp-size-2xs);
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    padding: 0.125rem 0.375rem;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.375rem;
+    padding: 0 1rem;
+    border-radius: 11px;
+    font-size: 0.84375rem;
+    font-weight: 700;
     white-space: nowrap;
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/*
- * Titik identitas jenis pajak. Warnanya menandai PPN / PPh / Bupot, bukan
- * urgensi, jadi ia tidak pernah bersaing dengan merah dan amber. Labelnya tetap
- * tertulis, sehingga titik ini menambah kecepatan pindai tanpa pernah menjadi
- * satu-satunya pembawa makna.
- */
-.tp-chip[data-type]::before {
-    content: '';
-    width: 0.375rem;
-    height: 0.375rem;
-    border-radius: 9999px;
-    background: var(--tp-type);
+.kis-btn--sm {
+    height: 2rem;
+    padding: 0 0.75rem;
+    border-radius: 9px;
+    font-size: 0.78125rem;
+}
+
+.kis-btn--primary {
+    background-color: rgb(var(--primary-600));
+    color: white;
+    box-shadow: 0 1px 2px rgba(var(--primary-800), 0.25);
+}
+
+.kis-btn--primary:hover {
+    background-color: rgb(var(--primary-700));
+}
+
+.kis-btn--outline {
+    background-color: white;
+    color: rgb(var(--gray-950));
+    box-shadow: inset 0 0 0 1px rgb(var(--gray-300));
+}
+
+.kis-btn--outline:hover {
+    background-color: rgb(var(--gray-100));
+}
+
+.dark .kis-btn--outline {
+    background-color: transparent;
+    color: white;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+
+.dark .kis-btn--outline:hover {
+    background-color: rgb(255 255 255 / 0.06);
+}
+
+.kis-btn:focus-visible,
+.kis-rail__chip:focus-visible,
+.kis-rail__more-btn:focus-visible,
+.kis-mp__trigger:focus-visible,
+.kis-mp__step:focus-visible,
+.kis-mp__presets button:focus-visible,
+.kis-mp__cell:focus-visible,
+.kis-filter-chip__remove:focus-visible,
+.kis-active-filters__reset:focus-visible {
+    outline: 2px solid rgb(var(--primary-600));
+    outline-offset: 2px;
+}
+
+.kis-chevron {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex: none;
+    transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[aria-expanded='true'] > .kis-chevron {
+    transform: rotate(180deg);
+}
+
+/* Lapisan melayang (popover): satu-satunya tempat bayangan tebal. */
+.kis-pop {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    z-index: 30;
+    border: 1px solid rgb(var(--gray-200));
+    border-radius: 14px;
+    background-color: white;
+    box-shadow:
+        0 24px 48px -16px rgba(var(--gray-950), 0.28),
+        0 2px 6px rgba(var(--gray-950), 0.06);
+}
+
+.kis-pop--end {
+    left: auto;
+    right: 0;
+}
+
+.dark .kis-pop {
+    border-color: rgb(255 255 255 / 0.08);
+    background-color: rgb(var(--gray-900));
+    box-shadow: 0 24px 48px -16px rgb(0 0 0 / 0.6);
+}
+
+.kis-pop__search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 2.375rem;
+    margin: 0.625rem;
+    padding: 0 0.625rem;
+    border-radius: 11px;
+    background-color: rgb(var(--gray-100));
+    color: rgb(var(--gray-500));
+}
+
+.kis-pop__search svg {
+    width: 1rem;
+    height: 1rem;
     flex: none;
 }
 
-.tp-chip[data-type='ppn'] {
-    --tp-type: var(--tp-ppn);
+.kis-pop__search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    font-size: 0.84375rem;
+    font-weight: 600;
+    color: rgb(var(--gray-950));
+    box-shadow: none;
 }
 
-.tp-chip[data-type='pph'] {
-    --tp-type: var(--tp-pph);
+.kis-pop__search input:focus {
+    outline: none;
+    box-shadow: none;
 }
 
-.tp-chip[data-type='bupot'] {
-    --tp-type: var(--tp-bupot);
+.kis-pop__search:focus-within {
+    box-shadow: 0 0 0 2px rgb(var(--primary-600));
 }
 
-.tp-chip[data-tone='overdue'] {
-    border-color: var(--tp-overdue-border);
-    background: var(--tp-overdue-bg);
-    color: var(--tp-overdue);
+.dark .kis-pop__search {
+    background-color: rgb(255 255 255 / 0.05);
+    color: rgb(var(--gray-400));
 }
 
-.tp-chip[data-tone='due'] {
-    border-color: var(--tp-due-border);
-    background: var(--tp-due-bg);
-    color: var(--tp-due);
+.dark .kis-pop__search input {
+    color: white;
 }
+
+.kis-pop__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    border-top: 1px solid rgb(var(--gray-200));
+    font-size: 0.71875rem;
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.kis-pop__foot b {
+    font-weight: 800;
+    color: rgb(var(--gray-950));
+}
+
+.kis-pop kbd {
+    padding: 0 0.3125rem;
+    border: 1px solid rgb(var(--gray-200));
+    border-radius: 5px;
+    background-color: rgb(var(--gray-50));
+    font-family: inherit;
+    font-size: 0.65625rem;
+    font-weight: 700;
+    color: rgb(var(--gray-600));
+}
+
+.dark .kis-pop__foot {
+    border-top-color: rgb(255 255 255 / 0.08);
+    color: rgb(var(--gray-400));
+}
+
+.dark .kis-pop__foot b {
+    color: white;
+}
+
+.dark .kis-pop kbd {
+    border-color: rgb(255 255 255 / 0.1);
+    background-color: rgb(255 255 255 / 0.05);
+    color: rgb(var(--gray-300));
+}
+
+/* Rail filter satu baris (The One-Row Filter Rule). */
+.kis-rail {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-width: 0;
+}
+
+.kis-rail__label {
+    flex: none;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--gray-500));
+}
+
+.kis-rail__wrap {
+    position: relative;
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+    padding: 0.25rem;
+    border: 1px solid rgb(var(--gray-200));
+    border-radius: 14px;
+    background-color: rgb(var(--gray-100));
+}
+
+.kis-rail__row {
+    display: flex;
+    flex: 0 1 auto;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Disembunyikan tapi tetap bisa diukur; visibility: hidden juga mengeluarkannya
+   dari urutan Tab dan pembaca layar. */
+.kis-rail__chip.is-hidden {
+    position: absolute;
+    top: 0;
+    left: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.kis-rail__chip {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.4375rem;
+    height: 2rem;
+    padding: 0 0.6875rem;
+    border-radius: 9px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: rgb(var(--gray-600));
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1), color 150ms;
+}
+
+.kis-rail__chip em {
+    font-style: normal;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--gray-500));
+}
+
+.kis-rail__chip:hover {
+    background-color: rgb(255 255 255 / 0.7);
+    color: rgb(var(--gray-950));
+}
+
+.kis-rail__chip.is-on {
+    background-color: white;
+    color: rgb(var(--primary-700));
+    box-shadow:
+        0 1px 2px rgba(var(--gray-950), 0.12),
+        0 0 0 1px rgba(var(--primary-700), 0.22);
+}
+
+.kis-rail__chip.is-on em {
+    padding: 1px 0.375rem;
+    border-radius: 7px;
+    background-color: rgb(var(--primary-100));
+    color: rgb(var(--primary-700));
+}
+
+.kis-rail__chip.is-pinned {
+    order: 99;
+    margin-left: 0.75rem;
+}
+
+.kis-rail__chip.is-pinned::before {
+    content: '';
+    width: 1px;
+    height: 1rem;
+    margin: 0 0.375rem 0 -1rem;
+    background-color: rgb(var(--gray-300));
+}
+
+.dark .kis-rail__wrap {
+    border-color: rgb(255 255 255 / 0.06);
+    background-color: rgb(255 255 255 / 0.04);
+}
+
+.dark .kis-rail__chip {
+    color: rgb(var(--gray-300));
+}
+
+.dark .kis-rail__chip em {
+    color: rgb(var(--gray-400));
+}
+
+.dark .kis-rail__chip:hover {
+    background-color: rgb(255 255 255 / 0.06);
+    color: white;
+}
+
+.dark .kis-rail__chip.is-on {
+    background-color: rgb(var(--gray-800));
+    color: rgb(var(--primary-300));
+    box-shadow: 0 0 0 1px rgba(var(--primary-300), 0.3);
+}
+
+.dark .kis-rail__chip.is-on em {
+    background-color: rgba(var(--primary-500), 0.16);
+    color: rgb(var(--primary-300));
+}
+
+.kis-rail__more {
+    position: relative;
+    flex: none;
+}
+
+.kis-rail__more-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    height: 2rem;
+    padding: 0 0.625rem 0 0.75rem;
+    border-radius: 9px;
+    background-color: white;
+    box-shadow: inset 0 0 0 1px rgb(var(--gray-200));
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: rgb(var(--primary-700));
+}
+
+.kis-rail__more-btn[aria-expanded='true'] {
+    box-shadow:
+        inset 0 0 0 1px rgb(var(--primary-600)),
+        0 0 0 3px rgba(var(--primary-600), 0.14);
+}
+
+.dark .kis-rail__more-btn {
+    background-color: rgb(var(--gray-800));
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+    color: rgb(var(--primary-300));
+}
+
+.kis-rail__pop {
+    width: 21.25rem;
+}
+
+.kis-rail__list {
+    display: flex;
+    flex-direction: column;
+    max-height: 20.625rem;
+    margin: 0;
+    padding: 0 0.375rem 0.375rem;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.kis-rail__section {
+    padding: 0.5rem 0.625rem 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: rgb(var(--gray-500));
+}
+
+.kis-rail__option {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.625rem;
+    border-radius: 9px;
+    cursor: pointer;
+}
+
+.kis-rail__option[data-highlighted='true'] {
+    background-color: rgb(var(--gray-100));
+}
+
+.kis-rail__radio {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 9999px;
+    box-shadow: inset 0 0 0 1.5px rgb(var(--gray-300));
+}
+
+.kis-rail__option.is-on .kis-rail__radio {
+    box-shadow: inset 0 0 0 5px rgb(var(--primary-600));
+}
+
+/* Multiple choice: a checkbox instead of a radio. */
+.kis-rail__radio--check {
+    position: relative;
+    border-radius: 5px;
+}
+
+.kis-rail__option.is-on .kis-rail__radio--check {
+    background-color: rgb(var(--primary-600));
+    box-shadow: none;
+}
+
+.kis-rail__option.is-on .kis-rail__radio--check::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 5px;
+    height: 9px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.kis-rail__name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.84375rem;
+    font-weight: 700;
+    color: rgb(var(--gray-950));
+}
+
+.kis-rail__option.is-on .kis-rail__name {
+    color: rgb(var(--primary-700));
+}
+
+.kis-rail__name mark {
+    padding: 0 1px;
+    border-radius: 5px;
+    background-color: rgb(var(--primary-200));
+    color: inherit;
+}
+
+.kis-rail__bar {
+    flex: none;
+    width: 2.75rem;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 9999px;
+    background-color: rgb(var(--gray-100));
+}
+
+.kis-rail__bar i {
+    display: block;
+    height: 100%;
+    background-color: rgba(var(--primary-500), 0.7);
+}
+
+.kis-rail__count {
+    min-width: 1.5rem;
+    text-align: right;
+    font-size: 0.75rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--gray-500));
+}
+
+.kis-rail__empty {
+    padding: 1.375rem 0.75rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.dark .kis-rail__option[data-highlighted='true'] {
+    background-color: rgb(255 255 255 / 0.05);
+}
+
+.dark .kis-rail__radio {
+    box-shadow: inset 0 0 0 1.5px rgb(var(--gray-600));
+}
+
+.dark .kis-rail__name {
+    color: white;
+}
+
+.dark .kis-rail__option.is-on .kis-rail__name {
+    color: rgb(var(--primary-300));
+}
+
+.dark .kis-rail__name mark {
+    background-color: rgba(var(--primary-500), 0.35);
+}
+
+.dark .kis-rail__bar {
+    background-color: rgb(255 255 255 / 0.06);
+}
+
+.dark .kis-rail__count,
+.dark .kis-rail__section,
+.dark .kis-rail__empty {
+    color: rgb(var(--gray-400));
+}
+
+/* Pemilih bulan multi-select. */
+.kis-mp {
+    position: relative;
+    display: inline-flex;
+}
+
+.kis-mp__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 2.375rem;
+    padding: 0 0.625rem 0 0.75rem;
+    border-radius: 11px;
+    background-color: white;
+    box-shadow: inset 0 0 0 1px rgb(var(--gray-300));
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: rgb(var(--gray-950));
+    transition: box-shadow 150ms;
+}
+
+.kis-mp__trigger:hover {
+    box-shadow: inset 0 0 0 1px rgb(var(--gray-400));
+}
+
+.kis-mp__trigger[aria-expanded='true'] {
+    box-shadow:
+        inset 0 0 0 1px rgb(var(--primary-600)),
+        0 0 0 3px rgba(var(--primary-600), 0.14);
+}
+
+.kis-mp__icon {
+    width: 1rem;
+    height: 1rem;
+    color: rgb(var(--gray-500));
+}
+
+.kis-mp__key {
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.kis-mp__n {
+    display: grid;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.375rem;
+    place-items: center;
+    border-radius: 9999px;
+    background-color: rgb(var(--primary-600));
+    font-size: 0.6875rem;
+    font-weight: 800;
+    color: white;
+}
+
+.dark .kis-mp__trigger {
+    background-color: rgb(255 255 255 / 0.04);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+    color: white;
+}
+
+.dark .kis-mp__icon,
+.dark .kis-mp__key {
+    color: rgb(var(--gray-400));
+}
+
+.kis-mp__pop {
+    width: 24rem;
+    padding: 0.875rem;
+}
+
+.kis-mp__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.kis-mp__step {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    place-items: center;
+    border-radius: 9px;
+    box-shadow: inset 0 0 0 1px rgb(var(--gray-200));
+    color: rgb(var(--gray-600));
+}
+
+.kis-mp__step svg {
+    width: 0.9375rem;
+    height: 0.9375rem;
+}
+
+.kis-mp__step:hover:not(:disabled) {
+    background-color: rgb(var(--gray-100));
+}
+
+.kis-mp__step:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.kis-mp__year {
+    line-height: 1.2;
+    text-align: center;
+}
+
+.kis-mp__year b {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: rgb(var(--gray-950));
+}
+
+.kis-mp__year span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.kis-mp__presets {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr) 1.4fr;
+    gap: 0.375rem;
+    margin-bottom: 0.625rem;
+}
+
+.kis-mp__presets button {
+    height: 1.875rem;
+    border-radius: 9px;
+    box-shadow: inset 0 0 0 1px rgb(var(--gray-200));
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgb(var(--gray-600));
+}
+
+.kis-mp__presets button:hover:not(:disabled) {
+    background-color: rgb(var(--gray-100));
+    color: rgb(var(--gray-950));
+}
+
+.kis-mp__presets button.is-on {
+    background-color: rgb(var(--primary-100));
+    box-shadow: inset 0 0 0 1px rgba(var(--primary-700), 0.35);
+    color: rgb(var(--primary-700));
+}
+
+.kis-mp__presets button:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.kis-mp__grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.375rem;
+}
+
+.kis-mp__cell {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 3.75rem;
+    padding: 0.5625rem 0.625rem;
+    border-radius: 11px;
+    box-shadow: inset 0 0 0 1px rgb(var(--gray-200));
+    background-color: white;
+    text-align: left;
+    color: rgb(var(--gray-950));
+    transition: background-color 150ms, box-shadow 150ms;
+}
+
+.kis-mp__cell:hover:not(:disabled) {
+    background-color: rgb(var(--gray-100));
+    box-shadow: inset 0 0 0 1px rgb(var(--gray-300));
+}
+
+.kis-mp__cell-name {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-size: 0.84375rem;
+    font-weight: 800;
+}
+
+.kis-mp__cell.is-now .kis-mp__cell-name::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background-color: rgb(var(--primary-500));
+}
+
+.kis-mp__cell-count {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.kis-mp__check {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: grid;
+    width: 1rem;
+    height: 1rem;
+    place-items: center;
+    border-radius: 5px;
+    box-shadow: inset 0 0 0 1.5px rgb(var(--gray-300));
+    color: transparent;
+}
+
+.kis-mp__check svg {
+    width: 0.6875rem;
+    height: 0.6875rem;
+}
+
+.kis-mp__cell.is-on {
+    background-color: rgb(var(--primary-100));
+    box-shadow: inset 0 0 0 1px rgba(var(--primary-700), 0.45);
+}
+
+.kis-mp__cell.is-on .kis-mp__cell-name,
+.kis-mp__cell.is-on .kis-mp__cell-count {
+    color: rgb(var(--primary-700));
+}
+
+.kis-mp__cell.is-on .kis-mp__check {
+    background-color: rgb(var(--primary-600));
+    box-shadow: none;
+    color: white;
+}
+
+.kis-mp__cell:disabled {
+    cursor: not-allowed;
+    background-color: rgb(var(--gray-100));
+    box-shadow: none;
+}
+
+.kis-mp__cell:disabled .kis-mp__cell-name,
+.kis-mp__cell:disabled .kis-mp__cell-count {
+    color: rgb(var(--gray-400));
+}
+
+.kis-mp__cell:disabled .kis-mp__check {
+    display: none;
+}
+
+.kis-mp__tip {
+    margin: 0.625rem 0.125rem 0;
+    font-size: 0.71875rem;
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.kis-mp__foot {
+    margin: 0.75rem -0.875rem -0.875rem;
+}
+
+.kis-mp__foot > span {
+    flex: 1;
+}
+
+.dark .kis-mp__step,
+.dark .kis-mp__presets button {
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+    color: rgb(var(--gray-300));
+}
+
+.dark .kis-mp__step:hover:not(:disabled),
+.dark .kis-mp__presets button:hover:not(:disabled) {
+    background-color: rgb(255 255 255 / 0.06);
+    color: white;
+}
+
+.dark .kis-mp__presets button.is-on {
+    background-color: rgba(var(--primary-500), 0.16);
+    box-shadow: inset 0 0 0 1px rgba(var(--primary-300), 0.35);
+    color: rgb(var(--primary-300));
+}
+
+.dark .kis-mp__year b {
+    color: white;
+}
+
+.dark .kis-mp__year span,
+.dark .kis-mp__cell-count,
+.dark .kis-mp__tip {
+    color: rgb(var(--gray-400));
+}
+
+.dark .kis-mp__cell {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+    color: white;
+}
+
+.dark .kis-mp__cell:hover:not(:disabled) {
+    background-color: rgb(255 255 255 / 0.05);
+}
+
+.dark .kis-mp__check {
+    box-shadow: inset 0 0 0 1.5px rgb(var(--gray-600));
+}
+
+.dark .kis-mp__cell.is-on {
+    background-color: rgba(var(--primary-500), 0.16);
+    box-shadow: inset 0 0 0 1px rgba(var(--primary-300), 0.45);
+}
+
+.dark .kis-mp__cell.is-on .kis-mp__cell-name,
+.dark .kis-mp__cell.is-on .kis-mp__cell-count {
+    color: rgb(var(--primary-300));
+}
+
+.dark .kis-mp__cell:disabled {
+    background-color: rgb(255 255 255 / 0.03);
+    box-shadow: none;
+}
+
+.dark .kis-mp__cell:disabled .kis-mp__cell-name,
+.dark .kis-mp__cell:disabled .kis-mp__cell-count {
+    color: rgb(var(--gray-600));
+}
+
+/* Chip filter aktif. */
+.kis-active-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.kis-active-filters__reset {
+    margin-left: 0.25rem;
+    font-weight: 700;
+    color: rgb(var(--gray-600));
+}
+
+.kis-active-filters__reset:hover {
+    color: rgb(var(--gray-950));
+    text-decoration: underline;
+}
+
+.kis-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    height: 1.75rem;
+    padding: 0 0.25rem 0 0.625rem;
+    border-radius: 9px;
+    background-color: rgb(var(--primary-100));
+    font-weight: 700;
+    color: rgb(var(--primary-700));
+}
+
+.kis-filter-chip__remove {
+    display: grid;
+    width: 1.25rem;
+    height: 1.25rem;
+    place-items: center;
+    border-radius: 7px;
+}
+
+.kis-filter-chip__remove:hover {
+    background-color: rgba(var(--primary-700), 0.12);
+}
+
+.kis-filter-chip__remove svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.dark .kis-active-filters,
+.dark .kis-active-filters__reset {
+    color: rgb(var(--gray-400));
+}
+
+.dark .kis-active-filters__reset:hover {
+    color: white;
+}
+
+.dark .kis-filter-chip {
+    background-color: rgba(var(--primary-500), 0.16);
+    color: rgb(var(--primary-300));
+}
+
+/* Baris kelompok di tabel custom. */
+.kis-group-row > td {
+    padding: 0.5625rem 1.25rem;
+    border-bottom: 1px solid rgb(var(--gray-200));
+    background-color: rgb(var(--gray-100));
+}
+
+.kis-group-row__inner {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.kis-group-row__label {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: rgb(var(--gray-950));
+}
+
+.kis-group-row__aside {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.kis-group-row__alert {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-weight: 700;
+    color: rgb(var(--danger-700));
+}
+
+.kis-group-row__alert::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background-color: rgb(var(--danger-600));
+}
+
+.kis-group-row--section > td {
+    padding-top: 0.875rem;
+    padding-bottom: 0.375rem;
+    border-bottom: 0;
+    background-color: transparent;
+}
+
+.kis-group-row--section .kis-group-row__label {
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgb(var(--gray-500));
+}
+
+.dark .kis-group-row > td {
+    border-bottom-color: rgb(255 255 255 / 0.06);
+    background-color: rgb(255 255 255 / 0.03);
+}
+
+.dark .kis-group-row__label {
+    color: white;
+}
+
+.dark .kis-group-row__inner,
+.dark .kis-group-row--section .kis-group-row__label {
+    color: rgb(var(--gray-400));
+}
+
+.dark .kis-group-row--section > td {
+    background-color: transparent;
+}
+
+.dark .kis-group-row__alert {
+    color: rgb(var(--danger-300));
+}
+
 
 @media (prefers-reduced-motion: reduce) {
-    .tp-dash *,
-    .tp-dash *::before,
-    .tp-dash *::after {
-        transition-duration: 0.01ms !important;
+    .fi-body *,
+    .fi-body *::before,
+    .fi-body *::after {
         animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/*
+ * Dashboard (docs/mockups/dashboard-redesign.html): cards, legends, charts,
+ * tooltip and action cards. Colours stay on the three voices; status ramps
+ * come from --kis-ramp-* above.
+ */
+:root {
+    --kis-bar-red: rgb(var(--danger-500));
+    --kis-bar-track: rgb(var(--gray-300));
+}
+
+.dark {
+    --kis-bar-red: rgb(var(--danger-400));
+    --kis-bar-track: rgb(255 255 255 / 0.14);
+}
+
+.kis-card {
+    --kis-chart-surface: white;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: white;
+    border: 1px solid rgb(var(--gray-200));
+    border-radius: 14px;
+}
+
+.kis-card__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.125rem 1.25rem 0;
+}
+
+.kis-card__title {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: rgb(var(--gray-950));
+}
+
+.kis-card__sub {
+    margin: 0.125rem 0 0;
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.kis-card__aside {
+    flex: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.kis-card__body {
+    flex: 1;
+    padding: 0.875rem 1.25rem 1.125rem;
+}
+
+.kis-card__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6875rem 1.25rem;
+    border-top: 1px solid rgb(var(--gray-100));
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.kis-card__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+    font-weight: 700;
+    color: rgb(var(--primary-700));
+}
+
+.kis-card__link:hover {
+    color: rgb(var(--primary-600));
+}
+
+.dark .kis-card {
+    --kis-chart-surface: rgb(var(--gray-900));
+    background: rgb(var(--gray-900));
+    border-color: rgb(255 255 255 / 0.1);
+}
+
+.dark .kis-card__title {
+    color: white;
+}
+
+.dark .kis-card__sub,
+.dark .kis-card__aside,
+.dark .kis-card__foot {
+    color: rgb(var(--gray-400));
+}
+
+.dark .kis-card__foot {
+    border-color: rgb(255 255 255 / 0.06);
+}
+
+.dark .kis-card__link {
+    color: rgb(var(--primary-300));
+}
+
+.kis-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgb(var(--gray-700));
+}
+
+.kis-legend > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.kis-legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+}
+
+.kis-legend i.is-line {
+    width: 14px;
+    height: 3px;
+    border-radius: 2px;
+}
+
+.kis-legend i.is-dash {
+    width: 14px;
+    height: 3px;
+    border-radius: 0;
+    background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px) !important;
+    color: rgb(var(--gray-500));
+}
+
+.dark .kis-legend {
+    color: rgb(var(--gray-300));
+}
+
+/* Tooltip for [data-kis-tip] (resources/js/kis-ui.js) */
+.kis-tip {
+    position: fixed;
+    z-index: 60;
+    pointer-events: none;
+    padding: 0.5rem 0.625rem;
+    border-radius: 9px;
+    background: rgb(var(--gray-950));
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.45;
+    white-space: nowrap;
+    box-shadow: 0 8px 24px rgb(13 20 23 / 0.18);
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+.kis-tip.is-on {
+    opacity: 1;
+}
+
+.kis-tip__t {
+    font-weight: 800;
+}
+
+.kis-tip__r {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.875rem;
+}
+
+.kis-tip__r i {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 0.375rem;
+    border-radius: 2px;
+}
+
+.dark .kis-tip {
+    background: white;
+    color: rgb(var(--gray-950));
+}
+
+/* 100% bars and plain bars */
+.kis-bar100 {
+    display: flex;
+    gap: 2px;
+    height: 12px;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: rgb(var(--gray-100));
+}
+
+.kis-bar100 > i {
+    display: block;
+    height: 100%;
+    min-width: 2px;
+}
+
+.dark .kis-bar100 {
+    background: rgb(255 255 255 / 0.06);
+}
+
+/* Action cards */
+.kis-act {
+    position: relative;
+    display: block;
+    padding: 1rem 1.125rem;
+    transition: border-color 0.15s, background-color 0.15s;
+}
+
+.kis-act:hover {
+    border-color: rgb(var(--gray-300));
+    background: rgb(var(--gray-50));
+}
+
+.kis-act__label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.78125rem;
+    font-weight: 700;
+    color: rgb(var(--gray-700));
+}
+
+.kis-act__icon {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: rgb(var(--gray-100));
+    color: rgb(var(--gray-700));
+}
+
+.kis-act.is-alert .kis-act__icon {
+    background: rgb(var(--danger-50));
+    color: rgb(var(--danger-700));
+}
+
+.kis-act__value {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0.25rem;
+}
+
+.kis-act__value b {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: rgb(var(--gray-950));
+}
+
+.kis-act.is-alert .kis-act__value b {
+    color: rgb(var(--danger-700));
+}
+
+.kis-act__value span {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: rgb(var(--gray-700));
+}
+
+.kis-act__sub {
+    /* One line, so the bars of all four cards stay aligned; the full text is in the title. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-height: 1.125rem;
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: rgb(var(--gray-500));
+}
+
+.kis-act__bar {
+    display: flex;
+    gap: 2px;
+    height: 6px;
+    margin-top: 0.75rem;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: rgb(var(--gray-100));
+}
+
+.kis-act__bar > i {
+    display: block;
+    height: 100%;
+}
+
+.kis-act__go {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    color: rgb(var(--gray-400));
+}
+
+.dark .kis-act:hover {
+    border-color: rgb(255 255 255 / 0.16);
+    background: rgb(255 255 255 / 0.03);
+}
+
+.dark .kis-act__label,
+.dark .kis-act__value span {
+    color: rgb(var(--gray-300));
+}
+
+.dark .kis-act__icon {
+    background: rgb(255 255 255 / 0.06);
+    color: rgb(var(--gray-300));
+}
+
+.dark .kis-act.is-alert .kis-act__icon {
+    background: rgba(var(--danger-500), 0.16);
+    color: rgb(var(--danger-300));
+}
+
+.dark .kis-act__value b {
+    color: white;
+}
+
+.dark .kis-act.is-alert .kis-act__value b {
+    color: rgb(var(--danger-300));
+}
+
+.dark .kis-act__sub {
+    color: rgb(var(--gray-400));
+}
+
+.dark .kis-act__bar {
+    background: rgb(255 255 255 / 0.06);
+}
+
+/* Scope switch on the dashboard header */
+.kis-scope {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 11px;
+    background: rgb(var(--gray-100));
+}
+
+.kis-scope button {
+    padding: 0.375rem 0.875rem;
+    border-radius: 9px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: rgb(var(--gray-500));
+}
+
+.kis-scope button[aria-pressed='true'] {
+    background: white;
+    color: rgb(var(--gray-950));
+    box-shadow: 0 1px 2px rgb(13 20 23 / 0.12);
+}
+
+.kis-scope button:focus-visible {
+    outline: 2px solid rgb(var(--primary-600));
+    outline-offset: 1px;
+}
+
+.dark .kis-scope {
+    background: rgb(255 255 255 / 0.06);
+}
+
+.dark .kis-scope button {
+    color: rgb(var(--gray-400));
+}
+
+.dark .kis-scope button[aria-pressed='true'] {
+    background: rgb(var(--gray-800));
+    color: white;
+}
+
+/*
+ * Charts that fill their container (x-kis.chart.line / .diverging): the plot
+ * is an inset box; gridlines, labels, dots and hover columns are HTML placed
+ * in percent of it, the lines an SVG stretched to it.
+ */
+.kis-lc {
+    position: relative;
+    flex: 1 1 auto;
+    width: 100%;
+}
+
+.kis-lc__plot {
+    position: absolute;
+    inset: 0.5rem 2.75rem 1.5rem 2.5rem;
+}
+
+.kis-lc__plot--bars {
+    right: 0.25rem;
+}
+
+.kis-lc__svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.kis-lc__grid,
+.kis-lc__target {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    border-top: 1px solid rgb(var(--gray-200));
+}
+
+.kis-lc__grid.is-base {
+    border-top-color: rgb(var(--gray-300));
+}
+
+.kis-lc__grid span,
+.kis-lc__target span,
+.kis-lc__x,
+.kis-lc__end {
+    position: absolute;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    color: rgb(var(--gray-500));
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-lc__grid span {
+    right: calc(100% + 0.5rem);
+    transform: translateY(-50%);
+}
+
+.kis-lc__target {
+    border-top: 1.2px dashed rgb(var(--gray-500));
+}
+
+.kis-lc__target span {
+    left: calc(100% + 0.375rem);
+    transform: translateY(-50%);
+    font-weight: 800;
+    color: rgb(var(--gray-950));
+}
+
+.kis-lc__x {
+    top: calc(100% + 0.5rem);
+    transform: translateX(-50%);
+}
+
+.kis-lc__x.is-strong,
+.kis-lc__end {
+    font-weight: 800;
+    color: rgb(var(--gray-950));
+}
+
+.kis-lc__end {
+    margin-left: 0.5625rem;
+    transform: translateY(-50%);
+}
+
+.kis-lc__dot {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    margin: -4px 0 0 -4px;
+    border-radius: 9999px;
+    box-shadow: 0 0 0 2px var(--kis-chart-surface, white);
+}
+
+.kis-lc__col,
+.kis-lc__band {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+}
+
+.kis-lc__cross {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    border-left: 1px solid rgb(var(--gray-400));
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+.kis-lc__hover-dot {
+    opacity: 0;
+    transition: opacity 0.1s;
+}
+
+.kis-lc__col:hover .kis-lc__cross,
+.kis-lc__col:hover .kis-lc__hover-dot {
+    opacity: 1;
+}
+
+.kis-lc__bar {
+    position: absolute;
+    left: 50%;
+    width: min(22px, 60%);
+    transform: translateX(-50%);
+}
+
+.kis-lc__bar.is-up {
+    border-radius: 4px 4px 0 0;
+}
+
+.kis-lc__bar.is-down {
+    border-radius: 0 0 4px 4px;
+}
+
+.kis-lc__band:hover .kis-lc__bar {
+    filter: brightness(1.08);
+}
+
+.dark .kis-lc__grid {
+    border-top-color: rgb(255 255 255 / 0.08);
+}
+
+.dark .kis-lc__grid.is-base {
+    border-top-color: rgb(255 255 255 / 0.16);
+}
+
+.dark .kis-lc__grid span,
+.dark .kis-lc__x {
+    color: rgb(var(--gray-400));
+}
+
+.dark .kis-lc__target {
+    border-top-color: rgb(var(--gray-500));
+}
+
+.dark .kis-lc__target span,
+.dark .kis-lc__x.is-strong,
+.dark .kis-lc__end {
+    color: white;
+}
+
+/*
+ * Credential manager (Livewire Client\Management\CredentialManager + <x-cred-field>):
+ * one table of logins grouped like the Clients list. Used in the Clients list
+ * modal (.is-framed: fixed header and footer, scrolling body) and inside the
+ * Filament credential action.
+ */
+.kis-cred {
+    --cr-ink: rgb(var(--gray-950));
+    --cr-ink-2: rgb(var(--gray-700));
+    --cr-muted: rgb(var(--gray-500));
+    --cr-line: rgb(var(--gray-200));
+    --cr-line-soft: rgb(var(--gray-100));
+    --cr-line-strong: rgb(var(--gray-300));
+    --cr-surface: white;
+    --cr-wash: rgb(var(--gray-50));
+    --cr-wash-strong: rgb(var(--gray-100));
+    --cr-accent: rgb(var(--primary-600));
+    --cr-accent-ink: rgb(var(--primary-700));
+    --cr-accent-soft: rgb(var(--primary-50));
+    --cr-red: rgb(var(--danger-700));
+    --cr-cols: minmax(11rem, 0.8fr) minmax(0, 1fr) minmax(0, 1fr);
+    --cr-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    color: var(--cr-ink);
+    background: var(--cr-surface);
+}
+
+.kis-cred.is-edit {
+    --cr-cols: minmax(12rem, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) 2.25rem;
+}
+
+.kis-cred.is-framed {
+    flex: 1 1 auto;
+}
+
+.dark .kis-cred {
+    --cr-ink: white;
+    --cr-ink-2: rgb(var(--gray-300));
+    --cr-muted: rgb(var(--gray-400));
+    --cr-line: rgb(255 255 255 / 0.1);
+    --cr-line-soft: rgb(255 255 255 / 0.06);
+    --cr-line-strong: rgb(255 255 255 / 0.16);
+    --cr-surface: rgb(var(--gray-900));
+    --cr-wash: rgb(255 255 255 / 0.03);
+    --cr-wash-strong: rgb(255 255 255 / 0.07);
+    --cr-accent: rgb(var(--primary-400));
+    --cr-accent-ink: rgb(var(--primary-300));
+    --cr-accent-soft: rgba(var(--primary-500), 0.16);
+    --cr-red: rgb(var(--danger-300));
+}
+
+/* Header */
+.kis-cred__head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 1.125rem 1.25rem;
+    border-bottom: 1px solid var(--cr-line);
+}
+
+.kis-cred__tile {
+    position: relative;
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    overflow: hidden;
+    border-radius: 10px;
+    background: rgb(var(--primary-100));
+    color: rgb(var(--primary-700));
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    user-select: none;
+}
+
+.kis-cred__tile:has(img) {
+    box-shadow: inset 0 0 0 1px var(--cr-line);
+}
+
+.kis-cred__tile img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: white;
+}
+
+.dark .kis-cred__tile {
+    background: rgba(var(--primary-500), 0.16);
+    color: rgb(var(--primary-300));
+}
+
+.kis-cred__id {
+    flex: 1;
+    min-width: 0;
+}
+
+.kis-cred__name {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    color: var(--cr-ink);
+}
+
+.kis-cred__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.375rem;
+    margin: 0.125rem 0 0;
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: var(--cr-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-cred__meta > span {
+    white-space: nowrap;
+}
+
+.kis-cred__head-actions {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.kis-cred__close,
+.kis-cred__icon-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9px;
+    color: var(--cr-muted);
+    transition: background-color 150ms var(--cr-ease), color 150ms var(--cr-ease);
+}
+
+.kis-cred__close:hover {
+    background: var(--cr-wash-strong);
+    color: var(--cr-ink);
+}
+
+.kis-cred__icon-btn.is-danger:hover {
+    background: rgb(var(--danger-50));
+    color: rgb(var(--danger-700));
+}
+
+.dark .kis-cred__icon-btn.is-danger:hover {
+    background: rgba(var(--danger-500), 0.16);
+    color: rgb(var(--danger-300));
+}
+
+/* Body and table */
+.kis-cred__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0 1.25rem 1.25rem;
+}
+
+.kis-cred.is-framed .kis-cred__body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+/* Spaced with a margin, not body padding: padding would leave a gap above the sticky header. */
+.kis-cred__table {
+    margin-top: 1rem;
+    overflow: clip;
+    border: 1px solid var(--cr-line);
+    border-radius: 14px;
+    background: var(--cr-surface);
+}
+
+.kis-cred__thead,
+.kis-cred__row {
+    display: grid;
+    grid-template-columns: var(--cr-cols);
+    column-gap: 1rem;
+    align-items: center;
+    padding: 0 1rem;
+}
+
+.kis-cred__thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    height: 2.25rem;
+    border-bottom: 1px solid var(--cr-line);
+    background: linear-gradient(var(--cr-wash), var(--cr-wash)), var(--cr-surface);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cr-muted);
+}
+
+.kis-cred__group {
+    display: flex;
+    align-items: center;
+    height: 2rem;
+    padding: 0 1rem;
+    border-block: 1px solid var(--cr-line-soft);
+    background: linear-gradient(var(--cr-wash), var(--cr-wash)), var(--cr-surface);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cr-muted);
+}
+
+.kis-cred__group > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.kis-cred__thead + .kis-cred__group {
+    border-top: 0;
+}
+
+.kis-cred__count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.25rem;
+    height: 1.125rem;
+    padding: 0 0.375rem;
+    border-radius: 6px;
+    background: var(--cr-wash-strong);
+    color: var(--cr-ink-2);
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-cred__row {
+    position: relative;
+    min-height: 3.5rem;
+    padding-block: 0.625rem;
+    border-top: 1px solid var(--cr-line-soft);
+}
+
+.kis-cred__group + .kis-cred__row {
+    border-top: 0;
+}
+
+.kis-cred.is-edit .kis-cred__row {
+    align-items: start;
+}
+
+.kis-cred__row.is-wide {
+    display: block;
+}
+
+.kis-cred__svc {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-width: 0;
+}
+
+.kis-cred__svc-tile {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9px;
+    background: var(--cr-wash-strong);
+    color: var(--cr-ink-2);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    user-select: none;
+}
+
+.kis-cred__svc-tile.is-round {
+    border-radius: 9999px;
+}
+
+.kis-cred__svc-text {
+    min-width: 0;
+}
+
+.kis-cred__svc-name {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.84375rem;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--cr-ink);
+}
+
+.kis-cred__svc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.375rem;
+    margin-top: 0.1875rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--cr-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-cred__svc-meta .is-bad {
+    color: var(--cr-red);
+}
+
+.kis-cred.is-edit .kis-cred__svc {
+    min-height: 2.25rem;
+}
+
+.kis-cred__svc.is-form {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+}
+
+.kis-cred__check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: fit-content;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--cr-ink-2);
+    cursor: pointer;
+}
+
+.kis-cred__stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    min-width: 0;
+}
+
+.kis-cred.is-edit .kis-cred__stack {
+    gap: 0.625rem;
+}
+
+.kis-cred__empty {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin: 0;
+    padding-block: 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--cr-muted);
+}
+
+.kis-cred__empty b {
+    font-weight: 700;
+    color: var(--cr-ink-2);
+}
+
+.kis-cred__add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    width: 100%;
+    height: 2.5rem;
+    border: 1px dashed var(--cr-line-strong);
+    border-radius: 10px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--cr-accent-ink);
+    transition: background-color 150ms var(--cr-ease), border-color 150ms var(--cr-ease);
+}
+
+.kis-cred__add:hover {
+    border-color: rgba(var(--primary-600), 0.45);
+    background: var(--cr-accent-soft);
+}
+
+.kis-cred__note {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 0.5rem;
+    margin: 0.625rem 0 0;
+    padding: 0.625rem 0.75rem;
+    border-radius: 10px;
+    background: var(--cr-wash-strong);
+    font-size: 0.78125rem;
+    font-weight: 600;
+    line-height: 1.45;
+    color: var(--cr-ink-2);
+}
+
+.kis-cred__note svg {
+    margin-top: 0.0625rem;
+    color: var(--cr-muted);
+}
+
+/* Footer (edit mode) */
+.kis-cred__foot {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid var(--cr-line);
+    background: var(--cr-surface);
+}
+
+.kis-cred__foot-note {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    min-width: 0;
+    margin: 0;
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: var(--cr-muted);
+}
+
+.kis-cred__foot-note.is-bad {
+    color: var(--cr-red);
+}
+
+.kis-cred__foot-actions {
+    flex: none;
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* One value: label, value, show and copy */
+.kis-cf {
+    position: relative;
+    min-width: 0;
+}
+
+.kis-cf__label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--cr-muted);
+}
+
+.kis-cf__box {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 2.25rem;
+    margin-inline: -0.5rem;
+    padding: 0 0.25rem 0 0.5rem;
+    border-radius: 9px;
+    transition: background-color 150ms var(--cr-ease);
+}
+
+.kis-cf__box:hover,
+.kis-cf__box:focus-within {
+    background: var(--cr-wash-strong);
+}
+
+.kis-cf__value {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.84375rem;
+    font-weight: 600;
+    color: var(--cr-ink);
+    font-variant-numeric: tabular-nums slashed-zero;
+    user-select: all;
+}
+
+.kis-cf__value.is-secret {
+    letter-spacing: 0.04em;
+    color: var(--cr-ink-2);
+    user-select: none;
+}
+
+.kis-cf__value.is-secret.is-shown {
+    letter-spacing: 0.02em;
+    color: var(--cr-ink);
+    user-select: all;
+}
+
+.kis-cf__actions {
+    position: relative;
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+}
+
+.kis-cf__btn,
+.kis-cf__eye {
+    display: inline-grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 7px;
+    color: var(--cr-muted);
+    transition: background-color 150ms var(--cr-ease), color 150ms var(--cr-ease);
+}
+
+.kis-cf__btn:hover,
+.kis-cf__eye:hover {
+    background: var(--cr-surface);
+    color: var(--cr-ink);
+    box-shadow: inset 0 0 0 1px var(--cr-line);
+}
+
+.kis-cf__btn.is-done {
+    color: var(--cr-accent);
+}
+
+.kis-cf__toast {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.25rem);
+    padding: 0.1875rem 0.5rem;
+    border-radius: 6px;
+    background: rgb(var(--primary-600));
+    color: white;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 6px 14px -6px rgba(var(--primary-900), 0.5);
+}
+
+.kis-cf__empty {
+    display: flex;
+    align-items: center;
+    min-height: 2.25rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--cr-muted);
+}
+
+.kis-cf__control {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.kis-cf__input {
+    width: 100%;
+    height: 2.25rem;
+    padding: 0 0.75rem;
+    border: 0;
+    border-radius: 9px;
+    background-color: var(--cr-surface);
+    box-shadow: inset 0 0 0 1px var(--cr-line-strong);
+    font-size: 0.84375rem;
+    font-weight: 600;
+    color: var(--cr-ink);
+    font-variant-numeric: tabular-nums;
+    transition: box-shadow 150ms var(--cr-ease);
+}
+
+.kis-cf__input::placeholder {
+    font-weight: 500;
+    color: var(--cr-muted);
+    opacity: 1;
+}
+
+.kis-cf__input:focus {
+    outline: none;
+    box-shadow: inset 0 0 0 1px rgb(var(--primary-600)), 0 0 0 3px rgba(var(--primary-600), 0.18);
+}
+
+.kis-cf__input.is-invalid {
+    box-shadow: inset 0 0 0 1px rgb(var(--danger-600));
+}
+
+.kis-cf__input.is-invalid:focus {
+    box-shadow: inset 0 0 0 1px rgb(var(--danger-600)), 0 0 0 3px rgba(var(--danger-600), 0.18);
+}
+
+.kis-cf__input.has-eye {
+    padding-right: 2.5rem;
+}
+
+select.kis-cf__input {
+    padding-right: 2.25rem;
+    background-position: right 0.5rem center;
+}
+
+.dark .kis-cf__input {
+    color-scheme: dark;
+}
+
+.kis-cf__eye {
+    position: absolute;
+    right: 0.25rem;
+}
+
+.kis-cf__error {
+    margin: 0.3125rem 0 0;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--cr-red);
+}
+
+.kis-cf__btn:focus-visible,
+.kis-cf__eye:focus-visible,
+.kis-cred__close:focus-visible,
+.kis-cred__icon-btn:focus-visible,
+.kis-cred__add:focus-visible {
+    outline: 2px solid rgb(var(--primary-600));
+    outline-offset: 2px;
+}
+
+/* Wide screens: the column header names the primary value, so its label is for screen readers only. */
+@media (min-width: 40rem) {
+    .kis-cred__row .kis-cf:not(.has-label) > .kis-cf__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+}
+
+/* Narrow screens: service on its own line, values two across, labels visible. */
+@media (max-width: 39.99rem) {
+    .kis-cred__head {
+        padding: 0.875rem 1rem;
+    }
+
+    .kis-cred__body {
+        padding: 0 0.75rem 0.75rem;
+    }
+
+    .kis-cred__table {
+        margin-top: 0.75rem;
+    }
+
+    .kis-cred__thead {
+        display: none;
+    }
+
+    .kis-cred__row,
+    .kis-cred.is-edit .kis-cred__row {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        row-gap: 0.625rem;
+        padding: 0.75rem;
+    }
+
+    .kis-cred__row > .kis-cred__svc {
+        grid-column: 1 / -1;
+    }
+
+    .kis-cred.is-edit .kis-cred__row > .kis-cred__svc {
+        padding-right: 2.75rem;
+    }
+
+    .kis-cred__row-act {
+        position: absolute;
+        top: 0.75rem;
+        right: 0.75rem;
+    }
+
+    .kis-cred__row-act:empty {
+        display: none;
+    }
+
+    .kis-cred__foot {
+        padding: 0.75rem 1rem;
+    }
+
+    .kis-cred__foot-note:not(.is-bad) {
+        display: none;
+    }
+}
+
+@media (max-width: 26rem) {
+    .kis-cred__row,
+    .kis-cred.is-edit .kis-cred__row {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/*
+ * Tax report page (ViewTaxReport, docs/mockups/tax-report-detail-redesign.html):
+ * header .kis-trh, period bar .kis-trp, tax-type strip .kis-trs, workspaces
+ * with .kis-subtabs, and the calculation ledger .kis-ledger.
+ */
+.kis-tr,
+.kis-groups,
+.kis-gview,
+.kis-intake,
+.kis-intake-sum,
+.kis-intake-alert {
+    --tr-ink: rgb(var(--gray-950));
+    --tr-ink-2: rgb(var(--gray-700));
+    --tr-muted: rgb(var(--gray-500));
+    --tr-faint: rgb(var(--gray-400));
+    --tr-line: rgb(var(--gray-200));
+    --tr-line-soft: rgb(var(--gray-100));
+    --tr-surface: white;
+    --tr-wash: rgb(var(--gray-50));
+    --tr-wash-strong: rgb(var(--gray-100));
+    --tr-accent: rgb(var(--primary-600));
+    --tr-accent-ink: rgb(var(--primary-700));
+    --tr-accent-soft: rgba(var(--primary-500), 0.08);
+    --tr-red: rgb(var(--danger-700));
+    --tr-red-dot: rgb(var(--danger-500));
+}
+
+/* Layout of the tax report page body; the selectors above only share the tokens. */
+.kis-tr,
+.kis-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.dark .kis-tr,
+.dark .kis-trh,
+.dark .kis-groups,
+.dark .kis-gview,
+.dark .kis-intake,
+.dark .kis-intake-sum,
+.dark .kis-intake-alert {
+    --tr-ink: white;
+    --tr-ink-2: rgb(var(--gray-300));
+    --tr-muted: rgb(var(--gray-400));
+    --tr-faint: rgb(var(--gray-500));
+    --tr-line: rgb(255 255 255 / 0.1);
+    --tr-line-soft: rgb(255 255 255 / 0.06);
+    --tr-surface: rgb(var(--gray-900));
+    --tr-wash: rgb(255 255 255 / 0.03);
+    --tr-wash-strong: rgb(255 255 255 / 0.07);
+    --tr-accent: rgb(var(--primary-400));
+    --tr-accent-ink: rgb(var(--primary-300));
+    --tr-accent-soft: rgba(var(--primary-500), 0.14);
+    --tr-red: rgb(var(--danger-300));
+    --tr-red-dot: rgb(var(--danger-400));
+}
+
+/* Header */
+.kis-trh {
+    --tr-ink: rgb(var(--gray-950));
+    --tr-muted: rgb(var(--gray-500));
+    --tr-line: rgb(var(--gray-200));
+    --tr-red: rgb(var(--danger-700));
+    --tr-accent-ink: rgb(var(--primary-700));
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.kis-trh__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+}
+
+.kis-trh__who {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    min-width: 0;
+    flex: 1 1 28rem;
+}
+
+.kis-trh__tile {
+    position: relative;
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 3rem;
+    height: 3rem;
+    overflow: hidden;
+    border-radius: 12px;
+    background: rgb(var(--primary-100));
+    color: rgb(var(--primary-700));
+    font-size: 0.875rem;
+    font-weight: 800;
+    user-select: none;
+}
+
+.kis-trh__tile:has(img) {
+    box-shadow: inset 0 0 0 1px var(--tr-line);
+}
+
+.kis-trh__tile img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: white;
+}
+
+.dark .kis-trh__tile {
+    background: rgba(var(--primary-500), 0.16);
+    color: rgb(var(--primary-300));
+}
+
+.kis-trh__id {
+    min-width: 0;
+}
+
+.kis-trh__title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.kis-trh__name {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1.5625rem;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+    color: var(--tr-ink);
+}
+
+.kis-trh__switch {
+    position: relative;
+    flex: none;
+}
+
+.kis-trh__switch-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 9px;
+    background: rgb(var(--gray-100));
+    color: rgb(var(--gray-700));
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kis-trh__switch-btn:hover {
+    background: rgb(var(--gray-200));
+}
+
+.dark .kis-trh__switch-btn {
+    background: rgb(255 255 255 / 0.07);
+    color: rgb(var(--gray-300));
+}
+
+.dark .kis-trh__switch-btn:hover {
+    background: rgb(255 255 255 / 0.12);
+}
+
+.kis-trh__pop {
+    width: 20rem;
+}
+
+.kis-trh__list {
+    max-height: 16rem;
+    margin: 0;
+    padding: 0 0.375rem 0.375rem;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.kis-trh__opt {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.625rem;
+    border-radius: 9px;
+    font-size: 0.84375rem;
+    font-weight: 600;
+    color: rgb(var(--gray-700));
+}
+
+a.kis-trh__opt:hover {
+    background: rgb(var(--gray-100));
+    color: rgb(var(--gray-950));
+}
+
+.kis-trh__opt.is-current {
+    background: rgba(var(--primary-500), 0.08);
+    color: rgb(var(--primary-700));
+    font-weight: 700;
+}
+
+.dark .kis-trh__opt {
+    color: rgb(var(--gray-300));
+}
+
+.dark a.kis-trh__opt:hover {
+    background: rgb(255 255 255 / 0.06);
+    color: white;
+}
+
+.dark .kis-trh__opt.is-current {
+    background: rgba(var(--primary-500), 0.16);
+    color: rgb(var(--primary-300));
+}
+
+.kis-trh__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.125rem 0.625rem;
+    margin: 0.3125rem 0 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-trh__meta > span + span::before {
+    content: '·';
+    margin-right: 0.625rem;
+    color: var(--tr-muted);
+    font-weight: 600;
+}
+
+.kis-trh__meta .is-bad {
+    color: var(--tr-red);
+    font-weight: 700;
+}
+
+.kis-trh__meta .is-done {
+    color: var(--tr-accent-ink);
+    font-weight: 700;
+}
+
+.dark .kis-trh__meta .is-bad {
+    color: rgb(var(--danger-300));
+}
+
+.dark .kis-trh__meta .is-done {
+    color: rgb(var(--primary-300));
+}
+
+.dark .kis-trh__name {
+    color: white;
+}
+
+.kis-trh__acts {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.kis-trh__stepper {
+    display: inline-flex;
+    align-items: center;
+    height: 2.375rem;
+    border-radius: 11px;
+    background: white;
+    box-shadow: inset 0 0 0 1px rgb(var(--gray-300));
+}
+
+.kis-trh__step {
+    display: inline-grid;
+    place-items: center;
+    width: 2.125rem;
+    height: 100%;
+    border-radius: 11px;
+    color: rgb(var(--gray-700));
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+a.kis-trh__step:hover {
+    background: rgb(var(--gray-100));
+}
+
+.kis-trh__step.is-off {
+    color: rgb(var(--gray-300));
+}
+
+.kis-trh__period {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 0.625rem;
+    border-inline: 1px solid rgb(var(--gray-200));
+    font-size: 0.84375rem;
+    font-weight: 800;
+    white-space: nowrap;
+    color: rgb(var(--gray-950));
+}
+
+.dark .kis-trh__stepper {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+
+.dark .kis-trh__step {
+    color: rgb(var(--gray-300));
+}
+
+.dark a.kis-trh__step:hover {
+    background: rgb(255 255 255 / 0.06);
+}
+
+.dark .kis-trh__step.is-off {
+    color: rgb(255 255 255 / 0.2);
+}
+
+.dark .kis-trh__period {
+    border-color: rgb(255 255 255 / 0.1);
+    color: white;
+}
+
+.kis-trh__step:focus-visible,
+.kis-trh__switch-btn:focus-visible,
+.kis-trh__opt:focus-visible,
+.kis-trp__m:focus-visible,
+.kis-trs__cell:focus-visible,
+.kis-subtab:focus-visible,
+.kis-ledger__edit:focus-visible {
+    outline: 2px solid rgb(var(--primary-600));
+    outline-offset: 2px;
+}
+
+/* Period bar */
+.kis-trp {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--tr-line);
+    border-radius: 14px;
+    background: var(--tr-surface);
+}
+
+.kis-trp__years {
+    flex: none;
+}
+
+.dark .kis-trp__years {
+    border-color: rgb(255 255 255 / 0.08);
+    background: rgb(255 255 255 / 0.04);
+}
+
+.dark .kis-trp__years .kis-rail__chip {
+    color: rgb(var(--gray-300));
+}
+
+.dark .kis-trp__years .kis-rail__chip.is-on {
+    background: rgb(var(--gray-800));
+    color: rgb(var(--primary-300));
+}
+
+.kis-trp__months {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.kis-trp__m {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.125rem;
+    height: 2.75rem;
+    border-radius: 10px;
+    font-size: 0.78125rem;
+    font-weight: 700;
+    color: var(--tr-ink-2);
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+a.kis-trp__m:hover {
+    background: var(--tr-wash-strong);
+}
+
+.kis-trp__m small {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.65625rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.kis-trp__m.is-done small {
+    color: var(--tr-accent-ink);
+}
+
+.kis-trp__m.is-pending small {
+    color: var(--tr-red);
+}
+
+.kis-trp__m.is-pending small::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--tr-red-dot);
+}
+
+.kis-trp__m.is-nocontract small {
+    color: var(--tr-muted);
+}
+
+.kis-trp__m.is-nodata {
+    color: var(--tr-faint);
+}
+
+.kis-trp__m.is-nodata small {
+    color: var(--tr-faint);
+    font-weight: 600;
+}
+
+.kis-trp__m.is-current {
+    background: var(--tr-surface);
+    color: var(--tr-ink);
+    box-shadow: inset 0 0 0 1.5px var(--tr-accent), 0 1px 2px rgba(var(--gray-950), 0.08);
+}
+
+.kis-trp__act {
+    position: absolute;
+    top: 0.375rem;
+    right: 0.4375rem;
+    width: 4px;
+    height: 4px;
+    border-radius: 9999px;
+    background: var(--tr-faint);
+}
+
+.kis-trp__legend {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1875rem;
+    padding-left: 0.75rem;
+    border-left: 1px solid var(--tr-line);
+    font-size: 0.71875rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+}
+
+.kis-trp__legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    white-space: nowrap;
+}
+
+.kis-trp__legend .is-done {
+    color: var(--tr-accent-ink);
+}
+
+.kis-trp__legend .is-pending::before,
+.kis-trp__legend .is-act::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--tr-red-dot);
+}
+
+.kis-trp__legend .is-act::before {
+    width: 4px;
+    height: 4px;
+    margin-inline: 1px;
+    background: var(--tr-faint);
+}
+
+/* Tax-type strip: one card, equal cells, the selected cell is the open tab */
+.kis-trs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--tr-line);
+    border-radius: 14px;
+    background: var(--tr-line);
+}
+
+.kis-trs__cell {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    min-width: 0;
+    padding: 0.875rem 1rem 0.9375rem;
+    background: var(--tr-surface);
+    text-align: left;
+    color: var(--tr-ink);
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+button.kis-trs__cell:hover {
+    background: linear-gradient(var(--tr-wash), var(--tr-wash)), var(--tr-surface);
+}
+
+.kis-trs__cell.is-on {
+    background: linear-gradient(var(--tr-accent-soft), var(--tr-accent-soft)), var(--tr-surface);
+    box-shadow: inset 0 -2px 0 var(--tr-accent);
+}
+
+.kis-trs__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.kis-trs__label {
+    font-size: 0.8125rem;
+    font-weight: 800;
+}
+
+.kis-trs__value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.125rem 0.5rem;
+    margin-top: 0.375rem;
+}
+
+.kis-trs__value b {
+    font-size: 1.3125rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-trs__value span {
+    font-size: 0.78125rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--tr-muted);
+}
+
+.kis-trs__value .is-bad {
+    color: var(--tr-red);
+}
+
+.kis-trs__value .is-good {
+    color: var(--tr-accent-ink);
+}
+
+.kis-trs__context {
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-trs__cell.is-locked .kis-trs__label,
+.kis-trs__cell.is-locked .kis-trs__value b {
+    color: var(--tr-faint);
+}
+
+/* Workspaces and sub-tabs */
+.kis-trw__stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.kis-ws {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.kis-subtabs {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 0.25rem;
+    border-bottom: 1px solid var(--tr-line);
+}
+
+.kis-subtabs__nav {
+    display: flex;
+    gap: 0.125rem;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.kis-subtab {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.4375rem;
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    font-size: 0.84375rem;
+    font-weight: 700;
+    white-space: nowrap;
+    color: var(--tr-muted);
+    box-shadow: inset 0 -2px 0 transparent;
+    transition: color 150ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kis-subtab:hover {
+    color: var(--tr-ink);
+}
+
+.kis-subtab.is-on {
+    color: var(--tr-accent-ink);
+    box-shadow: inset 0 -2px 0 var(--tr-accent);
+}
+
+.kis-subtab i {
+    padding: 0 0.375rem;
+    border-radius: 6px;
+    background: var(--tr-wash-strong);
+    font-size: 0.6875rem;
+    font-style: normal;
+    font-weight: 800;
+    line-height: 1.125rem;
+    color: var(--tr-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-subtab.is-on i,
+.kis-subtab i.is-blue {
+    background: rgba(var(--primary-500), 0.12);
+    color: var(--tr-accent-ink);
+}
+
+.kis-subtab em {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.6875rem;
+    font-style: normal;
+    font-weight: 700;
+    color: var(--tr-red);
+}
+
+.kis-subtab em::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--tr-red-dot);
+}
+
+.kis-subtab em.is-done {
+    color: var(--tr-accent-ink);
+}
+
+.kis-subtab em.is-done::before {
+    content: '✓';
+    width: auto;
+    height: auto;
+    background: none;
+}
+
+.kis-subtabs__ctx {
+    flex: none;
+    padding-bottom: 0.625rem;
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+}
+
+/* Calculation: ledger + side facts */
+.kis-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.kis-split__side {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.kis-ledger__rows {
+    margin: 0;
+    padding: 0.5rem 0 0.75rem;
+}
+
+.kis-ledger__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(9rem, auto);
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6875rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--tr-ink-2);
+}
+
+.kis-ledger__row dt {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.kis-ledger__row dt b {
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.kis-ledger__row dd {
+    margin: 0;
+}
+
+.kis-ledger__op {
+    display: inline-block;
+    width: 1rem;
+    flex: none;
+    text-align: center;
+    font-weight: 800;
+    color: var(--tr-faint);
+}
+
+.kis-ledger__note {
+    font-size: 0.78125rem;
+    color: var(--tr-muted);
+    text-align: right;
+    white-space: nowrap;
+}
+
+.kis-ledger__amt {
+    font-weight: 800;
+    text-align: right;
+    white-space: nowrap;
+    color: var(--tr-ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-ledger__row.is-sub {
+    margin-top: 0.125rem;
+    border-top: 1px solid var(--tr-line);
+}
+
+.kis-ledger__row.is-total {
+    margin: 0.375rem 1.25rem 0;
+    padding: 0.875rem 0 0.375rem;
+    border-top: 2px solid var(--tr-ink);
+}
+
+.kis-ledger__row.is-total dt {
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.kis-ledger__row.is-total .kis-ledger__amt {
+    font-size: 1.375rem;
+    letter-spacing: -0.02em;
+}
+
+.kis-ledger__amt.is-bad {
+    color: var(--tr-red);
+}
+
+.kis-ledger__row.is-after {
+    font-size: 0.8125rem;
+}
+
+.kis-ledger__edit {
+    margin-left: 0.25rem;
+    padding: 0 0.25rem;
+    border-radius: 6px;
+    font-size: 0.78125rem;
+    font-weight: 700;
+    color: var(--tr-accent-ink);
+}
+
+.kis-ledger__edit:hover {
+    text-decoration: underline;
+}
+
+.kis-figure {
+    display: block;
+    font-size: 1.625rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--tr-ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-kv {
+    margin: 0.5rem 0 0;
+}
+
+.kis-kv > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5625rem 1.25rem;
+    border-top: 1px solid var(--tr-line-soft);
+    font-size: 0.84375rem;
+    font-weight: 600;
+    color: var(--tr-ink-2);
+}
+
+.kis-kv dt {
+    min-width: 0;
+}
+
+.kis-kv dd {
+    margin: 0;
+    font-weight: 800;
+    color: var(--tr-ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-kv__hint {
+    display: block;
+    font-size: 0.71875rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+}
+
+.kis-kv > div.is-total {
+    border-top-color: var(--tr-line);
+}
+
+.kis-kv > div.is-total dt {
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.kis-rules {
+    margin: 0;
+    padding: 0.5rem 1.25rem 1.125rem 2.25rem;
+    list-style: disc;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.7;
+    color: var(--tr-muted);
+}
+
+@media (max-width: 80rem) {
+    .kis-trp {
+        flex-wrap: wrap;
+    }
+
+    .kis-trp__months {
+        order: 3;
+        flex-basis: 100%;
+    }
+
+    .kis-trp__legend {
+        flex-direction: row;
+        gap: 0.875rem;
+        margin-left: auto;
+    }
+}
+
+@media (max-width: 64rem) {
+    .kis-trs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .kis-split {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .kis-subtabs__ctx {
+        display: none;
+    }
+}
+
+@media (max-width: 40rem) {
+    .kis-trh__name {
+        font-size: 1.25rem;
+    }
+
+    .kis-trh__meta {
+        flex-direction: column;
+    }
+
+    .kis-trh__meta > span + span::before {
+        content: none;
+    }
+
+    .kis-trp__months {
+        display: flex;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .kis-trp__m {
+        flex: 0 0 3.25rem;
+    }
+
+    .kis-trp__legend {
+        display: none;
+    }
+
+    .kis-trs {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .kis-ledger__row {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .kis-ledger__note {
+        display: none;
+    }
+}
+
+/*
+ * Tax report workspaces, part 2: summary strip, callouts, compensation
+ * carry-over, plain tables (.kis-tbl), yearly PPN, SPT panel, and the
+ * activity question (.kis-ask). Uses the --tr-* tokens of .kis-tr.
+ */
+.kis-komp,
+.kis-year,
+.kis-spt-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.kis-sumstrip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--tr-line);
+    border-radius: 14px;
+    background: var(--tr-line);
+}
+
+.kis-sumstrip__cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+    padding: 0.875rem 1rem;
+    background: var(--tr-surface);
+}
+
+.kis-sumstrip__label {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.78125rem;
+    font-weight: 700;
+    color: var(--tr-ink-2);
+}
+
+.kis-sumstrip__value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    color: var(--tr-ink);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-sumstrip__value small {
+    font-size: 0.875rem;
+    color: var(--tr-muted);
+}
+
+.kis-sumstrip__value.is-bad,
+.kis-sumstrip__meta.is-bad {
+    color: var(--tr-red);
+}
+
+.kis-sumstrip__meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+}
+
+.kis-callout {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--tr-line);
+    border-radius: 14px;
+    background: var(--tr-wash);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--tr-ink-2);
+}
+
+.kis-callout.is-red {
+    border-color: rgba(var(--danger-600), 0.3);
+    background: rgb(var(--danger-50));
+}
+
+.dark .kis-callout.is-red {
+    border-color: rgba(var(--danger-400), 0.3);
+    background: rgba(var(--danger-500), 0.1);
+}
+
+.kis-callout__icon {
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--tr-muted);
+}
+
+.kis-callout.is-red .kis-callout__icon,
+.kis-callout.is-red .kis-callout__title {
+    color: var(--tr-red);
+}
+
+.kis-callout__body p {
+    margin: 0;
+}
+
+.kis-callout__title {
+    margin-bottom: 0.125rem !important;
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.kis-callout__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+}
+
+.kis-carry {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+    padding: 1.125rem 1.25rem;
+}
+
+.kis-carry__main {
+    flex: 1 1 28rem;
+    min-width: 0;
+}
+
+.kis-carry__eyebrow,
+.kis-spt__eyebrow {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tr-muted);
+}
+
+.kis-carry__title {
+    margin: 0.375rem 0 0;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.kis-carry__text {
+    margin: 0.25rem 0 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+}
+
+.kis-carry__flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.kis-carry__box {
+    padding: 0.5rem 0.75rem;
+    border-radius: 10px;
+    background: var(--tr-wash-strong);
+    font-size: 0.8125rem;
+    color: var(--tr-ink);
+}
+
+.kis-carry__box b {
+    display: block;
+    font-weight: 800;
+}
+
+.kis-carry__box small {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-carry__arrow {
+    width: 1rem;
+    height: 1rem;
+    color: var(--tr-faint);
+}
+
+.kis-carry__hint {
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+}
+
+.kis-komp__head,
+.kis-year__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.kis-year__head {
+    margin-bottom: 0;
+}
+
+.kis-komp__seg {
+    flex: none;
+}
+
+.dark .kis-komp__seg {
+    border-color: rgb(255 255 255 / 0.08);
+    background: rgb(255 255 255 / 0.04);
+}
+
+.dark .kis-komp__seg .kis-rail__chip {
+    color: rgb(var(--gray-300));
+}
+
+.dark .kis-komp__seg .kis-rail__chip.is-on {
+    background: rgb(var(--gray-800));
+    color: rgb(var(--primary-300));
+}
+
+.kis-year__acts {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.kis-year__chart {
+    display: flex;
+    flex-direction: column;
+    padding: 0.75rem 1.25rem 0.5rem;
+}
+
+/* Plain data table inside a card */
+.kis-tbl {
+    overflow: hidden;
+}
+
+.kis-tbl table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.kis-tbl th {
+    height: 2.25rem;
+    padding: 0 0.75rem;
+    border-block: 1px solid var(--tr-line);
+    background: linear-gradient(var(--tr-wash), var(--tr-wash)), var(--tr-surface);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--tr-muted);
+}
+
+.kis-tbl thead tr:first-child th {
+    border-top: 0;
+}
+
+.kis-card__head + table thead tr:first-child th,
+.kis-year__chart + table thead tr:first-child th {
+    border-top: 1px solid var(--tr-line);
+}
+
+.kis-tbl td {
+    height: 3.25rem;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--tr-line-soft);
+    font-size: 0.84375rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--tr-ink-2);
+    vertical-align: middle;
+}
+
+.kis-tbl tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.kis-tbl th:first-child,
+.kis-tbl td:first-child {
+    padding-left: 1.25rem;
+}
+
+.kis-tbl th:last-child,
+.kis-tbl td:last-child {
+    padding-right: 1.25rem;
+}
+
+.kis-tbl .is-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-tbl td b {
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.kis-tbl td b.is-bad {
+    color: var(--tr-red);
+}
+
+.kis-tbl__primary {
+    display: block;
+    font-weight: 700;
+    color: var(--tr-ink);
+}
+
+.kis-tbl__meta {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: normal;
+    color: var(--tr-muted);
+}
+
+.kis-tbl__meta.is-bad {
+    color: var(--tr-red);
+}
+
+.kis-tbl__wrap {
+    min-width: 12rem;
+    white-space: normal !important;
+}
+
+.kis-tbl__muted {
+    color: var(--tr-faint) !important;
+    font-weight: 500 !important;
+}
+
+.kis-tbl__actions {
+    text-align: right;
+}
+
+.kis-tbl__actions > * + * {
+    margin-left: 0.375rem;
+}
+
+.kis-tbl__go a {
+    font-size: 0.78125rem;
+    font-weight: 700;
+    color: var(--tr-accent-ink);
+}
+
+.kis-tbl__go a:hover {
+    text-decoration: underline;
+}
+
+.kis-tbl tr.is-current td {
+    background: var(--tr-accent-soft);
+}
+
+.kis-tbl tr.is-empty td:first-child .kis-tbl__primary {
+    color: var(--tr-faint);
+}
+
+.kis-tbl__empty {
+    margin: 0;
+    padding: 1.75rem 1.25rem;
+    text-align: center;
+    font-size: 0.84375rem;
+    font-weight: 500;
+    color: var(--tr-muted);
+}
+
+.kis-tbl__empty b {
+    color: var(--tr-ink-2);
+}
+
+/* SPT: info left, file right */
+.kis-spt {
+    display: grid;
+    grid-template-columns: minmax(18rem, 22rem) minmax(0, 1fr);
+    overflow: hidden;
+}
+
+.kis-spt__info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    padding: 1.25rem;
+    border-right: 1px solid var(--tr-line);
+}
+
+.kis-spt__title {
+    margin: 0.375rem 0 0;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.kis-spt__badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+.kis-spt__kv {
+    margin: 0;
+}
+
+.kis-spt__kv > div {
+    padding-inline: 0;
+}
+
+.kis-spt__note {
+    margin: 0;
+    font-size: 0.78125rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--tr-muted);
+}
+
+.kis-spt__acts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: auto;
+}
+
+.kis-spt__file {
+    display: flex;
+    min-height: 22rem;
+    padding: 1rem;
+    background: var(--tr-wash);
+}
+
+.kis-spt__file iframe {
+    width: 100%;
+    min-height: 37.5rem;
+    border: 1px solid var(--tr-line);
+    border-radius: 10px;
+    background: white;
+}
+
+.kis-spt__image {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    max-height: 37.5rem;
+    overflow: auto;
+    border: 1px solid var(--tr-line);
+    border-radius: 10px;
+    background: white;
+}
+
+.kis-spt__image img {
+    max-width: 100%;
+}
+
+.kis-spt__drop {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 1.5rem;
+    border: 1.5px dashed var(--tr-line);
+    border-radius: 14px;
+    text-align: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+    transition: border-color 150ms cubic-bezier(0.22, 1, 0.36, 1), background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kis-spt__drop svg {
+    color: var(--tr-faint);
+}
+
+.kis-spt__drop b {
+    font-size: 0.875rem;
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.kis-spt__drop:hover {
+    border-color: rgba(var(--primary-600), 0.45);
+    background: var(--tr-accent-soft);
+}
+
+.kis-spt__drop:focus-visible {
+    outline: 2px solid rgb(var(--primary-600));
+    outline-offset: 2px;
+}
+
+/* Activity question */
+.kis-ask {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    padding: 1rem 1.25rem;
+}
+
+.kis-ask__icon {
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    align-self: flex-start;
+    margin-top: 0.125rem;
+    color: var(--tr-faint);
+}
+
+.kis-ask__icon.is-done {
+    color: var(--tr-accent);
+}
+
+.kis-ask__body {
+    flex: 1 1 24rem;
+    min-width: 0;
+}
+
+.kis-ask__title {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.kis-ask__text {
+    margin: 0.25rem 0 0;
+    max-width: 44rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.5;
+    color: var(--tr-muted);
+}
+
+.kis-ask__acts {
+    display: flex;
+    flex: none;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.kis-ask.is-settled {
+    background: linear-gradient(var(--tr-wash), var(--tr-wash)), var(--tr-surface);
+}
+
+@media (max-width: 64rem) {
+    .kis-sumstrip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .kis-tbl {
+        overflow-x: auto;
+    }
+
+    .kis-spt {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .kis-spt__info {
+        border-right: 0;
+        border-bottom: 1px solid var(--tr-line);
+    }
+}
+
+@media (max-width: 40rem) {
+    .kis-sumstrip {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.kis-tbl__primary.is-bad {
+    color: var(--tr-red);
+}
+
+.kis-tbl tfoot td {
+    border-top: 1px solid var(--tr-line);
+    border-bottom: 0;
+    background: linear-gradient(var(--tr-wash), var(--tr-wash)), var(--tr-surface);
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+/* Filament tables inside the tax report workspaces: same corners as the cards. */
+.kis-ws .fi-ta-ctn {
+    border-radius: 14px;
+}
+
+/*
+ * Client groups (clients.group-list + ViewClientGroup,
+ * docs/mockups/client-groups-redesign.html). Tokens: the --tr-* set above.
+ */
+.kis-lead {
+    display: block;
+    max-width: 48rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.55;
+}
+
+.kis-lead b {
+    font-weight: 800;
+    color: rgb(var(--gray-950));
+}
+
+.kis-lead a {
+    font-weight: 700;
+    color: rgb(var(--primary-700));
+}
+
+.kis-lead a:hover {
+    text-decoration: underline;
+}
+
+.dark .kis-lead b {
+    color: white;
+}
+
+.dark .kis-lead a {
+    color: rgb(var(--primary-300));
+}
+
+.kis-ghead {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.kis-gtile {
+    position: relative;
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    overflow: hidden;
+    border-radius: 11px;
+    background: rgb(var(--primary-100));
+    color: rgb(var(--primary-700));
+    font-size: 0.8125rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    user-select: none;
+}
+
+.kis-gtile img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: white;
+}
+
+.kis-gtile.is-sm {
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 8px;
+    background: rgb(var(--gray-100));
+    color: rgb(var(--gray-700));
+    font-size: 0.65625rem;
+}
+
+.kis-gtile.is-lg {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 12px;
+    font-size: 0.9375rem;
+}
+
+.kis-gtile.is-muted {
+    background: rgb(var(--gray-100));
+    color: rgb(var(--gray-500));
+}
+
+.dark .kis-gtile {
+    background: rgba(var(--primary-500), 0.16);
+    color: rgb(var(--primary-300));
+}
+
+.dark .kis-gtile.is-sm,
+.dark .kis-gtile.is-muted {
+    background: rgb(255 255 255 / 0.07);
+    color: rgb(var(--gray-300));
+}
+
+.kis-groups__tool {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+}
+
+.kis-groups__search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: min(100%, 20rem);
+    height: 2.375rem;
+    padding: 0 0.75rem;
+    border-radius: 11px;
+    background: var(--tr-surface);
+    box-shadow: inset 0 0 0 1px rgb(var(--gray-300));
+    color: var(--tr-muted);
+}
+
+.kis-groups__search.is-wide {
+    width: 100%;
+}
+
+.kis-groups__search:focus-within {
+    box-shadow: inset 0 0 0 1px rgb(var(--primary-600)), 0 0 0 3px rgba(var(--primary-600), 0.18);
+}
+
+.kis-groups__search input {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.84375rem;
+    font-weight: 600;
+    color: var(--tr-ink);
+}
+
+.kis-groups__search input:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+.dark .kis-groups__search {
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14);
+}
+
+.kis-groups__rail {
+    flex: none;
+}
+
+.dark .kis-groups__rail {
+    border-color: rgb(255 255 255 / 0.08);
+    background: rgb(255 255 255 / 0.04);
+}
+
+.dark .kis-groups__rail .kis-rail__chip {
+    color: rgb(var(--gray-300));
+}
+
+.dark .kis-groups__rail .kis-rail__chip.is-on {
+    background: rgb(var(--gray-800));
+    color: rgb(var(--primary-300));
+}
+
+.kis-groups__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: stretch;
+    transition: opacity 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kis-gcard {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid var(--tr-line);
+    border-radius: 14px;
+    background: var(--tr-surface);
+}
+
+.kis-gcard__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem 1.125rem 0.875rem;
+}
+
+.kis-gcard__id {
+    flex: 1;
+    min-width: 0;
+}
+
+.kis-gcard__name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.5rem;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    color: var(--tr-ink);
+}
+
+.kis-gcard__name a:hover {
+    color: var(--tr-accent-ink);
+}
+
+.kis-gcard__meta {
+    margin: 0.1875rem 0 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+}
+
+.kis-gcard__icon {
+    display: inline-grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    border-radius: 9px;
+    color: var(--tr-muted);
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1), color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kis-gcard__icon:hover {
+    background: var(--tr-wash-strong);
+    color: var(--tr-ink);
+}
+
+.kis-gcard__label {
+    padding: 0 1.125rem 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tr-muted);
+}
+
+.kis-gcard__list {
+    margin: 0;
+    padding: 0 0.5rem 0.375rem;
+    list-style: none;
+}
+
+.kis-gcard__member,
+.kis-groups__pick label {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.4375rem 0.625rem;
+    border-radius: 10px;
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kis-gcard__member:hover,
+.kis-groups__pick label:hover {
+    background: var(--tr-wash-strong);
+}
+
+.kis-gcard__who {
+    flex: 1;
+    min-width: 0;
+}
+
+.kis-gcard__who b {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.84375rem;
+    font-weight: 700;
+    color: var(--tr-ink);
+}
+
+.kis-gcard__who small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+}
+
+.kis-gcard__st {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.3125rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--tr-muted);
+}
+
+.kis-gcard__st::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--tr-faint);
+}
+
+.kis-gcard__st.is-on {
+    color: var(--tr-accent-ink);
+}
+
+.kis-gcard__st.is-on::before {
+    background: var(--tr-accent);
+}
+
+.kis-gcard__more {
+    display: block;
+    padding: 0.125rem 1.125rem 0.75rem;
+    font-size: 0.78125rem;
+    font-weight: 700;
+    color: var(--tr-accent-ink);
+}
+
+.kis-gcard__more:hover {
+    text-decoration: underline;
+}
+
+.kis-gcard__empty {
+    margin: 0;
+    padding: 0.25rem 1.125rem 1rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--tr-muted);
+}
+
+.kis-gcard__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.625rem;
+    margin-top: auto;
+    padding: 0.75rem 1.125rem;
+    border-top: 1px solid var(--tr-line-soft);
+    background: linear-gradient(var(--tr-wash), var(--tr-wash)), var(--tr-surface);
+}
+
+.kis-gcard__meter {
+    display: flex;
+    flex: 1 1 8rem;
+    flex-direction: column;
+    gap: 0.3125rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--tr-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-gcard__meter i {
+    display: block;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 9999px;
+    background: var(--tr-line);
+}
+
+.kis-gcard__meter b {
+    display: block;
+    height: 100%;
+    border-radius: 9999px;
+    background: var(--kis-ramp-b2);
+}
+
+.kis-gnew {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 16rem;
+    padding: 1.875rem;
+    border: 1.5px dashed rgb(var(--gray-300));
+    border-radius: 14px;
+    text-align: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: var(--tr-muted);
+    transition: border-color 150ms cubic-bezier(0.22, 1, 0.36, 1), background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+a.kis-gnew:hover {
+    border-color: rgba(var(--primary-600), 0.45);
+    background: var(--tr-accent-soft);
+}
+
+a.kis-gnew:focus-visible,
+.kis-gcard__icon:focus-visible,
+.kis-gcard__member:focus-visible,
+.kis-gcard__more:focus-visible {
+    outline: 2px solid rgb(var(--primary-600));
+    outline-offset: 2px;
+}
+
+.kis-gnew b {
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.kis-gnew strong {
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.dark .kis-gnew {
+    border-color: rgb(255 255 255 / 0.16);
+}
+
+.kis-groups__pick {
+    max-height: 18rem;
+    overflow-y: auto;
+    padding: 0.25rem;
+    border: 1px solid rgb(var(--gray-200));
+    border-radius: 12px;
+}
+
+.dark .kis-groups__pick {
+    border-color: rgb(255 255 255 / 0.1);
+}
+
+.kis-groups__pick label {
+    cursor: pointer;
+}
+
+.kis-groups__pick-empty {
+    margin: 0;
+    padding: 2rem 1rem;
+    text-align: center;
+    font-size: 0.84375rem;
+    color: rgb(var(--gray-500));
+}
+
+/* Group detail */
+.kis-gview {
+    display: grid;
+    grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 2.4fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.kis-gview__members {
+    min-width: 0;
+}
+
+.kis-gview__members .fi-ta-ctn {
+    border-radius: 14px;
+}
+
+.kis-ginfo__list {
+    margin: 0.75rem 0 0;
+}
+
+.kis-ginfo__list > div {
+    padding: 0.625rem 1.25rem;
+    border-top: 1px solid var(--tr-line-soft);
+}
+
+.kis-ginfo__list dt {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tr-muted);
+}
+
+.kis-ginfo__list dd {
+    margin: 0.1875rem 0 0;
+    font-size: 0.84375rem;
+    font-weight: 600;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+    color: var(--tr-ink);
+}
+
+.kis-ginfo__list dd a {
+    color: var(--tr-accent-ink);
+}
+
+.kis-ginfo__list dd a:hover {
+    text-decoration: underline;
+}
+
+.kis-ginfo__list dd.is-empty {
+    font-weight: 500;
+    color: var(--tr-faint);
+}
+
+@media (max-width: 64rem) {
+    .kis-groups__grid,
+    .kis-gview {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/*
+ * Klien Masuk (ListClientIntakes + ProsesClientIntake,
+ * docs/mockups/klien-masuk-redesign.html). Tokens: the --tr-* set.
+ */
+.kis-lead__hint {
+    margin-left: 0.25rem;
+    border-bottom: 1px dashed currentColor;
+    font-weight: 700;
+    color: rgb(var(--primary-700));
+    cursor: help;
+}
+
+.dark .kis-lead__hint {
+    color: rgb(var(--primary-300));
+}
+
+.kis-intake {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.kis-intake__strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1px;
+    overflow: hidden;
+    border: 1px solid var(--tr-line);
+    border-radius: 14px;
+    background: var(--tr-line);
+}
+
+.kis-intake__cell {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    min-width: 0;
+    padding: 0.875rem 1rem 0.9375rem;
+    background: var(--tr-surface);
+    text-align: left;
+    color: var(--tr-ink);
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kis-intake__cell:hover {
+    background: linear-gradient(var(--tr-wash), var(--tr-wash)), var(--tr-surface);
+}
+
+.kis-intake__cell.is-on {
+    background: linear-gradient(var(--tr-accent-soft), var(--tr-accent-soft)), var(--tr-surface);
+    box-shadow: inset 0 -2px 0 var(--tr-accent);
+}
+
+.kis-intake__cell:focus-visible {
+    outline: 2px solid rgb(var(--primary-600));
+    outline-offset: -2px;
+}
+
+.kis-intake__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 800;
+}
+
+.kis-intake__value {
+    margin-top: 0.25rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-intake__context {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78125rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.kis-intake__context b {
+    font-weight: 800;
+    color: var(--tr-ink);
+}
+
+.kis-intake__context .is-bad {
+    font-weight: 700;
+    color: var(--tr-red);
+}
+
+.kis-intake .fi-ta-ctn {
+    border-radius: 14px;
+}
+
+/* Cek & proses: deal summary */
+.kis-intake-sum {
+    overflow: hidden;
+}
+
+.kis-intake-sum__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    padding: 1rem 1.25rem;
+}
+
+.kis-intake-sum__who {
+    flex: 1 1 18rem;
+    min-width: 0;
+}
+
+.kis-intake-sum__who b {
+    display: block;
+    font-size: 1.0625rem;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    color: var(--tr-ink);
+}
+
+.kis-intake-sum__who span {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--tr-muted);
+}
+
+.kis-intake-sum__facts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    margin: 0;
+    border-top: 1px solid var(--tr-line);
+    background: var(--tr-line);
+}
+
+.kis-intake-sum__facts > div {
+    min-width: 0;
+    padding: 0.625rem 1.25rem 0.75rem;
+    background: var(--tr-surface);
+}
+
+.kis-intake-sum__facts dt {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--tr-muted);
+}
+
+.kis-intake-sum__facts dd {
+    margin: 0.1875rem 0 0;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--tr-ink);
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.kis-intake-sum__facts dd a {
+    color: var(--tr-accent-ink);
+}
+
+.kis-intake-sum__facts dd a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 64rem) {
+    .kis-intake__strip {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .kis-intake-sum__facts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }

@@ -142,6 +142,11 @@ class ActivityConfirmation extends Component implements HasForms, HasActions
         $this->taxReport->refresh();
     }
 
+    public function periodLabel(): string
+    {
+        return \App\Support\TaxPeriod::label($this->taxReport->month, $this->taxReport->year ?? $this->taxReport->created_at?->year);
+    }
+
     public function render()
     {
         return view('livewire.tax-report.activity-confirmation');

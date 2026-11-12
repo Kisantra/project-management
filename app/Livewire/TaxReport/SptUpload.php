@@ -14,7 +14,9 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
+use App\Support\TaxPeriod;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
@@ -35,7 +37,7 @@ class SptUpload extends Component implements HasForms, HasActions
     public const TYPE_LABELS = [
         'ppn'       => 'PPN',
         'pph'       => 'PPh',
-        'bupot'     => 'Bupot',
+        'bupot'     => 'PPh Unifikasi',
         'pph_badan' => 'PPh Badan',
     ];
 
@@ -77,7 +79,9 @@ class SptUpload extends Component implements HasForms, HasActions
                 'fileUrl'     => ($s && $s->bukti_lapor) ? Storage::disk('public')->url($s->bukti_lapor) : null,
                 'isImage'     => in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif'], true),
                 'nomor'       => $s?->nomor_bukti_lapor,
-                'reportedAt'  => $s?->reported_at ? \Illuminate\Support\Carbon::parse($s->reported_at)->translatedFormat('d M Y') : null,
+                'reportedAt'  => TaxPeriod::date($s?->reported_at),
+                'paidAt'      => TaxPeriod::date($s?->bayar_at),
+                'noActivity'  => (bool) $s?->no_activity,
             ];
         }
 
@@ -87,8 +91,8 @@ class SptUpload extends Component implements HasForms, HasActions
     public function uploadSptAction(): Action
     {
         return Action::make('uploadSpt')
-            ->label('Upload SPT')
-            ->modalHeading(fn (array $arguments) => 'Upload SPT ' . (self::TYPE_LABELS[$arguments['type']] ?? ''))
+            ->label('Unggah SPT')
+            ->modalHeading(fn (array $arguments) => 'Unggah SPT ' . (self::TYPE_LABELS[$arguments['type']] ?? ''))
             ->modalWidth('lg')
             ->fillForm(function (array $arguments) {
                 $s = $this->taxReport->taxCalculationSummaries->firstWhere('tax_type', $arguments['type']);
@@ -206,13 +210,9 @@ class SptUpload extends Component implements HasForms, HasActions
             return;
         }
 
-        $monthsId = [
-            'January' => 'Januari', 'February' => 'Februari', 'March' => 'Maret', 'April' => 'April',
-            'May' => 'Mei', 'June' => 'Juni', 'July' => 'Juli', 'August' => 'Agustus',
-            'September' => 'September', 'October' => 'Oktober', 'November' => 'November', 'December' => 'Desember',
-        ];
         $label = self::TYPE_LABELS[$type] ?? strtoupper($type);
-        $masa = trim(($monthsId[$this->taxReport->month] ?? $this->taxReport->month) . ' ' . optional($this->taxReport->created_at)->format('Y'));
+        // The period year, not the year the report row was created.
+        $masa = $this->periodLabel();
 
         foreach ($recipients as $recipient) {
             Notification::make()
@@ -221,6 +221,27 @@ class SptUpload extends Component implements HasForms, HasActions
                 ->icon('heroicon-o-document-check')
                 ->iconColor('success')
                 ->sendToDatabase($recipient);
+        }
+    }
+
+    public function periodLabel(): string
+    {
+        return TaxPeriod::label($this->taxReport->month, $this->taxReport->year ?? $this->taxReport->created_at?->year);
+    }
+
+    /** Another panel changed the status (activity confirmation, another SPT row). */
+    #[On('spt-updated')]
+    public function refreshRows(): void
+    {
+        $this->taxReport->refresh();
+    }
+
+    /** "Ada, unggah SPT" on the activity confirmation opens the upload form here. */
+    #[On('open-spt-upload')]
+    public function openUpload(string $type): void
+    {
+        if ($this->type === null || $this->type === $type) {
+            $this->mountAction('uploadSpt', ['type' => $type]);
         }
     }
 

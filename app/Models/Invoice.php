@@ -121,9 +121,7 @@ class Invoice extends Model
                 'invoice_created',
                 "Faktur {$invoice->invoice_number} ({$invoice->type}) telah dibuat untuk {$invoice->taxReport->client->name}"
             );
-
-            // AUTO-RECALCULATE: Update PPN summary when invoice created
-            $invoice->recalculateTaxSummary();
+            // The PPN summary is recalculated by InvoiceObserver.
         });
 
         static::updated(function ($invoice) {
@@ -133,10 +131,8 @@ class Invoice extends Model
                     $invoice->getOriginal(),
                     $invoice->getChanges()
                 );
-
-                // AUTO-RECALCULATE: Update PPN summary when invoice amount changed
-                $invoice->recalculateTaxSummary();
             }
+            // The PPN summary is recalculated by InvoiceObserver.
         });
 
         static::deleted(function ($invoice) {
@@ -144,9 +140,7 @@ class Invoice extends Model
                 'invoice_deleted',
                 "Faktur {$invoice->invoice_number} telah dihapus"
             );
-
-            // AUTO-RECALCULATE: Update PPN summary when invoice deleted
-            $invoice->recalculateTaxSummary();
+            // The PPN summary is recalculated by InvoiceObserver.
         });
     }
 

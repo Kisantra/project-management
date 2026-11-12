@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d7e34ceb0ad3f385120c3aed6fc5e5bb",
+    "content-hash": "4c32f49de42393a3ffdbe08dfbe6862c",
     "packages": [
         {
             "name": "anourvalar/eloquent-serialize",
@@ -991,12 +991,12 @@
             "version": "1.0.5",
             "source": {
                 "type": "git",
-                "url": "https://github.com/cmsmaxinc/filament-error-pages.git",
+                "url": "https://github.com/CMSMax/filament-error-pages.git",
                 "reference": "fa2062095e429a6c7f0d5e8ef717778475a0787f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/cmsmaxinc/filament-error-pages/zipball/fa2062095e429a6c7f0d5e8ef717778475a0787f",
+                "url": "https://api.github.com/repos/CMSMax/filament-error-pages/zipball/fa2062095e429a6c7f0d5e8ef717778475a0787f",
                 "reference": "fa2062095e429a6c7f0d5e8ef717778475a0787f",
                 "shasum": ""
             },
@@ -3771,12 +3771,12 @@
             "version": "2.3.1",
             "source": {
                 "type": "git",
-                "url": "https://github.com/lukas-frey/filament-icon-picker.git",
+                "url": "https://github.com/GuavaCZ/filament-icon-picker.git",
                 "reference": "a9c2709db2df2d658fd045022d0300c2fa8a6fba"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/lukas-frey/filament-icon-picker/zipball/a9c2709db2df2d658fd045022d0300c2fa8a6fba",
+                "url": "https://api.github.com/repos/GuavaCZ/filament-icon-picker/zipball/a9c2709db2df2d658fd045022d0300c2fa8a6fba",
                 "reference": "a9c2709db2df2d658fd045022d0300c2fa8a6fba",
                 "shasum": ""
             },
@@ -14165,12 +14165,12 @@
             "version": "v5.6.3",
             "source": {
                 "type": "git",
-                "url": "https://github.com/vlucas/phpdotenv.git",
+                "url": "https://github.com/phpdotenv/phpdotenv.git",
                 "reference": "955e7815d677a3eaa7075231212f2110983adecc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vlucas/phpdotenv/zipball/955e7815d677a3eaa7075231212f2110983adecc",
+                "url": "https://api.github.com/repos/phpdotenv/phpdotenv/zipball/955e7815d677a3eaa7075231212f2110983adecc",
                 "reference": "955e7815d677a3eaa7075231212f2110983adecc",
                 "shasum": ""
             },

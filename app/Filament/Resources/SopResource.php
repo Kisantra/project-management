@@ -140,7 +140,13 @@ class SopResource extends Resource
                     ->sortable()
                     ->toggleable(),
             ])
-            ->defaultSort('created_at', 'desc')
+            // The order here is the order of the SOP filter on the Projects page.
+            ->defaultSort('sort_order')
+            ->reorderable('sort_order')
+            ->reorderRecordsTriggerAction(fn (Tables\Actions\Action $action, bool $isReordering) => $action
+                ->button()
+                ->label($isReordering ? 'Selesai mengurutkan' : 'Atur urutan filter')
+                ->tooltip($isReordering ? null : 'Urutan ini dipakai filter SOP di halaman Projects'))
             ->filters([
                 Tables\Filters\SelectFilter::make('project_status')
                     ->relationship('projects', 'status')

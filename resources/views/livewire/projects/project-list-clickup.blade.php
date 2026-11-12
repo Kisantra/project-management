@@ -341,108 +341,32 @@
         </div>
     </div>
 
-    {{-- ============== SOP QUICK-FILTER PILLS ============== --}}
+    {{-- ============== SOP FILTER RAIL ============== --}}
+    {{-- One row in the order set on the SOP page; the rest sit behind "+N lainnya".
+         Several SOPs can be ticked; "Semua" clears the selection. --}}
     @php
         $sopFacets = $this->sopFacets;
-        $sopSelected = $this->sopSelection(); // normalised; never read $sopFilter directly
-        $sopVisibleLimit = 6;
-        $sopPrimary = array_slice($sopFacets['sops'], 0, $sopVisibleLimit);
-        $sopOverflow = array_slice($sopFacets['sops'], $sopVisibleLimit);
-        // If the selected SOP is hidden in the overflow, open the row expanded.
-        $sopSelectedHidden = collect($sopOverflow)->contains(fn ($r) => in_array($r['id'], $sopSelected, true))
-            || in_array('none', $sopSelected, true);
-        $sopIsOn = fn (string $id): bool => in_array($id, $sopSelected, true);
-        $sopAllOn = empty($sopSelected);
-        // Pick a small icon from keywords in the SOP name; falls back to a document.
-        $sopIcon = function (string $name): string {
-            $n = strtolower($name);
-            return match (true) {
-                str_contains($n, 'sp2dk')                                              => 'mail',
-                str_contains($n, 'pemeriksaan') || str_contains($n, 'audit')           => 'search',
-                str_contains($n, 'keberatan') || str_contains($n, 'banding')           => 'scale',
-                str_contains($n, 'keuangan')                                           => 'book',
-                str_contains($n, 'spt') || str_contains($n, 'lapor')                   => 'clipboard',
-                str_contains($n, 'npwp') || str_contains($n, 'pkp') || str_contains($n, 'nib')
-                    || str_contains($n, 'nomor induk') || str_contains($n, 'permohonan')
-                    || str_contains($n, 'perubahan')                                   => 'id',
-                default                                                                => 'file',
-            };
-        };
+        $sopOptions = collect($sopFacets['sops'])
+            ->map(fn ($sop) => ['value' => $sop['id'], 'label' => $sop['name'], 'count' => $sop['count']])
+            ->when(
+                $sopFacets['none'] > 0 || in_array('none', $this->sopSelection(), true),
+                fn ($options) => $options->push(['value' => 'none', 'label' => 'Tanpa SOP', 'count' => $sopFacets['none']]),
+            )
+            ->values()
+            ->all();
     @endphp
-    <div class="cu-sop-bar"
-         role="group"
-         aria-label="Filter SOP"
-         x-data="{ more: @js($sopSelectedHidden) }"
-         wire:loading.class="is-busy"
-         wire:target="toggleSopFilter, sopFilter">
-        <span class="cu-sop-bar-label">SOP</span>
-
-        <div class="cu-sop-pills">
-            <button type="button"
-                    wire:click="toggleSopFilter('')"
-                    class="cu-sop-pill {{ $sopAllOn ? 'is-on' : '' }}"
-                    aria-pressed="{{ $sopAllOn ? 'true' : 'false' }}">
-                @include('livewire.projects.partials.sop-icon', ['icon' => 'layers'])
-                <span class="cu-sop-pill-label">Semua</span>
-                <span class="cu-sop-pill-count">{{ $sopFacets['total'] }}</span>
-            </button>
-
-            @foreach ($sopPrimary as $sop)
-                <button type="button"
-                        wire:click="toggleSopFilter('{{ $sop['id'] }}')"
-                        wire:key="sop-pill-{{ $sop['id'] }}"
-                        class="cu-sop-pill {{ $sopIsOn($sop['id']) ? 'is-on' : '' }}"
-                        aria-pressed="{{ $sopIsOn($sop['id']) ? 'true' : 'false' }}"
-                        title="{{ $sop['name'] }}">
-                    @include('livewire.projects.partials.sop-icon', ['icon' => $sopIcon($sop['name'])])
-                    <span class="cu-sop-pill-label">{{ $sop['name'] }}</span>
-                    <span class="cu-sop-pill-count">{{ $sop['count'] }}</span>
-                </button>
-            @endforeach
-
-            @foreach ($sopOverflow as $sop)
-                <button type="button"
-                        x-show="more"
-                        x-cloak
-                        x-transition.opacity.duration.120ms
-                        wire:click="toggleSopFilter('{{ $sop['id'] }}')"
-                        wire:key="sop-pill-{{ $sop['id'] }}"
-                        class="cu-sop-pill {{ $sopIsOn($sop['id']) ? 'is-on' : '' }}"
-                        aria-pressed="{{ $sopIsOn($sop['id']) ? 'true' : 'false' }}"
-                        title="{{ $sop['name'] }}">
-                    @include('livewire.projects.partials.sop-icon', ['icon' => $sopIcon($sop['name'])])
-                    <span class="cu-sop-pill-label">{{ $sop['name'] }}</span>
-                    <span class="cu-sop-pill-count">{{ $sop['count'] }}</span>
-                </button>
-            @endforeach
-
-            @if ($sopFacets['none'] > 0 || $sopIsOn('none'))
-                <button type="button"
-                        x-show="more || @js($sopIsOn('none'))"
-                        x-cloak
-                        x-transition.opacity.duration.120ms
-                        wire:click="toggleSopFilter('none')"
-                        class="cu-sop-pill cu-sop-pill-ghost {{ $sopIsOn('none') ? 'is-on' : '' }}"
-                        aria-pressed="{{ $sopIsOn('none') ? 'true' : 'false' }}">
-                    @include('livewire.projects.partials.sop-icon', ['icon' => 'slash'])
-                    <span class="cu-sop-pill-label">Tanpa SOP</span>
-                    <span class="cu-sop-pill-count">{{ $sopFacets['none'] }}</span>
-                </button>
-            @endif
-
-            @if (count($sopOverflow) > 0 || $sopFacets['none'] > 0)
-                <button type="button"
-                        @click="more = !more"
-                        class="cu-sop-more"
-                        :aria-expanded="more">
-                    <span x-show="!more">{{ count($sopOverflow) + ($sopFacets['none'] > 0 ? 1 : 0) }} lainnya</span>
-                    <span x-show="more" x-cloak>Ringkas</span>
-                    <svg class="cu-sop-more-caret" :class="{ 'is-open': more }" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-            @endif
-        </div>
+    <div class="cu-sop-bar" wire:loading.class="is-busy" wire:target="sopFilter, toggleSopFilter">
+        {{-- The rail reads its options once, so a new key re-creates it when counts change. --}}
+        <x-kis.filter-rail
+            wire:model.live="sopFilter"
+            wire:key="sop-rail-{{ md5(json_encode([$sopOptions, $sopFacets['total']])) }}"
+            label="SOP"
+            multiple
+            :all-count="$sopFacets['total']"
+            :options="$sopOptions"
+            search-placeholder="Cari SOP…"
+        />
     </div>
-
 
     {{-- Compute "is there any data?" up-front so it's available in both views and the summary --}}
     @php
@@ -520,10 +444,10 @@
                 'closed'      => 'Closed',
             ];
             $categoryDisplayColors = [
-                'not_started' => '#64748b',
-                'active'      => '#2563eb',
-                'done'        => '#16a34a',
-                'closed'      => '#dc2626',
+                'not_started' => '#626a6f',
+                'active'      => '#157a9c',
+                'done'        => '#10657f',
+                'closed'      => '#626a6f',
             ];
         @endphp
         @foreach ($grouped as $groupKey => $groupData)
@@ -538,20 +462,20 @@
             {{-- Parent category section header (only when grouping by status) --}}
             @if ($showCategoryHeader)
                 <div class="cu-cat-header">
-                    <span class="cu-cat-dot" style="background: {{ $categoryDisplayColors[$currentCategory] ?? '#64748b' }};"></span>
+                    <span class="cu-cat-dot" style="background: {{ $categoryDisplayColors[$currentCategory] ?? '#626a6f' }};"></span>
                     <span class="cu-cat-label">{{ $categoryDisplayLabels[$currentCategory] ?? ucfirst($currentCategory) }}</span>
                     <span class="cu-cat-rule"></span>
                 </div>
                 @php $prevCategory = $currentCategory; @endphp
             @endif
 
-            <div class="cu-group-card {{ $groupBy === 'none' ? 'cu-group-card-flat' : '' }}" style="--group-color: {{ $groupMeta['color'] ?? '#6366f1' }};">
+            <div class="cu-group-card {{ $groupBy === 'none' ? 'cu-group-card-flat' : '' }}" style="--group-color: {{ $groupMeta['color'] ?? '#10657f' }};">
             @if ($groupBy !== 'none')
                 <div class="cu-group-row">
-                    <span class="cu-group-badge" style="background: {{ $groupMeta['color'] }};">
+                    <span class="cu-group-badge" data-kis-tone="{{ $groupMeta['tone'] ?? 'blue' }}">
                         @if ($groupBy === 'status' && isset($groupMeta['shape']))
                             <span class="cu-group-badge-icon">
-                                @include('livewire.projects.partials.status-shape', ['shape' => $groupMeta['shape'], 'color' => $groupMeta['color'], 'size' => 14, 'inverse' => true])
+                                @include('livewire.projects.partials.status-shape', ['shape' => $groupMeta['shape'], 'color' => $groupMeta['color'], 'tone' => $groupMeta['tone'] ?? null, 'size' => 14])
                             </span>
                         @else
                             <span class="cu-group-badge-dot"></span>
@@ -564,8 +488,8 @@
 
             @foreach ($groupData['visible'] as $project)
                 @php
-                    $statusMeta = $statuses[$project->status] ?? ['label' => ucfirst($project->status), 'color' => '#64748b', 'bg' => '#f1f5f9', 'shape' => 'empty'];
-                    $priorityMeta = $priorities[$project->priority] ?? ['label' => ucfirst($project->priority), 'color' => '#94a3b8', 'bg' => '#f1f5f9'];
+                    $statusMeta = $statuses[$project->status] ?? ['label' => ucfirst($project->status), 'color' => '#626a6f', 'bg' => '#ebf2f4', 'shape' => 'empty'];
+                    $priorityMeta = $priorities[$project->priority] ?? ['label' => ucfirst($project->priority), 'color' => '#8b9497', 'bg' => '#ebf2f4'];
                     $hasSteps = $project->steps_count > 0;
                     $progress = $project->steps_count > 0
                         ? round(($project->steps_completed_count / $project->steps_count) * 100)
@@ -607,8 +531,8 @@
                             <button type="button" @click="open = !open"
                                     class="cu-status-icon"
                                     title="{{ $statusMeta['label'] }}"
-                                    style="--s-color: {{ $statusMeta['color'] }}; --s-bg: {{ $statusMeta['bg'] }};">
-                                @include('livewire.projects.partials.status-shape', ['shape' => $statusMeta['shape'] ?? 'empty', 'color' => $statusMeta['color']])
+                                    data-kis-tone="{{ $statusMeta['tone'] ?? 'neutral' }}">
+                                @include('livewire.projects.partials.status-shape', ['shape' => $statusMeta['shape'] ?? 'empty', 'color' => $statusMeta['color'], 'tone' => $statusMeta['tone'] ?? null])
                             </button>
                             @include('livewire.projects.partials.status-picker', ['project' => $project, 'statuses' => $statuses])
                         </div>
@@ -666,9 +590,9 @@
                                         @click="open = !open"
                                         class="cu-status-badge"
                                         title="Change status"
-                                        style="--s-color: {{ $statusMeta['color'] }}; --s-bg: {{ $statusMeta['bg'] }};">
+                                        data-kis-tone="{{ $statusMeta['tone'] ?? 'neutral' }}">
                                     <span class="cu-status-badge-icon">
-                                        @include('livewire.projects.partials.status-shape', ['shape' => $statusMeta['shape'] ?? 'empty', 'color' => $statusMeta['color'], 'size' => 12])
+                                        @include('livewire.projects.partials.status-shape', ['shape' => $statusMeta['shape'] ?? 'empty', 'color' => $statusMeta['color'], 'tone' => $statusMeta['tone'] ?? null, 'size' => 12])
                                     </span>
                                     <span class="cu-status-badge-label">{{ $statusMeta['label'] }}</span>
                                 </button>
@@ -834,7 +758,7 @@
                             <div class="cu-progress" title="{{ $project->steps_completed_count }}/{{ $project->steps_count }} steps">
                                 <div class="cu-progress-bar">
                                     <div class="cu-progress-fill"
-                                         style="width: {{ $progress }}%; background: {{ $progress === 100 ? '#22c55e' : '#0891b2' }};"></div>
+                                         style="width: {{ $progress }}%; background: {{ $progress === 100 ? '#157a9c' : '#1790b5' }};"></div>
                                 </div>
                                 <span class="cu-progress-label">{{ $progress }}%</span>
                             </div>
@@ -930,9 +854,9 @@
                 <header class="cu-kb-col-head" style="--col-color: {{ $col['color'] ?? 'var(--cu-line-strong)' }};">
                     <span class="cu-kb-col-marker">
                         @if ($groupBy === 'status' && isset($col['shape']))
-                            @include('livewire.projects.partials.status-shape', ['shape' => $col['shape'], 'color' => $col['color'], 'size' => 12])
+                            @include('livewire.projects.partials.status-shape', ['shape' => $col['shape'], 'color' => $col['color'], 'tone' => $col['tone'] ?? null, 'size' => 12])
                         @else
-                            <span class="cu-kb-col-dot" style="background: {{ $col['color'] ?? '#94a3b8' }};"></span>
+                            <span class="cu-kb-col-dot" style="background: {{ $col['color'] ?? '#8b9497' }};"></span>
                         @endif
                     </span>
                     <span class="cu-kb-col-name" title="{{ $col['label'] }}">{{ $col['label'] }}</span>
@@ -942,7 +866,7 @@
                 <div class="cu-kb-col-body">
                     @forelse ($col['projects'] as $project)
                         @php
-                            $projPrio = $priorities[$project->priority] ?? ['label' => ucfirst($project->priority), 'color' => '#94a3b8', 'bg' => '#f1f5f9'];
+                            $projPrio = $priorities[$project->priority] ?? ['label' => ucfirst($project->priority), 'color' => '#8b9497', 'bg' => '#ebf2f4'];
                             $projDueLabel = $project->due_date?->translatedFormat('j M');
                             $projDueClass = '';
                             if ($project->due_date) {
@@ -986,7 +910,7 @@
                                 {{-- When grouped by something other than status, show a small status dot so context isn't lost --}}
                                 @if ($groupBy !== 'status' && $projStatusMeta)
                                     <span class="cu-kb-card-stat" title="{{ $projStatusMeta['label'] }}">
-                                        @include('livewire.projects.partials.status-shape', ['shape' => $projStatusMeta['shape'] ?? 'empty', 'color' => $projStatusMeta['color'], 'size' => 11])
+                                        @include('livewire.projects.partials.status-shape', ['shape' => $projStatusMeta['shape'] ?? 'empty', 'color' => $projStatusMeta['color'], 'tone' => $projStatusMeta['tone'] ?? null, 'size' => 11])
                                     </span>
                                 @endif
                                 <h4 class="cu-kb-card-title">{{ $project->name }}</h4>
@@ -1070,10 +994,10 @@
             $smGrouped    = $smStatuses->groupBy('category');
             $smShapes     = \App\Models\ProjectStatus::SHAPES;
             $smCatMeta    = [
-                'not_started' => ['label' => 'Belum Dimulai', 'bg' => '#f1f5f9', 'color' => '#475569'],
-                'active'      => ['label' => 'Aktif',         'bg' => '#eff6ff', 'color' => '#1d4ed8'],
-                'done'        => ['label' => 'Selesai',       'bg' => '#f0fdf4', 'color' => '#15803d'],
-                'closed'      => ['label' => 'Ditutup',       'bg' => '#fef2f2', 'color' => '#b91c1c'],
+                'not_started' => ['label' => 'Belum Dimulai', 'bg' => '#ebf2f4', 'color' => '#485156'],
+                'active'      => ['label' => 'Aktif',         'bg' => '#eef9fd', 'color' => '#10657f'],
+                'done'        => ['label' => 'Selesai',       'bg' => '#eef9fd', 'color' => '#10657f'],
+                'closed'      => ['label' => 'Ditutup',       'bg' => '#ebf2f4', 'color' => '#485156'],
             ];
         @endphp
         <div class="cu-sm-overlay" wire:keydown.escape.window="closeStatusManager">
@@ -1124,12 +1048,19 @@
                                         <div class="cu-sm-td" style="flex:1; overflow:visible;">
                                             @if ($isEditing)
                                                 <div class="cu-sm-inline-edit">
-                                                    <input type="color" wire:model="editColor" class="cu-sm-inline-color" title="Warna">
+                                                    <div class="cu-sm-inline-tones" role="radiogroup" aria-label="Nada">
+                                                        @foreach (\App\Support\Ui\Tone::LABELS as $toneKey => $toneMeta)
+                                                            <label class="cu-sm-tone-dot {{ $editTone === $toneKey ? 'is-selected' : '' }}" data-kis-tone="{{ $toneKey }}" title="{{ $toneMeta['label'] }}: {{ $toneMeta['hint'] }}">
+                                                                <input type="radio" wire:model.live="editTone" value="{{ $toneKey }}" class="sr-only">
+                                                                <span class="sr-only">{{ $toneMeta['label'] }}</span>
+                                                            </label>
+                                                        @endforeach
+                                                    </div>
                                                     <div class="cu-sm-inline-shapes">
                                                         @foreach ($smShapes as $shapeKey)
                                                             <label class="cu-sm-shape-opt-sm {{ $editShape === $shapeKey ? 'is-selected' : '' }}" title="{{ ucfirst($shapeKey) }}">
                                                                 <input type="radio" wire:model.live="editShape" value="{{ $shapeKey }}" class="cu-sm-shape-radio">
-                                                                @include('livewire.projects.partials.status-shape', ['shape' => $shapeKey, 'color' => $editColor, 'size' => 13])
+                                                                @include('livewire.projects.partials.status-shape', ['shape' => $shapeKey, 'color' => '#10657f', 'tone' => $editTone, 'size' => 13])
                                                             </label>
                                                         @endforeach
                                                     </div>
@@ -1141,7 +1072,7 @@
                                             @else
                                                 <div class="cu-sm-td-status">
                                                     <span class="cu-sm-td-icon">
-                                                        @include('livewire.projects.partials.status-shape', ['shape' => $smStatus->shape, 'color' => $smStatus->color, 'size' => 16])
+                                                        @include('livewire.projects.partials.status-shape', ['shape' => $smStatus->shape, 'color' => $smStatus->tone_swatch['color'], 'tone' => \App\Support\Ui\Tone::forProjectStatus($smStatus), 'size' => 16])
                                                     </span>
                                                     <span class="cu-sm-td-label">{{ $smStatus->label }}</span>
                                                     @if ($smStatus->is_system)
@@ -1212,10 +1143,14 @@
                                 </select>
                             </div>
                             <div class="cu-sm-field">
-                                <label class="cu-sm-label">Warna</label>
-                                <div class="cu-sm-color-wrap">
-                                    <input type="color" wire:model="newStatusColor" class="cu-sm-color-input">
-                                    <span class="cu-sm-color-value">{{ $newStatusColor }}</span>
+                                <span class="cu-sm-label" id="cu-sm-tone-label">Nada</span>
+                                <div class="cu-sm-tones" role="radiogroup" aria-labelledby="cu-sm-tone-label">
+                                    @foreach (\App\Support\Ui\Tone::LABELS as $toneKey => $toneMeta)
+                                        <label class="cu-sm-tone {{ $newStatusTone === $toneKey ? 'is-selected' : '' }}" title="{{ $toneMeta['hint'] }}">
+                                            <input type="radio" wire:model.live="newStatusTone" value="{{ $toneKey }}" class="sr-only">
+                                            <x-kis.badge :tone="$toneKey" dot size="sm">{{ $toneMeta['label'] }}</x-kis.badge>
+                                        </label>
+                                    @endforeach
                                 </div>
                             </div>
                             <div class="cu-sm-field">
@@ -1224,7 +1159,7 @@
                                     @foreach ($smShapes as $shapeKey)
                                         <label class="cu-sm-shape-opt {{ $newStatusShape === $shapeKey ? 'is-selected' : '' }}" title="{{ ucfirst($shapeKey) }}">
                                             <input type="radio" wire:model.live="newStatusShape" value="{{ $shapeKey }}" class="cu-sm-shape-radio">
-                                            @include('livewire.projects.partials.status-shape', ['shape' => $shapeKey, 'color' => $newStatusColor, 'size' => 16])
+                                            @include('livewire.projects.partials.status-shape', ['shape' => $shapeKey, 'color' => '#10657f', 'tone' => $newStatusTone, 'size' => 16])
                                         </label>
                                     @endforeach
                                 </div>
@@ -1312,8 +1247,8 @@
         @else
         @php
             $p = $this->viewingProject;
-            $pStatusMeta = $statuses[$p->status] ?? ['label' => ucfirst($p->status), 'color' => '#64748b', 'bg' => '#f1f5f9', 'shape' => 'empty'];
-            $pPriorityMeta = $priorities[$p->priority] ?? ['label' => ucfirst($p->priority), 'color' => '#94a3b8', 'bg' => '#f1f5f9'];
+            $pStatusMeta = $statuses[$p->status] ?? ['label' => ucfirst($p->status), 'color' => '#626a6f', 'bg' => '#ebf2f4', 'shape' => 'empty'];
+            $pPriorityMeta = $priorities[$p->priority] ?? ['label' => ucfirst($p->priority), 'color' => '#8b9497', 'bg' => '#ebf2f4'];
             $pProgress = $p->steps_count > 0
                 ? round(($p->steps_completed_count / $p->steps_count) * 100)
                 : 0;
@@ -1327,8 +1262,8 @@
             $pTypeLabel = \App\Livewire\Projects\ProjectListClickup::TYPES[$p->type] ?? ucfirst($p->type);
             $noteTypes = [
                 'general'   => ['label' => 'Umum',     'color' => 'var(--cu-muted)'],
-                'important' => ['label' => 'Penting',  'color' => '#b45309'],
-                'blocker'   => ['label' => 'Blokir',   'color' => '#b91c1c'],
+                'important' => ['label' => 'Penting',  'color' => '#10657f'],
+                'blocker'   => ['label' => 'Blokir',   'color' => '#af3628'],
             ];
         @endphp
         <div class="cu-pv-overlay" wire:keydown.escape.window="closeProjectView">
@@ -1339,9 +1274,9 @@
                 {{-- ============ HEADER ============ --}}
                 <header class="cu-pv-head">
                     <div class="cu-pv-head-id">
-                        <span class="cu-status-badge" style="--s-color: {{ $pStatusMeta['color'] }}; --s-bg: {{ $pStatusMeta['bg'] }};">
+                        <span class="cu-status-badge" data-kis-tone="{{ $pStatusMeta['tone'] ?? 'neutral' }}">
                             <span class="cu-status-badge-icon">
-                                @include('livewire.projects.partials.status-shape', ['shape' => $pStatusMeta['shape'] ?? 'empty', 'color' => $pStatusMeta['color'], 'size' => 12])
+                                @include('livewire.projects.partials.status-shape', ['shape' => $pStatusMeta['shape'] ?? 'empty', 'color' => $pStatusMeta['color'], 'tone' => $pStatusMeta['tone'] ?? null, 'size' => 12])
                             </span>
                             <span class="cu-status-badge-label">{{ $pStatusMeta['label'] }}</span>
                         </span>
@@ -1512,7 +1447,7 @@
                                 <ol class="cu-pv-steps">
                                     @foreach ($p->steps as $step)
                                         @php
-                                            $stepMeta = $stepStatuses[$step->status] ?? ['label' => ucfirst($step->status), 'color' => '#64748b'];
+                                            $stepMeta = $stepStatuses[$step->status] ?? ['label' => ucfirst($step->status), 'color' => '#626a6f'];
                                             $stepDone = $step->status === 'completed';
                                             $hasDocs = $step->requiredDocuments && $step->requiredDocuments->isNotEmpty();
                                         @endphp
@@ -1779,22 +1714,23 @@
     /* ============================================
        Project list — restrained, confident, fast to scan.
        Chrome stays neutral; only status/priority pills
-       carry color. One purple accent, used sparingly.
+       carry color. Tokens map onto the panel palette
+       (AdminPanelProvider::palette(), DESIGN.md).
     ============================================ */
     .cu-root {
-        --cu-ink: #0f172a;
-        --cu-muted: #64748b;
-        --cu-subtle: #94a3b8;
-        --cu-line: #eef0f3;
-        --cu-line-strong: #d8dde3;
+        --cu-ink: rgb(var(--gray-950));
+        --cu-muted: rgb(var(--gray-500));
+        --cu-subtle: rgb(var(--gray-400));
+        --cu-line: rgb(var(--gray-200));
+        --cu-line-strong: rgb(var(--gray-300));
         --cu-bg: #ffffff;
-        --cu-bg-soft: #f7f8fa;
-        --cu-bg-hover: #f4f5f7;
-        --cu-accent: #6366f1;
-        --cu-accent-ink: #4f46e5;
-        --cu-accent-soft: #eef2ff;
+        --cu-bg-soft: rgb(var(--gray-50));
+        --cu-bg-hover: rgb(var(--gray-100));
+        --cu-accent: rgb(var(--primary-600));
+        --cu-accent-ink: rgb(var(--primary-700));
+        --cu-accent-soft: rgb(var(--primary-50));
 
-        font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        font-family: inherit;
         color: var(--cu-ink);
         font-size: 13px;
         /* IMPORTANT: keep this as block layout (not flex/grid) — `position:
@@ -1805,19 +1741,19 @@
     .cu-root > .cu-toolbar { margin-bottom: 16px; }
     .cu-root > .cu-table-head { margin-bottom: 0; }
 
-    /* Neutral zinc, the same gray Filament uses for the rest of the dark
-       panel (page = zinc-950, cards = zinc-900), so the list doesn't read
-       as a blue-tinted island. */
+    /* Dark: the panel's own tinted gray, so the list matches the rest of the app. */
     .dark .cu-root {
-        --cu-ink: #f4f4f5;
-        --cu-muted: #a1a1aa;
-        --cu-subtle: #71717a;
-        --cu-line: #27272a;
-        --cu-line-strong: #3f3f46;
-        --cu-bg: #18181b;
-        --cu-bg-soft: #131316;
-        --cu-bg-hover: #222226;
-        --cu-accent-soft: rgba(99, 102, 241, .12);
+        --cu-ink: #ffffff;
+        --cu-muted: rgb(var(--gray-400));
+        --cu-subtle: rgb(var(--gray-500));
+        --cu-line: rgba(255, 255, 255, .08);
+        --cu-line-strong: rgba(255, 255, 255, .14);
+        --cu-bg: rgb(var(--gray-900));
+        --cu-bg-soft: rgba(255, 255, 255, .03);
+        --cu-bg-hover: rgba(255, 255, 255, .05);
+        --cu-accent: rgb(var(--primary-400));
+        --cu-accent-ink: rgb(var(--primary-300));
+        --cu-accent-soft: rgba(var(--primary-500), .14);
     }
 
     /* Toolbar — single row of evenly-sized neutral controls */
@@ -1844,7 +1780,7 @@
     .cu-search:focus-within {
         background: var(--cu-bg);
         color: var(--cu-ink);
-        box-shadow: 0 1px 4px rgba(15, 23, 42, .08);
+        box-shadow: 0 1px 4px rgba(13, 20, 23, .08);
     }
     .cu-search-icon { flex-shrink: 0; }
     .cu-search-kbd {
@@ -1856,8 +1792,8 @@
         padding: 3px 7px;
         border-radius: 6px;
         box-shadow:
-            inset 0 -1px 0 rgba(15, 23, 42, .06),
-            0 0 0 1px rgba(15, 23, 42, .06);
+            inset 0 -1px 0 rgba(13, 20, 23, .06),
+            0 0 0 1px rgba(13, 20, 23, .06);
         letter-spacing: .02em;
     }
     .cu-search:focus-within .cu-search-kbd { opacity: .5; }
@@ -1902,13 +1838,13 @@
         cursor: pointer;
         box-shadow:
             inset 0 0 0 1px var(--cu-line-strong),
-            0 1px 2px rgba(15, 23, 42, .03);
+            0 1px 2px rgba(13, 20, 23, .03);
         transition: box-shadow .14s, transform .08s;
     }
     .cu-filter-btn:hover {
         box-shadow:
             inset 0 0 0 1px var(--cu-muted),
-            0 2px 6px rgba(15, 23, 42, .07);
+            0 2px 6px rgba(13, 20, 23, .07);
     }
     .cu-filter-btn:active { transform: translateY(1px); }
     .cu-filter-btn-icon {
@@ -1936,7 +1872,7 @@
     .cu-groupby-ctl:hover,
     .cu-groupby-ctl:focus-within {
         background: var(--cu-bg);
-        box-shadow: 0 1px 4px rgba(15, 23, 42, .08);
+        box-shadow: 0 1px 4px rgba(13, 20, 23, .08);
     }
     .dark .cu-groupby-ctl:hover,
     .dark .cu-groupby-ctl:focus-within {
@@ -2045,171 +1981,55 @@
         .cu-groupby-current { min-width: 0; }
     }
 
-    /* ----- SOP quick-filter bar -----------------------------------------
-       One calm row under the toolbar: a small "SOP" label, then chips.
-       Chips are borderless soft-fill at rest and take the app's primary
-       (Filament --primary-*, cyan) when selected, so they read as the
-       same family as the rest of the admin. Only the top few SOPs show;
-       the rest sit behind a "N lainnya" toggle so the row never crowds. */
+    /* ----- SOP filter rail ------------------------------------------------
+       The kis filter rail (multiple mode): one row in the order admins set on the
+       SOP page, the rest behind "+N lainnya" (styles in theme.css). */
     .cu-sop-bar {
-        display: flex;
-        align-items: flex-start;
-        gap: 14px;
-        margin: 2px 0 20px;
+        margin: 2px 0 18px;
         transition: opacity .15s;
     }
     .cu-sop-bar.is-busy { opacity: .55; pointer-events: none; }
-    .cu-sop-bar-label {
-        flex-shrink: 0;
-        padding-top: 10px;
-        font-size: 10.5px;
-        font-weight: 600;
-        letter-spacing: .1em;
-        text-transform: uppercase;
-        color: var(--cu-subtle);
-        line-height: 1;
-    }
-    .cu-sop-pills {
+
+    /* ----- Tone picker (status manager) ----------------------------------- */
+    .cu-sm-tones {
         display: flex;
         flex-wrap: wrap;
-        align-items: center;
-        gap: 8px 10px;
-        min-width: 0;
+        gap: 6px;
     }
-    .cu-sop-pill {
+    .cu-sm-tone {
         display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        height: 34px;
-        padding: 0 6px 0 12px;
-        max-width: 260px;
-        background: var(--cu-bg);
-        border: 0;
-        border-radius: 99px;
-        font: inherit;
-        font-size: 12.5px;
-        font-weight: 500;
-        color: var(--cu-ink);
+        padding: 4px;
+        border-radius: 11px;
         cursor: pointer;
-        box-shadow:
-            inset 0 0 0 1px var(--cu-line-strong),
-            0 1px 2px rgba(15, 23, 42, .04);
-        transition: background .12s, color .12s, box-shadow .12s, transform .08s;
+        box-shadow: inset 0 0 0 1px var(--cu-line);
+        transition: box-shadow .12s, background .12s;
     }
-    .cu-sop-pill:hover {
-        box-shadow:
-            inset 0 0 0 1px var(--cu-muted),
-            0 2px 6px rgba(15, 23, 42, .08);
+    .cu-sm-tone:hover { box-shadow: inset 0 0 0 1px var(--cu-line-strong); }
+    .cu-sm-tone.is-selected {
+        background: var(--cu-accent-soft);
+        box-shadow: inset 0 0 0 1.5px var(--cu-accent);
     }
-    .cu-sop-pill:active { transform: translateY(1px); }
-    .cu-sop-pill:focus-visible {
-        outline: 2px solid rgb(var(--primary-500));
+    .cu-sm-tone:has(:focus-visible),
+    .cu-sm-tone-dot:has(:focus-visible) {
+        outline: 2px solid var(--cu-accent);
         outline-offset: 2px;
     }
-    .dark .cu-sop-pill {
-        background: var(--cu-bg-soft);
-        box-shadow: inset 0 0 0 1px var(--cu-line-strong);
-    }
-    .dark .cu-sop-pill:hover { box-shadow: inset 0 0 0 1px var(--cu-muted); }
-    .cu-sop-pill-ico { flex-shrink: 0; color: var(--cu-muted); }
-    .cu-sop-pill-label {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-    .cu-sop-pill-count {
+    .cu-sm-inline-tones {
         display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 22px;
-        height: 22px;
-        padding: 0 7px;
-        border-radius: 99px;
-        background: var(--cu-bg-soft);
-        font-size: 11px;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        color: var(--cu-muted);
-        line-height: 1;
-        transition: background .12s, color .12s;
+        gap: 4px;
+        flex-shrink: 0;
     }
-    .dark .cu-sop-pill-count { background: var(--cu-bg-hover); }
-
-    /* Selected: solid primary fill, same voice as Filament's primary button. */
-    .cu-sop-pill.is-on {
-        background: rgb(var(--primary-600));
-        color: #fff;
-        box-shadow:
-            0 1px 2px rgba(var(--primary-700), .35),
-            0 2px 8px rgba(var(--primary-600), .25);
-    }
-    .cu-sop-pill.is-on:hover {
-        background: rgb(var(--primary-700));
-        box-shadow:
-            0 1px 2px rgba(var(--primary-700), .4),
-            0 3px 10px rgba(var(--primary-600), .3);
-    }
-    .cu-sop-pill.is-on .cu-sop-pill-ico { color: rgba(255, 255, 255, .85); }
-    .cu-sop-pill.is-on .cu-sop-pill-count {
-        background: rgba(255, 255, 255, .2);
-        color: #fff;
-    }
-    .dark .cu-sop-pill.is-on {
-        background: rgb(var(--primary-500));
-        color: #08131a;
-        box-shadow: 0 2px 8px rgba(var(--primary-500), .3);
-    }
-    .dark .cu-sop-pill.is-on:hover { background: rgb(var(--primary-400)); }
-    .dark .cu-sop-pill.is-on .cu-sop-pill-ico { color: rgba(8, 19, 26, .75); }
-    .dark .cu-sop-pill.is-on .cu-sop-pill-count {
-        background: rgba(8, 19, 26, .16);
-        color: #08131a;
-    }
-
-    /* "Tanpa SOP": dashed outline so it reads as the odd one out. */
-    .cu-sop-pill-ghost {
-        background: transparent;
-        color: var(--cu-muted);
-        box-shadow: none;
-        border: 1px dashed var(--cu-line-strong);
-    }
-    .cu-sop-pill-ghost:hover { background: var(--cu-bg-soft); color: var(--cu-ink); box-shadow: none; }
-    .dark .cu-sop-pill-ghost { background: transparent; box-shadow: none; }
-    .cu-sop-pill-ghost.is-on { border-color: transparent; }
-
-    /* "N lainnya" toggle: quiet pill, primary text. */
-    .cu-sop-more {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        height: 34px;
-        padding: 0 12px;
-        background: transparent;
-        border: 1px dashed rgba(var(--primary-600), .45);
-        border-radius: 99px;
-        font: inherit;
-        font-size: 12.5px;
-        font-weight: 600;
-        color: rgb(var(--primary-700));
+    .cu-sm-tone-dot {
+        width: 20px;
+        height: 20px;
+        border-radius: 7px;
         cursor: pointer;
-        transition: background .12s, border-color .12s;
+        background: var(--s-bg);
+        box-shadow: inset 0 0 0 1.5px var(--s-color);
     }
-    .cu-sop-more:hover {
-        background: rgba(var(--primary-500), .08);
-        border-color: rgb(var(--primary-600));
-    }
-    .dark .cu-sop-more {
-        color: rgb(var(--primary-300));
-        border-color: rgba(var(--primary-400), .45);
-    }
-    .dark .cu-sop-more:hover { background: rgba(var(--primary-400), .12); }
-    .cu-sop-more-caret { transition: transform .15s; }
-    .cu-sop-more-caret.is-open { transform: rotate(180deg); }
-
-    @media (max-width: 640px) {
-        .cu-sop-bar { gap: 10px; }
-        .cu-sop-bar-label { display: none; }
-        .cu-sop-pill { max-width: 180px; }
+    .cu-sm-tone-dot[data-kis-tone='outline'] { box-shadow: inset 0 0 0 1.5px var(--s-color); background: transparent; }
+    .cu-sm-tone-dot.is-selected {
+        box-shadow: inset 0 0 0 1.5px var(--s-color), 0 0 0 2px var(--cu-bg), 0 0 0 3.5px var(--s-color);
     }
 
     .cu-filter-ico { color: var(--cu-muted); flex-shrink: 0; }
@@ -2244,7 +2064,7 @@
         background: var(--cu-accent-soft);
         box-shadow:
             inset 0 0 0 1px var(--cu-accent),
-            0 1px 2px rgba(99, 102, 241, .08);
+            0 1px 2px rgba(var(--primary-500), .08);
     }
     .cu-filter.is-active .cu-filter-ico,
     .cu-filter.is-active .cu-filter-label { color: var(--cu-accent-ink); }
@@ -2254,7 +2074,7 @@
         background: var(--cu-accent-soft);
         box-shadow:
             inset 0 0 0 1px var(--cu-accent),
-            0 1px 2px rgba(99, 102, 241, .08);
+            0 1px 2px rgba(var(--primary-500), .08);
     }
     .cu-active-clients-btn.is-on .cu-filter-ico,
     .cu-active-clients-btn.is-on .cu-filter-label { color: var(--cu-accent-ink); }
@@ -2271,8 +2091,8 @@
         padding: 6px;
         min-width: 240px;
         box-shadow:
-            0 0 0 1px rgba(15, 23, 42, .04),
-            0 12px 32px rgba(15, 23, 42, .12);
+            0 0 0 1px rgba(13, 20, 23, .04),
+            0 12px 32px rgba(13, 20, 23, .12);
         max-height: 320px;
         overflow-y: auto;
     }
@@ -2324,8 +2144,8 @@
         background: var(--cu-bg);
         border-radius: 14px;
         box-shadow:
-            0 0 0 1px rgba(15, 23, 42, .04),
-            0 16px 40px rgba(15, 23, 42, .14);
+            0 0 0 1px rgba(13, 20, 23, .04),
+            0 16px 40px rgba(13, 20, 23, .14);
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -2520,13 +2340,13 @@
         cursor: pointer;
         box-shadow:
             inset 0 0 0 1px var(--cu-line-strong),
-            0 1px 2px rgba(15, 23, 42, .04);
+            0 1px 2px rgba(13, 20, 23, .04);
         transition: box-shadow .12s, transform .08s;
     }
     .cu-active-chip:hover {
         box-shadow:
             inset 0 0 0 1px var(--cu-muted),
-            0 2px 6px rgba(15, 23, 42, .08);
+            0 2px 6px rgba(13, 20, 23, .08);
     }
     .cu-active-chip:active { transform: scale(.96); }
     .cu-active-chip svg {
@@ -2580,7 +2400,7 @@
         padding: 3px;
         gap: 2px;
         height: 38px;
-        box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+        box-shadow: 0 1px 2px rgba(13, 20, 23, .04);
     }
     .cu-view-toggle button {
         display: inline-flex; align-items: center; gap: 6px;
@@ -2605,8 +2425,8 @@
         background: var(--cu-accent);
         color: white;
         box-shadow:
-            0 1px 2px rgba(99, 102, 241, .25),
-            0 2px 6px rgba(99, 102, 241, .18);
+            0 1px 2px rgba(var(--primary-500), .25),
+            0 2px 6px rgba(var(--primary-500), .18);
     }
     .cu-view-toggle button.active svg { color: white; }
     .cu-view-toggle button:focus-visible {
@@ -2754,13 +2574,16 @@
         border-top-right-radius: 9px;
     }
     /* ClickUp-style: solid pill, white text, no shadow */
+    /* Soft tone badge (data-kis-tone): the group label, not a solid block. */
     .cu-group-badge {
         display: inline-flex;
         align-items: center;
         gap: 7px;
         padding: 6px 12px 6px 9px;
-        border-radius: 6px;
-        color: #ffffff;
+        border-radius: 7px;
+        background: var(--s-bg);
+        color: var(--s-color);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--s-color) 22%, transparent);
         font-size: 11.5px;
         font-weight: 700;
         text-transform: uppercase;
@@ -2776,7 +2599,7 @@
     .cu-group-badge-dot {
         width: 8px; height: 8px;
         border-radius: 50%;
-        background: #ffffff;
+        background: currentColor;
         flex-shrink: 0;
     }
     .cu-group-badge-label {
@@ -2820,8 +2643,8 @@
         padding: 4px 10px 4px 8px;
         border: 0;
         border-radius: 999px;
-        background: var(--s-bg, #f1f5f9);
-        color: var(--s-color, #64748b);
+        background: var(--s-bg, #ebf2f4);
+        color: var(--s-color, #626a6f);
         font: inherit;
         font-size: 11.5px;
         font-weight: 600;
@@ -2830,21 +2653,24 @@
         white-space: nowrap;
         cursor: pointer;
         box-shadow:
-            inset 0 0 0 1px color-mix(in srgb, var(--s-color, #64748b) 22%, transparent),
-            0 1px 0 rgba(15, 23, 42, .015);
+            inset 0 0 0 1px color-mix(in srgb, var(--s-color, #626a6f) 22%, transparent),
+            0 1px 0 rgba(13, 20, 23, .015);
         transition: box-shadow .14s, transform .08s, background .14s;
     }
     .cu-status-badge:hover {
         box-shadow:
-            inset 0 0 0 1px color-mix(in srgb, var(--s-color, #64748b) 40%, transparent),
-            0 2px 6px color-mix(in srgb, var(--s-color, #64748b) 18%, transparent);
+            inset 0 0 0 1px color-mix(in srgb, var(--s-color, #626a6f) 40%, transparent),
+            0 2px 6px color-mix(in srgb, var(--s-color, #626a6f) 18%, transparent);
         transform: translateY(-0.5px);
+    }
+    .cu-status-badge[data-kis-tone='outline'] {
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--s-color) 45%, transparent);
     }
     .cu-status-badge-icon {
         display: inline-flex;
         align-items: center;
         flex-shrink: 0;
-        color: var(--s-color, #64748b);
+        color: var(--s-color, #626a6f);
     }
     .cu-status-badge-icon svg { display: block; }
     .cu-status-badge-label {
@@ -2854,8 +2680,8 @@
     }
     /* Browsers without color-mix() — fall back to a static soft ring */
     @supports not (background: color-mix(in srgb, red 50%, transparent)) {
-        .cu-status-badge { box-shadow: inset 0 0 0 1px rgba(15,23,42,.08); }
-        .cu-status-badge:hover { box-shadow: inset 0 0 0 1px rgba(15,23,42,.18), 0 2px 6px rgba(15,23,42,.06); }
+        .cu-status-badge { box-shadow: inset 0 0 0 1px rgba(13, 20, 23,.08); }
+        .cu-status-badge:hover { box-shadow: inset 0 0 0 1px rgba(13, 20, 23,.18), 0 2px 6px rgba(13, 20, 23,.06); }
     }
 
     /* Priority — flag + text pill */
@@ -3030,8 +2856,8 @@
     }
     .cu-indicator svg { flex-shrink: 0; opacity: .9; }
     .cu-indicator-note    { color: var(--cu-muted); }
-    .cu-indicator-review  { color: #d97706; }  /* amber-600 — needs attention */
-    .dark .cu-indicator-review { color: #fbbf24; }  /* amber-400 */
+    .cu-indicator-review  { color: #10657f; }  /* amber-600 — needs attention */
+    .dark .cu-indicator-review { color: #89d2ea; }  /* amber-400 */
 
     /* Tooltip — positioned above the indicator, guaranteed visible */
     .cu-indicator-tip {
@@ -3040,8 +2866,8 @@
         left: 50%;
         transform: translateX(-50%);
         padding: 5px 9px;
-        background: #0f172a;          /* slate-900 */
-        color: #f8fafc;               /* slate-50 */
+        background: #0d1417;          /* slate-900 */
+        color: #f1f7f9;               /* slate-50 */
         font-size: 11.5px;
         font-weight: 500;
         line-height: 1.3;
@@ -3058,13 +2884,13 @@
         left: 50%;
         transform: translateX(-50%);
         border: 4px solid transparent;
-        border-top-color: #0f172a;
+        border-top-color: #0d1417;
     }
     .dark .cu-indicator-tip {
-        background: #f8fafc;
-        color: #0f172a;
+        background: #f1f7f9;
+        color: #0d1417;
     }
-    .dark .cu-indicator-tip::after { border-top-color: #f8fafc; }
+    .dark .cu-indicator-tip::after { border-top-color: #f1f7f9; }
 
     /* Client column */
     .cu-client-name {
@@ -3089,9 +2915,10 @@
         background: var(--cu-bg-soft);
         color: var(--cu-muted);
     }
-    .cu-type-single  { background: #ecfeff; color: #0e7490; }
-    .cu-type-monthly { background: #fdf4ff; color: #a21caf; }
-    .cu-type-yearly  { background: #fff7ed; color: #c2410c; }
+    /* Project type is a category, not a state: neutral, told apart by the label. */
+    .cu-type-single,
+    .cu-type-monthly,
+    .cu-type-yearly  { background: #ebf2f4; color: #485156; }
 
     /* Pills — colors come from inline style */
     .cu-pill-wrap { position: relative; display: inline-block; }
@@ -3118,7 +2945,7 @@
         line-height: 1.4;
         box-shadow:
             inset 0 1px 0 rgba(255, 255, 255, .4),
-            0 1px 2px rgba(15, 23, 42, .06);
+            0 1px 2px rgba(13, 20, 23, .06);
     }
     .cu-pill-sm { padding: 2px 8px; font-size: 10.5px; }
     .cu-pill-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
@@ -3143,7 +2970,7 @@
         box-shadow:
             inset 0 1px 0 rgba(255, 255, 255, .4),
             0 0 0 1.5px currentColor,
-            0 2px 6px rgba(15, 23, 42, .10);
+            0 2px 6px rgba(13, 20, 23, .10);
     }
     .cu-pill-editable:hover .cu-pill-caret { opacity: 1; transform: translateY(1px); }
     .cu-pill-editable:active { transform: scale(.97); }
@@ -3267,7 +3094,7 @@
     }
     .cu-assignee-row:hover { background: var(--cu-bg-hover); }
     .cu-assignee-row.is-assigned { background: var(--cu-accent-soft); }
-    .cu-assignee-row.is-assigned:hover { background: #e0e7ff; }
+    .cu-assignee-row.is-assigned:hover { background: rgb(var(--primary-100)); }
     .cu-assignee-name {
         flex: 1;
         font-size: 12.5px;
@@ -3287,11 +3114,11 @@
         font-size: 12px;
         color: var(--cu-muted);
     }
-    .cu-avatar-pic { background: #f59e0b; }
+    .cu-avatar-pic { background: #157a9c; }
     .cu-pic-badge {
         position: absolute;
         bottom: -1px; right: -1px;
-        background: #f59e0b;
+        background: #157a9c;
         color: white;
         font-size: 8px;
         font-weight: 800;
@@ -3312,8 +3139,8 @@
         font-weight: 500;
         color: var(--cu-muted);
     }
-    .cu-due.overdue { color: #dc2626; font-weight: 600; }
-    .cu-due.due-soon { color: #d97706; font-weight: 600; }
+    .cu-due.overdue { color: #af3628; font-weight: 600; }
+    .cu-due.due-soon { color: #10657f; font-weight: 600; }
     .cu-due-empty { color: var(--cu-subtle); font-size: 13px; }
 
     /* Department — quiet pill in the row, mirrors the badge aesthetic */
@@ -3578,12 +3405,12 @@
     /* Statuses toolbar button accent */
     .cu-statuses-btn {
         background: var(--cu-accent-soft);
-        box-shadow: inset 0 0 0 1px var(--cu-accent), 0 1px 2px rgba(99,102,241,.08);
+        box-shadow: inset 0 0 0 1px var(--cu-accent), 0 1px 2px rgba(var(--primary-500), .08);
     }
     .cu-statuses-btn .cu-filter-ico,
     .cu-statuses-btn .cu-filter-label { color: var(--cu-accent-ink); }
     .cu-statuses-btn:hover {
-        box-shadow: inset 0 0 0 1.5px var(--cu-accent-ink), 0 3px 8px rgba(99,102,241,.14);
+        box-shadow: inset 0 0 0 1.5px var(--cu-accent-ink), 0 3px 8px rgba(var(--primary-500), .14);
     }
 
     /* ============================================
@@ -3601,7 +3428,7 @@
     .cu-sm-backdrop {
         position: absolute;
         inset: 0;
-        background: rgba(15, 23, 42, .5);
+        background: rgba(13, 20, 23, .5);
         backdrop-filter: blur(3px);
         -webkit-backdrop-filter: blur(3px);
         animation: smBackdropIn .18s ease-out;
@@ -3620,8 +3447,8 @@
         background: var(--cu-bg);
         border-radius: 16px;
         box-shadow:
-            0 0 0 1px rgba(15,23,42,.06),
-            0 24px 64px rgba(15,23,42,.22);
+            0 0 0 1px rgba(13, 20, 23,.06),
+            0 24px 64px rgba(13, 20, 23,.22);
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -3826,12 +3653,12 @@
         color: var(--cu-muted);
     }
     .cu-sm-action-in-use {
-        background: #fffbeb;
-        color: #92400e;
+        background: #eef9fd;
+        color: #10657f;
     }
     .dark .cu-sm-action-in-use {
-        background: rgba(251,191,36,.1);
-        color: #fbbf24;
+        background: rgba(var(--primary-500), .1);
+        color: #89d2ea;
     }
     .cu-sm-delete-btn {
         padding: 5px 11px;
@@ -3842,14 +3669,14 @@
         border: 1px solid var(--cu-line-strong);
     }
     .cu-sm-delete-btn:hover {
-        background: #fef2f2;
-        border-color: #fca5a5;
-        color: #dc2626;
+        background: #fff4f2;
+        border-color: #fed0c7;
+        color: #af3628;
     }
     .dark .cu-sm-delete-btn:hover {
-        background: rgba(220,38,38,.12);
-        border-color: #ef4444;
-        color: #f87171;
+        background: rgba(var(--danger-500), .12);
+        border-color: #cf4232;
+        color: #feac9e;
     }
 
     /* Action buttons */
@@ -3958,28 +3785,13 @@
     .cu-sm-input:focus,
     .cu-sm-select:focus {
         border-color: var(--cu-accent);
-        box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+        box-shadow: 0 0 0 3px rgba(var(--primary-500), .12);
     }
     .cu-sm-input::placeholder { color: var(--cu-subtle); }
     .cu-sm-error {
         font-size: 11.5px;
-        color: #dc2626;
+        color: #af3628;
         font-weight: 500;
-    }
-    .cu-sm-color-wrap { display: flex; align-items: center; gap: 8px; }
-    .cu-sm-color-input {
-        width: 36px; height: 36px;
-        padding: 2px;
-        border: 1px solid var(--cu-line-strong);
-        border-radius: 8px;
-        background: var(--cu-bg);
-        cursor: pointer;
-        flex-shrink: 0;
-    }
-    .cu-sm-color-value {
-        font-size: 11.5px;
-        font-family: 'SF Mono', Menlo, monospace;
-        color: var(--cu-muted);
     }
 
     /* Shape picker */
@@ -4018,11 +3830,11 @@
         color: white;
         cursor: pointer;
         transition: background .14s, box-shadow .14s, transform .08s;
-        box-shadow: 0 2px 8px rgba(99,102,241,.3);
+        box-shadow: 0 2px 8px rgba(var(--primary-500), .3);
     }
     .cu-sm-create-btn:hover {
         background: var(--cu-accent-ink);
-        box-shadow: 0 4px 14px rgba(99,102,241,.38);
+        box-shadow: 0 4px 14px rgba(var(--primary-500), .38);
         transform: translateY(-1px);
     }
     .cu-sm-create-btn:active { transform: translateY(0); }
@@ -4034,16 +3846,6 @@
         align-items: center;
         gap: 8px;
         width: 100%;
-    }
-    .cu-sm-inline-color {
-        width: 30px;
-        height: 30px;
-        padding: 2px;
-        border: 1px solid var(--cu-line-strong);
-        border-radius: 7px;
-        background: var(--cu-bg);
-        cursor: pointer;
-        flex-shrink: 0;
     }
     .cu-sm-inline-shapes {
         display: flex;
@@ -4093,7 +3895,7 @@
     }
     .cu-sm-inline-input:focus {
         border-color: var(--cu-accent);
-        box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+        box-shadow: 0 0 0 3px rgba(var(--primary-500), .12);
     }
     .cu-sm-inline-input::placeholder { color: var(--cu-subtle); font-weight: 400; }
 
@@ -4118,7 +3920,7 @@
     .cu-pv-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(15, 23, 42, .42);
+        background: rgba(13, 20, 23, .42);
     }
     .cu-pv-modal {
         position: relative;
@@ -4129,8 +3931,8 @@
         border-radius: 12px;
         border: 1px solid var(--cu-line-strong);
         box-shadow:
-            0 30px 70px -30px rgba(15, 23, 42, .32),
-            0 10px 24px -10px rgba(15, 23, 42, .12);
+            0 30px 70px -30px rgba(13, 20, 23, .32),
+            0 10px 24px -10px rgba(13, 20, 23, .12);
         display: flex;
         flex-direction: column;
         max-height: calc(100vh - 5vh);
@@ -4325,8 +4127,8 @@
         font-weight: 500;
         color: var(--cu-ink);
     }
-    .cu-pv-due.is-overdue  { color: #b91c1c; font-weight: 600; }
-    .cu-pv-due.is-due-soon { color: #b45309; font-weight: 600; }
+    .cu-pv-due.is-overdue  { color: #af3628; font-weight: 600; }
+    .cu-pv-due.is-due-soon { color: #10657f; font-weight: 600; }
 
     /* Person + team — used inside dd */
     .cu-pv-person {
@@ -4447,7 +4249,7 @@
     }
 
     .cu-pv-prose a {
-        color: var(--cu-accent, #3b82f6);
+        color: var(--cu-accent, #157a9c);
         text-decoration: underline;
     }
 
@@ -4463,8 +4265,8 @@
     .cu-pv-prose blockquote {
         margin: .5em 0;
         padding-left: .75em;
-        border-left: 3px solid var(--cu-border, #e5e7eb);
-        color: var(--cu-ink-soft, #6b7280);
+        border-left: 3px solid var(--cu-border, #dee5e7);
+        color: var(--cu-ink-soft, #626a6f);
     }
 
     /* Steps — flat list, no row container, separated by hairlines */
@@ -4558,7 +4360,7 @@
         min-width: 0;
     }
     .cu-pv-doc-req {
-        color: #b91c1c;
+        color: #af3628;
         margin-left: 2px;
         font-weight: 700;
     }
@@ -4599,13 +4401,13 @@
         letter-spacing: .04em;
         white-space: nowrap;
     }
-    .cu-pv-doc-status-tag.is-approved { background: #d1fae5; color: #065f46; }
-    .cu-pv-doc-status-tag.is-rejected { background: #fee2e2; color: #b91c1c; }
-    .cu-pv-doc-status-tag.is-pending  { background: #fef3c7; color: #92400e; }
+    .cu-pv-doc-status-tag.is-approved { background: #dff4fe; color: #10657f; }
+    .cu-pv-doc-status-tag.is-rejected { background: #fff4f2; color: #af3628; }
+    .cu-pv-doc-status-tag.is-pending  { background: #ffffff; color: #10657f; }
     .cu-pv-doc-status-tag.is-draft    { background: var(--cu-bg-soft); color: var(--cu-muted); }
-    .dark .cu-pv-doc-status-tag.is-approved { background: rgba(16,185,129,.15); color: #34d399; }
-    .dark .cu-pv-doc-status-tag.is-rejected { background: rgba(248,113,113,.15); color: #f87171; }
-    .dark .cu-pv-doc-status-tag.is-pending  { background: rgba(251,191,36,.15); color: #fbbf24; }
+    .dark .cu-pv-doc-status-tag.is-approved { background: rgba(var(--primary-500), .15); color: #89d2ea; }
+    .dark .cu-pv-doc-status-tag.is-rejected { background: rgba(var(--danger-500), .15); color: #feac9e; }
+    .dark .cu-pv-doc-status-tag.is-pending  { background: rgba(var(--primary-500), .15); color: #89d2ea; }
 
     /* Inline note shown when a doc is approved without an uploaded file */
     .cu-pv-doc-no-file-note {
@@ -4620,8 +4422,8 @@
         color: var(--cu-muted);
         line-height: 1.3;
     }
-    .cu-pv-doc-no-file-note svg { color: #047857; flex-shrink: 0; }
-    .dark .cu-pv-doc-no-file-note svg { color: #34d399; }
+    .cu-pv-doc-no-file-note svg { color: #10657f; flex-shrink: 0; }
+    .dark .cu-pv-doc-no-file-note svg { color: #89d2ea; }
 
     .cu-pv-doc-files {
         list-style: none;
@@ -4722,17 +4524,17 @@
         background: var(--cu-bg-soft);
         color: var(--cu-muted);
         white-space: nowrap;
-        box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .05);
+        box-shadow: inset 0 0 0 1px rgba(13, 20, 23, .05);
     }
-    .cu-pv-doc-file-status.is-approved { background: #d1fae5; color: #065f46; box-shadow: inset 0 0 0 1px rgba(6, 95, 70, .12); }
-    .cu-pv-doc-file-status.is-rejected { background: #fee2e2; color: #b91c1c; box-shadow: inset 0 0 0 1px rgba(185, 28, 28, .12); }
-    .cu-pv-doc-file-status.is-pending  { background: #fef3c7; color: #92400e; box-shadow: inset 0 0 0 1px rgba(146, 64, 14, .12); }
-    .cu-pv-doc-file-status.is-uploaded { background: #dbeafe; color: #1e40af; box-shadow: inset 0 0 0 1px rgba(30, 64, 175, .12); }
+    .cu-pv-doc-file-status.is-approved { background: #dff4fe; color: #10657f; box-shadow: inset 0 0 0 1px rgba(16, 101, 127, .12); }
+    .cu-pv-doc-file-status.is-rejected { background: #fff4f2; color: #af3628; box-shadow: inset 0 0 0 1px rgba(175, 54, 40, .12); }
+    .cu-pv-doc-file-status.is-pending  { background: #ffffff; color: #10657f; box-shadow: inset 0 0 0 1px rgba(16, 101, 127, .38); }
+    .cu-pv-doc-file-status.is-uploaded { background: #dff4fe; color: #10657f; box-shadow: inset 0 0 0 1px rgba(16, 101, 127, .12); }
 
-    .dark .cu-pv-doc-file-status.is-approved { background: rgba(16,185,129,.15);  color: #34d399; }
-    .dark .cu-pv-doc-file-status.is-rejected { background: rgba(248,113,113,.15); color: #f87171; }
-    .dark .cu-pv-doc-file-status.is-pending  { background: rgba(251,191,36,.15);  color: #fbbf24; }
-    .dark .cu-pv-doc-file-status.is-uploaded { background: rgba(96,165,250,.15);  color: #60a5fa; }
+    .dark .cu-pv-doc-file-status.is-approved { background: rgba(var(--primary-500), .15);  color: #89d2ea; }
+    .dark .cu-pv-doc-file-status.is-rejected { background: rgba(var(--danger-500), .15); color: #feac9e; }
+    .dark .cu-pv-doc-file-status.is-pending  { background: rgba(var(--primary-500), .15);  color: #89d2ea; }
+    .dark .cu-pv-doc-file-status.is-uploaded { background: rgba(var(--primary-500), .15);  color: #89d2ea; }
 
     /* Download arrow on the right — becomes accent-filled on row hover */
     .cu-pv-doc-dl {
@@ -4797,7 +4599,7 @@
     }
     .cu-pv-form-error {
         font-size: 11.5px;
-        color: #b91c1c;
+        color: #af3628;
         font-weight: 500;
     }
 
@@ -4817,7 +4619,7 @@
     .cu-pv-composer.is-focused,
     .cu-pv-composer:focus-within {
         border-color: var(--cu-accent);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+        box-shadow: 0 0 0 3px rgba(var(--primary-500), .12);
     }
 
     .cu-pv-textarea {
@@ -4893,7 +4695,7 @@
         min-width: 30px;
         text-align: right;
     }
-    .cu-pv-char-count.is-warn { color: #b91c1c; font-weight: 700; }
+    .cu-pv-char-count.is-warn { color: #af3628; font-weight: 700; }
 
     .cu-pv-hotkey {
         font-family: 'SF Mono', Menlo, ui-monospace, monospace;
@@ -5004,15 +4806,15 @@
         letter-spacing: .04em;
     }
     .cu-pv-note-tag.is-important {
-        color: #b45309;
-        background: #fef3c7;
+        color: #10657f;
+        background: #ffffff;
     }
     .cu-pv-note-tag.is-blocker {
-        color: #b91c1c;
-        background: #fee2e2;
+        color: #af3628;
+        background: #fff4f2;
     }
-    .dark .cu-pv-note-tag.is-important { background: rgba(251, 191, 36, .15); color: #fbbf24; }
-    .dark .cu-pv-note-tag.is-blocker  { background: rgba(248, 113, 113, .15); color: #f87171; }
+    .dark .cu-pv-note-tag.is-important { background: rgba(var(--primary-500), .15); color: #89d2ea; }
+    .dark .cu-pv-note-tag.is-blocker  { background: rgba(var(--danger-500), .15); color: #feac9e; }
 
     .cu-pv-note-body {
         margin: 0;
@@ -5075,7 +4877,7 @@
     .cu-pv-edit-trigger:hover {
         background: var(--cu-bg);
         border-color: var(--cu-accent);
-        box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+        box-shadow: 0 1px 3px rgba(13, 20, 23, .06);
     }
     .cu-pv-edit-trigger:active { transform: translateY(1px); }
     .cu-pv-edit-trigger:focus-visible {
@@ -5086,7 +4888,7 @@
         background: var(--cu-accent-soft);
         border-color: var(--cu-accent);
         color: var(--cu-accent-ink);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, .12);
+        box-shadow: 0 0 0 3px rgba(var(--primary-500), .12);
     }
     .cu-pv-edit-trigger.is-empty {
         border-style: dashed;
@@ -5128,8 +4930,8 @@
         border: 1px solid var(--cu-line-strong);
         border-radius: 10px;
         box-shadow:
-            0 16px 32px -12px rgba(15, 23, 42, .18),
-            0 4px 10px -4px rgba(15, 23, 42, .08);
+            0 16px 32px -12px rgba(13, 20, 23, .18),
+            0 4px 10px -4px rgba(13, 20, 23, .08);
         overflow: hidden;
     }
     .cu-pv-edit-enter { transition: opacity 140ms cubic-bezier(.22, 1, .36, 1), transform 140ms cubic-bezier(.22, 1, .36, 1); }
@@ -5218,10 +5020,10 @@
         transition: background 120ms, color 120ms;
     }
     .cu-pv-edit-clear:hover {
-        background: #fef2f2;
-        color: #b91c1c;
+        background: #fff4f2;
+        color: #af3628;
     }
-    .dark .cu-pv-edit-clear:hover { background: rgba(220,38,38,.12); color: #f87171; }
+    .dark .cu-pv-edit-clear:hover { background: rgba(var(--danger-500), .12); color: #feac9e; }
 
     /* Dark mode */
     .dark .cu-pv-modal { border-color: var(--cu-line-strong); }
@@ -5406,8 +5208,8 @@
     .cu-kb-card:hover {
         border-color: var(--cu-line-strong);
         box-shadow:
-            0 2px 6px rgba(15, 23, 42, .04),
-            0 1px 2px rgba(15, 23, 42, .03);
+            0 2px 6px rgba(13, 20, 23, .04),
+            0 1px 2px rgba(13, 20, 23, .03);
     }
     .cu-kb-card:active { cursor: grabbing; }
     .cu-kb-card:focus-visible {
@@ -5506,10 +5308,10 @@
         white-space: nowrap;
     }
     .cu-kb-card-due svg { color: var(--cu-subtle); }
-    .cu-kb-card-due.is-overdue  { color: #b91c1c; font-weight: 600; }
-    .cu-kb-card-due.is-overdue svg  { color: #b91c1c; }
-    .cu-kb-card-due.is-due-soon { color: #b45309; font-weight: 600; }
-    .cu-kb-card-due.is-due-soon svg { color: #b45309; }
+    .cu-kb-card-due.is-overdue  { color: #af3628; font-weight: 600; }
+    .cu-kb-card-due.is-overdue svg  { color: #af3628; }
+    .cu-kb-card-due.is-due-soon { color: #10657f; font-weight: 600; }
+    .cu-kb-card-due.is-due-soon svg { color: #10657f; }
 
     /* Empty column */
     .cu-kb-empty {
@@ -5810,11 +5612,11 @@
             $previewUrl = $this->previewUrl;
             $previewName = basename($previewDoc->file_path);
             $previewStatusMeta = match ($previewDoc->status) {
-                'approved'       => ['label' => 'Disetujui',       'color' => '#16a34a', 'bg' => '#dcfce7'],
-                'rejected'       => ['label' => 'Ditolak',         'color' => '#dc2626', 'bg' => '#fee2e2'],
-                'pending_review' => ['label' => 'Menunggu Review', 'color' => '#d97706', 'bg' => '#fef3c7'],
-                'uploaded'       => ['label' => 'Diunggah',        'color' => '#2563eb', 'bg' => '#dbeafe'],
-                default          => ['label' => ucfirst($previewDoc->status ?? 'unknown'), 'color' => '#64748b', 'bg' => '#f1f5f9'],
+                'approved'       => ['label' => 'Disetujui',       'color' => '#157a9c', 'bg' => '#dff4fe'],
+                'rejected'       => ['label' => 'Ditolak',         'color' => '#af3628', 'bg' => '#fff4f2'],
+                'pending_review' => ['label' => 'Menunggu Review', 'color' => '#10657f', 'bg' => '#ffffff'],
+                'uploaded'       => ['label' => 'Diunggah',        'color' => '#157a9c', 'bg' => '#dff4fe'],
+                default          => ['label' => ucfirst($previewDoc->status ?? 'unknown'), 'color' => '#626a6f', 'bg' => '#ebf2f4'],
             };
         @endphp
         <div class="cu-pv-overlay" wire:keydown.escape.window="closeSubmittedDocumentPreview">
@@ -5835,7 +5637,7 @@
                         <div class="cu-pv-preview-meta">
                             <h2 class="cu-pv-preview-title" title="{{ $previewName }}">{{ $previewName }}</h2>
                             <div class="cu-pv-preview-sub">
-                                <span class="cu-pv-preview-status" style="--s-color: {{ $previewStatusMeta['color'] }}; --s-bg: {{ $previewStatusMeta['bg'] }};">
+                                <span class="cu-pv-preview-status" data-kis-tone="{{ $previewStatusMeta['tone'] ?? 'neutral' }}">
                                     {{ $previewStatusMeta['label'] }}
                                 </span>
                                 @if ($previewDoc->user)

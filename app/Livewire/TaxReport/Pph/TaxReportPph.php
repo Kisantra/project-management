@@ -2,247 +2,118 @@
 
 namespace App\Livewire\TaxReport\Pph;
 
+use App\Models\Employee;
 use App\Models\IncomeTax;
 use App\Models\TaxReport;
+use App\Support\TaxPeriod;
+use Illuminate\Contracts\View\View;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Component;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
 
+/**
+ * PPh workspace of the tax report page: PPh 21 slips, the calculation,
+ * employees and the SPT. Figures come straight from income_taxes on every
+ * render (the old 5-minute cache made "Refresh" do nothing).
+ */
 class TaxReportPph extends Component
 {
-    // Properties for tax report data
-    public $taxReportId;
-    public $taxReport;
-    
-    // PPh calculations - cached for performance
-    public $pph21Total = 0;
-    public $pph21Count = 0;
-    public $pph21Bruto = 0;
-    
-    public $pph23Total = 0;
-    public $pph23Count = 0;
-    public $pph23Bruto = 0;
-    
-    public $pph42Total = 0;
-    public $pph42Count = 0;
-    public $pph42Bruto = 0;
-    
-    public $totalPph = 0;
-    public $totalBuktiPotong = 0;
-    
-    // Notes functionality
-    public $newNote = '';
-    public $existingNotes = [];
-    
-    // Listeners for real-time updates
-    protected $listeners = [
-        'refreshPphCalculations' => 'calculatePph',
-        'pphDataUpdated' => 'calculatePph',
-        'spt-updated' => '$refresh', // perbarui indikator tab SPT setelah upload/hapus
+    /** Sub-tabs, as they appear in ?tab= */
+    public const TABS = ['daftar', 'perhitungan', 'karyawan', 'spt'];
+
+    /** jenis_pajak value => label in the calculation */
+    public const KINDS = [
+        'Pasal 21' => 'PPh 21',
+        'Pasal 23' => 'PPh 23',
+        'Pasal 4(2)' => 'PPh 4(2)',
+        'Pasal 4 ayat 2' => 'PPh 4(2)',
     ];
 
-    /** Apakah SPT PPh untuk masa ini sudah diunggah (untuk indikator tab). */
-    public function getSptUploadedProperty(): bool
-    {
-        return (bool) optional(
-            $this->taxReport?->taxCalculationSummaries()->where('tax_type', 'pph')->first()
-        )->bukti_lapor;
-    }
-    
-    /**
-     * Mount the component with tax report ID
-     */
-    public function mount($taxReportId = null)
+    #[Locked]
+    public int $taxReportId;
+
+    /** Sub-tab open on first render (Alpine takes over afterwards). */
+    public string $initialTab = 'daftar';
+
+    public function mount(int $taxReportId): void
     {
         $this->taxReportId = $taxReportId;
-        
-        // Load tax report data
-        $this->loadTaxReportData();
-        
-        // Calculate PPh totals
-        $this->calculatePph();
-    }
-    
-    /**
-     * Load tax report data with minimal queries
-     */
-    protected function loadTaxReportData()
-    {
-        if ($this->taxReportId) {
-            $this->taxReport = TaxReport::with('client:id,name')
-                ->select('id', 'client_id', 'month')
-                ->find($this->taxReportId);
-        }
-    }
-    
-    /**
-     * Calculate PPh totals from income_taxes table
-     * Optimized with single query using CASE statements
-     */
-    public function calculatePph()
-    {
-        if (!$this->taxReportId) {
-            return;
-        }
 
-        // Use cache to avoid repeated calculations (5 minutes cache)
-        $cacheKey = "pph_calculations_{$this->taxReportId}";
+        $tab = (string) request()->query('tab', '');
+        $this->initialTab = request()->query('jenis') === 'pph' && in_array($tab, self::TABS, true) ? $tab : 'daftar';
+    }
 
-        $query = function () {
-            return DB::table('income_taxes')
-                ->where('tax_report_id', $this->taxReportId)
-                ->select([
-                    DB::raw('SUM(CASE WHEN jenis_pajak = "Pasal 21" THEN pajak_penghasilan ELSE 0 END) as pph21_total'),
-                    DB::raw('COUNT(CASE WHEN jenis_pajak = "Pasal 21" THEN 1 END) as pph21_count'),
-                    DB::raw('SUM(CASE WHEN jenis_pajak = "Pasal 21" THEN dasar_pengenaan_pajak ELSE 0 END) as pph21_bruto'),
-                    DB::raw('SUM(CASE WHEN jenis_pajak = "Pasal 23" THEN pajak_penghasilan ELSE 0 END) as pph23_total'),
-                    DB::raw('COUNT(CASE WHEN jenis_pajak = "Pasal 23" THEN 1 END) as pph23_count'),
-                    DB::raw('SUM(CASE WHEN jenis_pajak = "Pasal 23" THEN dasar_pengenaan_pajak ELSE 0 END) as pph23_bruto'),
-                    DB::raw('SUM(CASE WHEN jenis_pajak IN ("Pasal 4(2)", "Pasal 4 ayat 2") THEN pajak_penghasilan ELSE 0 END) as pph42_total'),
-                    DB::raw('COUNT(CASE WHEN jenis_pajak IN ("Pasal 4(2)", "Pasal 4 ayat 2") THEN 1 END) as pph42_count'),
-                    DB::raw('SUM(CASE WHEN jenis_pajak IN ("Pasal 4(2)", "Pasal 4 ayat 2") THEN dasar_pengenaan_pajak ELSE 0 END) as pph42_bruto'),
-                    DB::raw('SUM(pajak_penghasilan) as total_pph'),
-                    DB::raw('COUNT(*) as total_bukti_potong')
-                ])
-                ->first();
-        };
-
-        try {
-            $calculations = Cache::remember($cacheKey, 300, $query);
-        } catch (\Exception $e) {
-            $calculations = $query();
-        }
-
-        // Assign to component properties
-        $this->pph21Total = $calculations->pph21_total ?? 0;
-        $this->pph21Count = $calculations->pph21_count ?? 0;
-        $this->pph21Bruto = $calculations->pph21_bruto ?? 0;
-        
-        $this->pph23Total = $calculations->pph23_total ?? 0;
-        $this->pph23Count = $calculations->pph23_count ?? 0;
-        $this->pph23Bruto = $calculations->pph23_bruto ?? 0;
-        
-        $this->pph42Total = $calculations->pph42_total ?? 0;
-        $this->pph42Count = $calculations->pph42_count ?? 0;
-        $this->pph42Bruto = $calculations->pph42_bruto ?? 0;
-        
-        $this->totalPph = $calculations->total_pph ?? 0;
-        $this->totalBuktiPotong = $calculations->total_bukti_potong ?? 0;
-    }
-    
-    /**
-     * Load notes from tax report
-     */
-    public function loadNotes()
+    #[Computed]
+    public function taxReport(): TaxReport
     {
-        if ($this->taxReport && $this->taxReport->notes) {
-            $this->existingNotes = json_decode($this->taxReport->notes, true) ?? [];
-        } else {
-            $this->existingNotes = [];
-        }
-    }
-    
-    /**
-     * Save a new note
-     */
-    public function saveNote()
-    {
-        $this->validate([
-            'newNote' => 'required|min:3|max:1000',
-        ], [
-            'newNote.required' => 'Catatan tidak boleh kosong',
-            'newNote.min' => 'Catatan minimal 3 karakter',
-            'newNote.max' => 'Catatan maksimal 1000 karakter',
-        ]);
-        
-        if ($this->taxReport) {
-            $notes = json_decode($this->taxReport->notes, true) ?? [];
-            
-            $notes[] = [
-                'content' => $this->newNote,
-                'created_at' => now()->toDateTimeString(),
-                'created_by' => auth()->id(),
-                'created_by_name' => auth()->user()->name,
-            ];
-            
-            $this->taxReport->update([
-                'notes' => json_encode($notes)
-            ]);
-            
-            $this->existingNotes = $notes;
-            $this->newNote = '';
-            
-            $this->dispatch('notify', [
-                'type' => 'success',
-                'message' => 'Catatan berhasil disimpan'
-            ]);
-        }
-    }
-    
-    /**
-     * Delete a note
-     */
-    public function deleteNote($index)
-    {
-        if ($this->taxReport && isset($this->existingNotes[$index])) {
-            $notes = $this->existingNotes;
-            unset($notes[$index]);
-            $notes = array_values($notes); // Re-index array
-            
-            $this->taxReport->update([
-                'notes' => json_encode($notes)
-            ]);
-            
-            $this->existingNotes = $notes;
-            
-            $this->dispatch('notify', [
-                'type' => 'success',
-                'message' => 'Catatan berhasil dihapus'
-            ]);
-        }
-    }
-    
-    /**
-     * Refresh all calculations and clear cache
-     */
-    public function refreshCalculations()
-    {
-        $this->calculatePph();
-        
-        $this->dispatch('notify', [
-            'type' => 'success',
-            'message' => 'Kalkulasi berhasil diperbarui'
-        ]);
-    }
-    
-    /**
-     * Get formatted period name
-     */
-    public function getPeriodNameProperty()
-    {
-        if (!$this->taxReport) {
-            return '-';
-        }
-        
-        return \Carbon\Carbon::parse($this->taxReport->month . '-01')->format('F Y');
-    }
-    
-    /**
-     * Get client name
-     */
-    public function getClientNameProperty()
-    {
-        return $this->taxReport->client->name ?? 'Unknown Client';
+        return TaxReport::with('client')->findOrFail($this->taxReportId);
     }
 
     /**
-     * Render the component
+     * Rows per kind of PPh (count, DPP, PPh) and the total. Values that are not a
+     * known kind are kept apart, so a broken import shows up instead of vanishing.
      */
-    public function render()
+    #[Computed]
+    public function breakdown(): array
     {
-        // Load notes when rendering catatan tab
-        $this->loadNotes();
-        
+        $groups = IncomeTax::where('tax_report_id', $this->taxReportId)
+            ->selectRaw('jenis_pajak, COUNT(*) as n, COALESCE(SUM(dasar_pengenaan_pajak), 0) as dpp, COALESCE(SUM(pajak_penghasilan), 0) as pph')
+            ->groupBy('jenis_pajak')
+            ->get();
+
+        $rows = [];
+        foreach ($groups as $group) {
+            $label = self::KINDS[$group->jenis_pajak] ?? null;
+            $key = $label ?? 'unknown';
+            $rows[$key] ??= ['label' => $label ?? 'Jenis tidak dikenali', 'known' => (bool) $label, 'count' => 0, 'dpp' => 0.0, 'pph' => 0.0];
+            $rows[$key]['count'] += (int) $group->n;
+            $rows[$key]['dpp'] += (float) $group->dpp;
+            $rows[$key]['pph'] += (float) $group->pph;
+        }
+
+        // PPh 21 first, then the other known kinds, unknown values last.
+        uksort($rows, fn ($a, $b) => [$a === 'unknown', $a !== 'PPh 21', $a] <=> [$b === 'unknown', $b !== 'PPh 21', $b]);
+
+        return [
+            'rows' => array_values($rows),
+            'pph21' => $rows['PPh 21'] ?? ['count' => 0, 'dpp' => 0.0, 'pph' => 0.0],
+            'total' => [
+                'count' => array_sum(array_column($rows, 'count')),
+                'dpp' => array_sum(array_column($rows, 'dpp')),
+                'pph' => array_sum(array_column($rows, 'pph')),
+            ],
+        ];
+    }
+
+    #[Computed]
+    public function activeEmployees(): int
+    {
+        return Employee::where('client_id', $this->taxReport->client_id)->where('status', 'active')->count();
+    }
+
+    #[Computed]
+    public function sptUploaded(): bool
+    {
+        return (bool) $this->taxReport->taxCalculationSummaries()->where('tax_type', 'pph')->value('bukti_lapor');
+    }
+
+    public function periodLabel(): string
+    {
+        return TaxPeriod::label($this->taxReport->month, $this->taxReport->year ?? $this->taxReport->created_at->year);
+    }
+
+    /** Computed values are rebuilt on every request, so a re-render is all a refresh needs. */
+    #[On('tax-report-changed')]
+    #[On('spt-updated')]
+    #[On('refreshPphCalculations')]
+    #[On('pphDataUpdated')]
+    public function refreshData(): void
+    {
+    }
+
+    public function render(): View
+    {
         return view('livewire.tax-report.pph.tax-report-pph');
     }
 }

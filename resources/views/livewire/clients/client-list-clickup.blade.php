@@ -5,18 +5,55 @@
     $pkps     = ClientListClickup::PKP_STATUSES;
     $contracts = ClientListClickup::CONTRACTS;
     $activeCount = $this->activeFilterCount;
-    $groupByOptions = [
-        'type'     => 'Client Type',
-        'status'   => 'Status',
-        'pkp'      => 'PKP Status',
-        'contract' => 'Jenis Kontrak',
-        'pic'      => 'PIC',
-        'group'    => 'Group',
-        'none'     => 'None',
-    ];
+    $groupByOptions = ClientListClickup::GROUP_BY;
+    $summary = $this->summary;
+    $tile = $this->activeTile();
+    $pct = fn (int $n) => $summary['total'] > 0 ? round($n / $summary['total'] * 100, 1) : 0;
 @endphp
 
 <div class="cl-root">
+    {{-- ============== SUMMARY (doubles as quick filters) ============== --}}
+    @php
+        $tiles = [
+            'all' => ['label' => 'Semua klien aktif', 'value' => $summary['total'], 'sub' => $summary['badan'] . ' Badan · ' . $summary['pribadi'] . ' Pribadi',
+                'bar' => [[$pct($summary['badan']), 'var(--kis-ramp-b3)'], [$pct($summary['pribadi']), 'rgb(var(--gray-400))']]],
+            'pkp' => ['label' => 'PKP', 'value' => $summary['pkp'], 'sub' => 'PKP · ' . ($summary['total'] - $summary['pkp']) . ' Non-PKP',
+                'bar' => [[$pct($summary['pkp']), 'var(--kis-ramp-b3)'], [100 - $pct($summary['pkp']), 'rgb(var(--gray-400))']]],
+            'contract' => ['label' => 'Berkontrak pajak', 'value' => $summary['contracted'], 'sub' => 'dari ' . $summary['total'] . ' klien aktif', 'chips' => $summary['contracts']],
+            'nopic' => ['label' => 'Tanpa PIC', 'value' => $summary['noPic'], 'sub' => 'klien aktif belum punya PIC', 'alert' => $summary['noPic'] > 0,
+                'bar' => [[$pct($summary['noPic']), 'var(--kis-bar-red)'], [100 - $pct($summary['noPic']), 'var(--kis-ramp-b3)']]],
+        ];
+    @endphp
+    <div class="grid grid-cols-1 gap-px overflow-hidden rounded-[14px] border border-gray-200 bg-gray-200 sm:grid-cols-2 xl:grid-cols-4 dark:border-white/10 dark:bg-white/10" role="group" aria-label="Ringkasan klien">
+        @foreach ($tiles as $key => $t)
+            <button type="button" wire:click="quickFilter('{{ $key }}')" aria-pressed="{{ $tile === $key ? 'true' : 'false' }}"
+                    @class([
+                        'px-4 py-3.5 text-left transition',
+                        'bg-primary-50 shadow-[inset_0_-2px_0_rgb(var(--primary-600))] dark:bg-primary-500/10 dark:shadow-[inset_0_-2px_0_rgb(var(--primary-400))]' => $tile === $key,
+                        'bg-white hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-white/[.03]' => $tile !== $key,
+                    ])>
+                <span class="block text-[12.5px] font-bold text-gray-700 dark:text-gray-300">{{ $t['label'] }}</span>
+                <span class="mt-1.5 flex items-baseline gap-2">
+                    <b @class(['text-2xl font-extrabold tracking-tight tabular-nums', 'text-danger-700 dark:text-danger-300' => $t['alert'] ?? false, 'text-gray-950 dark:text-white' => ! ($t['alert'] ?? false)])>{{ number_format($t['value'], 0, ',', '.') }}</b>
+                    <span class="truncate text-[12.5px] font-semibold text-gray-500 dark:text-gray-400">{{ $t['sub'] }}</span>
+                </span>
+                @isset($t['chips'])
+                    <span class="mt-2 flex flex-wrap gap-1">
+                        @foreach ($t['chips'] as $label => $count)
+                            <x-kis.badge tone="neutral" size="sm">{{ $label }} {{ $count }}</x-kis.badge>
+                        @endforeach
+                    </span>
+                @else
+                    <span class="mt-2.5 flex h-1.5 gap-0.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/5">
+                        @foreach ($t['bar'] as [$w, $color])
+                            @if ($w > 0)<i class="block h-full" style="width: {{ $w }}%; background: {{ $color }}"></i>@endif
+                        @endforeach
+                    </span>
+                @endisset
+            </button>
+        @endforeach
+    </div>
+
     {{-- ============== TOOLBAR ============== --}}
     <div class="cl-toolbar">
         <div class="cl-search" x-data="{ focus() { $refs.searchInput.focus(); } }"
@@ -63,8 +100,10 @@
 
         {{-- Group by (icon-only) --}}
         <div class="cl-filter cl-dropdown {{ $groupBy !== 'none' ? 'is-active' : '' }}" x-data="{ open: false }">
-            <button type="button" @click="open = !open" class="cl-filter-btn cl-filter-btn-icon" title="Group by: {{ $groupByOptions[$groupBy] ?? 'None' }}">
-                <svg class="cl-filter-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M11 18h2"/></svg>
+            <button type="button" @click="open = !open" class="cl-filter-btn" aria-haspopup="listbox">
+                <span class="cl-filter-label">Kelompokkan</span>
+                <span class="cl-filter-value">{{ $groupByOptions[$groupBy] ?? 'Tipe' }}</span>
+                <svg class="cl-filter-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
             <div x-show="open" @click.outside="open = false" x-cloak class="cl-filter-mega" style="width: 220px;">
                 <div class="cl-filter-mega-body">
@@ -98,7 +137,7 @@
                 <div class="cl-filter-mega-head">
                     <span class="cl-filter-mega-title">Filters</span>
                     @if ($this->hasActiveFilters())
-                        <button type="button" wire:click="clearFilters" class="cl-filter-mega-clear">Clear all</button>
+                        <button type="button" wire:click="clearFilters" class="cl-filter-mega-clear">Kembalikan bawaan</button>
                     @endif
                 </div>
 
@@ -114,7 +153,7 @@
                             @foreach ($statuses as $key => $meta)
                                 <label class="cl-dropdown-item">
                                     <input type="checkbox" wire:model.live="statusFilter" value="{{ $key }}">
-                                    <span class="cl-pill" style="color: {{ $meta['color'] }}; background: {{ $meta['bg'] }};">{{ $meta['label'] }}</span>
+                                    <x-kis.badge :tone="$meta['tone']" size="sm">{{ $meta['label'] }}</x-kis.badge>
                                 </label>
                             @endforeach
                         </div>
@@ -131,7 +170,7 @@
                             @foreach ($types as $key => $meta)
                                 <label class="cl-dropdown-item">
                                     <input type="checkbox" wire:model.live="typeFilter" value="{{ $key }}">
-                                    <span class="cl-pill" style="color: {{ $meta['color'] }}; background: {{ $meta['bg'] }};">{{ $meta['label'] }}</span>
+                                    <x-kis.badge :tone="$meta['tone']" size="sm">{{ $meta['label'] }}</x-kis.badge>
                                 </label>
                             @endforeach
                         </div>
@@ -148,7 +187,7 @@
                             @foreach ($pkps as $key => $meta)
                                 <label class="cl-dropdown-item">
                                     <input type="checkbox" wire:model.live="pkpFilter" value="{{ $key }}">
-                                    <span class="cl-pill" style="color: {{ $meta['color'] }}; background: {{ $meta['bg'] }};">{{ $meta['label'] }}</span>
+                                    <x-kis.badge :tone="$meta['tone']" size="sm">{{ $meta['label'] }}</x-kis.badge>
                                 </label>
                             @endforeach
                         </div>
@@ -165,11 +204,42 @@
                             @foreach ($contracts as $col => $label)
                                 <label class="cl-dropdown-item">
                                     <input type="checkbox" wire:model.live="contractFilter" value="{{ $col }}">
-                                    <span class="cl-pill" style="color: #0e7490; background: #cffafe;">{{ $label }}</span>
+                                    <span class="cl-filter-option-label">{{ $label }}</span>
                                 </label>
                             @endforeach
                         </div>
                     </div>
+
+                    {{-- PIC --}}
+                    <div class="cl-fs">
+                        <label class="cl-dropdown-item">
+                            <input type="checkbox" wire:model.live="noPic">
+                            <span class="cl-filter-option-label">Hanya klien tanpa PIC</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="cl-toolbar-spacer"></div>
+
+        {{-- Sort --}}
+        <div class="cl-filter cl-dropdown" x-data="{ open: false }">
+            <button type="button" @click="open = !open" class="cl-filter-btn" aria-haspopup="listbox">
+                <span class="cl-filter-label">Urut</span>
+                <span class="cl-filter-value">{{ ClientListClickup::SORTS[$this->currentSort()] }}</span>
+                <svg class="cl-filter-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div x-show="open" @click.outside="open = false" x-cloak class="cl-filter-mega cl-filter-mega-end" style="width: 220px;">
+                <div class="cl-filter-mega-body">
+                    @foreach (ClientListClickup::SORTS as $key => $label)
+                        <button type="button" wire:click="setSort('{{ $key }}')" @click="open = false" class="cl-dropdown-row {{ $this->currentSort() === $key ? 'is-active' : '' }}">
+                            <span>{{ $label }}</span>
+                            @if ($this->currentSort() === $key)
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            @endif
+                        </button>
+                    @endforeach
                 </div>
             </div>
         </div>
@@ -177,10 +247,11 @@
         {{-- Columns toggle (icon-only) --}}
         @php $toggleable = \App\Livewire\Clients\ClientListClickup::TOGGLEABLE_COLUMNS; @endphp
         <div class="cl-filter cl-dropdown" x-data="{ open: false }">
-            <button type="button" @click="open = !open" class="cl-filter-btn cl-filter-btn-icon" title="Columns">
-                <svg class="cl-filter-ico" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/></svg>
+            <button type="button" @click="open = !open" class="cl-filter-btn" aria-haspopup="dialog">
+                <span class="cl-filter-label">Kolom</span>
+                <svg class="cl-filter-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            <div x-show="open" @click.outside="open = false" x-cloak class="cl-filter-mega" style="width: 200px;">
+            <div x-show="open" @click.outside="open = false" x-cloak class="cl-filter-mega cl-filter-mega-end" style="width: 200px;">
                 <div class="cl-filter-mega-body">
                     @foreach ($toggleable as $key => $label)
                         <label class="cl-dropdown-item">
@@ -191,70 +262,57 @@
                 </div>
             </div>
         </div>
-
-        <div class="cl-toolbar-spacer"></div>
     </div>
 
     {{-- ============== ACTIVE CHIPS ============== --}}
     @if ($this->hasActiveFilters())
-        <div class="cl-active-filters">
-            <span class="cl-active-label">Active</span>
-
+        <x-kis.active-filters>
             @if ($search !== '')
-                <button type="button" wire:click="$set('search', '')" class="cl-active-chip">
-                    <span class="cl-chip-kind">Search</span><span class="cl-chip-sep">:</span>
-                    <span class="cl-chip-value">"{{ $search }}"</span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                </button>
+                <x-kis.filter-chip wire:click="$set('search', '')">Cari: “{{ $search }}”</x-kis.filter-chip>
             @endif
 
             @foreach ($statusFilter as $key)
-                @php $m = $statuses[$key] ?? null; @endphp
-                @if ($m)
-                    <button type="button" wire:click="removeStatus('{{ $key }}')" class="cl-active-chip">
-                        <span class="cl-chip-kind">Status</span><span class="cl-chip-sep">:</span>
-                        <span class="cl-chip-value cl-chip-pill" style="color: {{ $m['color'] }}; background: {{ $m['bg'] }};">{{ $m['label'] }}</span>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                    </button>
+                @if (isset($statuses[$key]))
+                    <x-kis.filter-chip wire:click="removeStatus('{{ $key }}')">Status: {{ $statuses[$key]['label'] }}</x-kis.filter-chip>
                 @endif
             @endforeach
 
             @foreach ($typeFilter as $key)
-                @php $m = $types[$key] ?? null; @endphp
-                @if ($m)
-                    <button type="button" wire:click="removeType('{{ $key }}')" class="cl-active-chip">
-                        <span class="cl-chip-kind">Type</span><span class="cl-chip-sep">:</span>
-                        <span class="cl-chip-value cl-chip-pill" style="color: {{ $m['color'] }}; background: {{ $m['bg'] }};">{{ $m['label'] }}</span>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                    </button>
+                @if (isset($types[$key]))
+                    <x-kis.filter-chip wire:click="removeType('{{ $key }}')">Tipe: {{ $types[$key]['label'] }}</x-kis.filter-chip>
                 @endif
             @endforeach
 
             @foreach ($pkpFilter as $key)
-                @php $m = $pkps[$key] ?? null; @endphp
-                @if ($m)
-                    <button type="button" wire:click="removePkp('{{ $key }}')" class="cl-active-chip">
-                        <span class="cl-chip-kind">PKP</span><span class="cl-chip-sep">:</span>
-                        <span class="cl-chip-value cl-chip-pill" style="color: {{ $m['color'] }}; background: {{ $m['bg'] }};">{{ $m['label'] }}</span>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                    </button>
+                @if (isset($pkps[$key]))
+                    <x-kis.filter-chip wire:click="removePkp('{{ $key }}')">PKP: {{ $pkps[$key]['label'] }}</x-kis.filter-chip>
                 @endif
             @endforeach
 
-            @foreach ($contractFilter as $col)
-                @php $label = $contracts[$col] ?? null; @endphp
-                @if ($label)
-                    <button type="button" wire:click="removeContract('{{ $col }}')" class="cl-active-chip">
-                        <span class="cl-chip-kind">Kontrak</span><span class="cl-chip-sep">:</span>
-                        <span class="cl-chip-value cl-chip-pill" style="color: #0e7490; background: #cffafe;">{{ $label }}</span>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                    </button>
-                @endif
-            @endforeach
+            @if (count(array_intersect($contractFilter, array_keys($contracts))) === count($contracts))
+                {{-- All four contract types = "has any tax contract" (the summary tile): one chip. --}}
+                <x-kis.filter-chip wire:click="$set('contractFilter', [])">Berkontrak pajak</x-kis.filter-chip>
+            @else
+                @foreach ($contractFilter as $col)
+                    @if (isset($contracts[$col]))
+                        <x-kis.filter-chip wire:click="removeContract('{{ $col }}')">Kontrak: {{ $contracts[$col] }}</x-kis.filter-chip>
+                    @endif
+                @endforeach
+            @endif
 
-            <button wire:click="clearFilters" class="cl-clear-all">Clear all</button>
-        </div>
+            @if ($noPic)
+                <x-kis.filter-chip wire:click="removeNoPic">Tanpa PIC</x-kis.filter-chip>
+            @endif
+
+            {{-- clearFilters() resets to the defaults (Active clients only), so say that. --}}
+            @unless ($search === '' && $statusFilter === ['Active'] && ! $typeFilter && ! $pkpFilter && ! $contractFilter && ! $noPic)
+                <x-slot name="reset" wire:click="clearFilters">Kembalikan bawaan</x-slot>
+            @endunless
+        </x-kis.active-filters>
     @endif
+
+    {{-- ============== TABLE (one frame: header, groups, rows, total) ============== --}}
+    <div class="cl-table">
 
     {{-- ============== TABLE HEADER ============== --}}
     @php $gridStyle = 'grid-template-columns: ' . $this->gridTemplate . ';'; @endphp
@@ -264,18 +322,24 @@
             Client
             @if ($sortField === 'name') <span class="cl-sort-arrow">{{ $sortDirection === 'asc' ? '↑' : '↓' }}</span> @endif
         </div>
+        @if ($this->isColumnVisible('contract'))
+            <div class="cl-col-contract">Kontrak</div>
+        @endif
+        @if ($this->isColumnVisible('pic'))
+            <div class="cl-col-pic">PIC</div>
+        @endif
         <div class="cl-col-status cl-sortable" wire:click="sortBy('status')">
             Status
             @if ($sortField === 'status') <span class="cl-sort-arrow">{{ $sortDirection === 'asc' ? '↑' : '↓' }}</span> @endif
         </div>
         @if ($this->isColumnVisible('type'))
-            <div class="cl-col-type">Type</div>
+            <div class="cl-col-type">Tipe</div>
         @endif
         @if ($this->isColumnVisible('pkp'))
             <div class="cl-col-pkp">PKP</div>
         @endif
         @if ($this->isColumnVisible('group'))
-            <div class="cl-col-group">Group</div>
+            <div class="cl-col-group">Grup</div>
         @endif
         <div class="cl-col-actions"></div>
     </div>
@@ -287,8 +351,8 @@
     @if (!$isAnyData)
         <div class="cl-empty">
             <div class="cl-empty-icon">🏢</div>
-            <h3>No clients found</h3>
-            <p>Try adjusting your filters or create a new client.</p>
+            <h3>Tidak ada klien yang cocok</h3>
+            <p>Ubah pencarian atau filter, atau tambah klien baru.</p>
         </div>
     @else
         @foreach ($grouped as $groupKey => $groupData)
@@ -303,24 +367,24 @@
                 };
             @endphp
 
-            {{-- Card wraps the group header AND its rows — colored left edge
-                 sits flush against the badge. --}}
-            <div class="cl-group-card {{ $groupBy === 'none' ? 'cl-group-card-flat' : '' }}" style="--group-color: {{ $groupMeta['color'] ?? '#6366f1' }};">
+            {{-- A group is a header row plus its rows inside the one table, not a separate card. --}}
+            <div class="cl-group" wire:key="group-{{ md5((string) $groupKey) }}">
             @if ($groupBy !== 'none')
                 <div class="cl-group-row">
-                    <span class="cl-group-badge" style="background: {{ $groupMeta['color'] }};">
+                    <span class="cl-group-badge" data-kis-tone="{{ $groupMeta['tone'] ?? 'neutral' }}">
                         <span class="cl-group-badge-icon">
-                            @include('livewire.projects.partials.status-shape', ['shape' => $groupShape, 'color' => $groupMeta['color'], 'size' => 14, 'inverse' => true])
+                            @include('livewire.projects.partials.status-shape', ['shape' => $groupShape, 'color' => $groupMeta['color'], 'tone' => $groupMeta['tone'] ?? 'neutral', 'size' => 14])
                         </span>
                         <span class="cl-group-badge-label">{{ $groupLabel }}</span>
                     </span>
-                    <span class="cl-group-count-num">{{ $groupData['total'] }}</span>
+                    <span class="cl-group-count-num">{{ $groupData['total'] }} klien</span>
+                    <span class="cl-group-mini">{{ $groupData['pkp'] }} PKP · {{ $groupData['contracted'] }} berkontrak</span>
                 </div>
             @endif
 
             @foreach ($groupData['visible'] as $client)
                 @php
-                    $statusMeta = $statuses[$client->status] ?? ['label' => $client->status ?? '—', 'color' => '#64748b', 'bg' => '#f1f5f9'];
+                    $statusMeta = $statuses[$client->status] ?? ['label' => $client->status ?? '—', 'tone' => 'neutral'];
                     $typeMeta   = $types[$client->client_type] ?? null;
                     $pkpMeta    = $pkps[$client->pkp_status] ?? null;
 
@@ -356,28 +420,28 @@
                         : strtoupper(mb_substr($client->name ?? '?', 0, 2));
                 @endphp
 
-                <div class="cl-row" wire:key="client-{{ $client->id }}" style="{{ $gridStyle }}">
+                <div class="cl-row" wire:key="client-{{ $client->id }}" style="{{ $gridStyle }}"
+                     x-data x-on:click="if (! $event.target.closest('a, button, input, label, .cl-act-wrap')) window.location = @js($this->viewUrl($client))">
                     {{-- Logo (circle) --}}
                     <div class="cl-col-logo">
-                        <span class="cl-logo" x-data="{ failed: false }">
+                        {{-- Initials always underneath; a logo that fails to load removes itself (works before Alpine starts). --}}
+                        <span class="cl-logo">
+                            <span class="cl-logo-initials">{{ $logoInitials }}</span>
                             @if ($logoSrc)
-                                <img src="{{ $logoSrc }}" alt="{{ $client->name }}" x-show="!failed" x-on:error="failed = true" loading="lazy">
-                                <span x-show="failed" x-cloak class="cl-logo-initials">{{ $logoInitials }}</span>
-                            @else
-                                <span class="cl-logo-initials">{{ $logoInitials }}</span>
+                                <img src="{{ $logoSrc }}" alt="" loading="lazy" onerror="this.remove()">
                             @endif
                         </span>
                     </div>
 
                     {{-- Name + NPWP/subtype meta --}}
                     <div class="cl-col-name">
-                        <a href="{{ $this->viewUrl($client) }}" class="cl-client-name">{{ $client->name }}</a>
+                        <a href="{{ $this->viewUrl($client) }}" class="cl-client-name" title="{{ $client->name }}">{{ $client->name }}</a>
                         <div class="cl-client-meta">
                             @if ($originTone)
                                 <span class="cl-origin cl-origin-{{ $originTone }}" title="{{ $originTitle }}">{{ $intake->originLabel() }}</span>
                             @endif
                             @if ($client->NPWP)
-                                <span class="cl-npwp">NPWP {{ $client->NPWP }}</span>
+                                <span class="cl-npwp">NPWP {{ ClientListClickup::formatNpwp($client->NPWP) }}</span>
                             @endif
                             @if ($client->client_subtype)
                                 @if ($client->NPWP) <span class="cl-meta-sep">·</span> @endif
@@ -386,22 +450,49 @@
                         </div>
                     </div>
 
+                    {{-- Tax contracts: two badges, the rest as +N (full list in the title) --}}
+                    @if ($this->isColumnVisible('contract'))
+                        @php $clientContracts = ClientListClickup::contractLabels($client); @endphp
+                        <div class="cl-col-contract">
+                            @if ($clientContracts)
+                                <div class="flex min-w-0 gap-1 overflow-hidden" title="{{ implode(', ', $clientContracts) }}">
+                                    @foreach (array_slice($clientContracts, 0, 2) as $label)
+                                        <x-kis.badge tone="blue" size="sm">{{ $label }}</x-kis.badge>
+                                    @endforeach
+                                    @if (count($clientContracts) > 2)
+                                        <x-kis.badge tone="neutral" size="sm">+{{ count($clientContracts) - 2 }}</x-kis.badge>
+                                    @endif
+                                </div>
+                            @else
+                                <span class="cl-empty-cell text-xs">Tanpa kontrak</span>
+                            @endif
+                        </div>
+                    @endif
+
+                    {{-- PIC --}}
+                    @if ($this->isColumnVisible('pic'))
+                        <div class="cl-col-pic min-w-0">
+                            @if ($client->pic)
+                                <span class="flex min-w-0 items-center gap-2 text-[13px] font-semibold text-gray-700 dark:text-gray-300">
+                                    <span class="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-gray-100 text-[10px] font-extrabold text-gray-600 dark:bg-white/5 dark:text-gray-300">{{ \App\Services\Dashboard\HomeDashboard::initials($client->pic->name) }}</span>
+                                    <span class="truncate" title="{{ $client->pic->name }}">{{ $client->pic->name }}</span>
+                                </span>
+                            @else
+                                <span class="text-[13px] font-semibold italic text-danger-700 dark:text-danger-300">Belum ada PIC</span>
+                            @endif
+                        </div>
+                    @endif
+
                     {{-- Status pill --}}
                     <div class="cl-col-status">
-                        <span class="cl-pill" style="color: {{ $statusMeta['color'] }}; background: {{ $statusMeta['bg'] }};">
-                            <span class="cl-pill-dot" style="background: {{ $statusMeta['color'] }};"></span>
-                            {{ $statusMeta['label'] }}
-                        </span>
+                        <x-kis.badge :tone="$statusMeta['tone']" dot>{{ $statusMeta['label'] }}</x-kis.badge>
                     </div>
 
                     {{-- Client type pill --}}
                     @if ($this->isColumnVisible('type'))
                         <div class="cl-col-type">
                             @if ($typeMeta)
-                                <span class="cl-pill cl-pill-soft" style="color: {{ $typeMeta['color'] }}; background: {{ $typeMeta['bg'] }};">
-                                    <span class="cl-pill-dot cl-pill-dot-sm" style="background: {{ $typeMeta['color'] }};"></span>
-                                    {{ $typeMeta['label'] }}
-                                </span>
+                                <x-kis.badge :tone="$typeMeta['tone']">{{ $typeMeta['label'] }}</x-kis.badge>
                             @else
                                 <span class="cl-empty-cell">—</span>
                             @endif
@@ -412,10 +503,7 @@
                     @if ($this->isColumnVisible('pkp'))
                         <div class="cl-col-pkp">
                             @if ($pkpMeta)
-                                <span class="cl-pill cl-pill-soft" style="color: {{ $pkpMeta['color'] }}; background: {{ $pkpMeta['bg'] }};">
-                                    <span class="cl-pill-dot cl-pill-dot-sm" style="background: {{ $pkpMeta['color'] }};"></span>
-                                    {{ $pkpMeta['label'] }}
-                                </span>
+                                <x-kis.badge :tone="$pkpMeta['tone']">{{ $pkpMeta['label'] }}</x-kis.badge>
                             @else
                                 <span class="cl-empty-cell">—</span>
                             @endif
@@ -454,8 +542,8 @@
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                             </button>
                             <div x-show="open" @click.outside="open = false" x-cloak class="cl-act-menu">
-                                <a href="{{ $this->viewUrl($client) }}" class="cl-act-item">View</a>
-                                <a href="{{ $this->editUrl($client) }}" class="cl-act-item">Edit</a>
+                                <a href="{{ $this->viewUrl($client) }}" class="cl-act-item">Lihat</a>
+                                <a href="{{ $this->editUrl($client) }}" class="cl-act-item">Ubah</a>
                             </div>
                         </div>
                     </div>
@@ -468,15 +556,15 @@
                     <button wire:click="toggleGroupExpand('{{ addslashes((string) $groupKey) }}')" class="cl-show-more-btn">
                         @if ($groupData['expanded'])
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="18 15 12 9 6 15"/></svg>
-                            Show less
+                            Tampilkan lebih sedikit
                         @else
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-                            Show {{ $groupData['hidden'] }} more
+                            Tampilkan {{ $groupData['hidden'] }} lainnya
                         @endif
                     </button>
                 </div>
             @endif
-            </div> {{-- /cl-group-card --}}
+            </div> {{-- /cl-group --}}
         @endforeach
     @endif
 
@@ -484,36 +572,26 @@
     @if ($isAnyData)
         <div class="cl-list-footer">
             <span class="cl-list-total">
-                {{ $totalCount }} {{ $totalCount === 1 ? 'client' : 'clients' }}
+                <b>{{ $totalCount }}</b> klien
                 @if ($isCapped)
-                    <span class="cl-list-cap">· showing first {{ \App\Livewire\Clients\ClientListClickup::HARD_CAP }}</span>
+                    <span class="cl-list-cap">· menampilkan {{ \App\Livewire\Clients\ClientListClickup::HARD_CAP }} pertama</span>
                 @endif
             </span>
+            <span class="cl-list-hint">Klik baris untuk membuka detail klien</span>
         </div>
     @endif
+    </div> {{-- /cl-table --}}
 
     {{-- ============== CREDENTIAL MODAL ============== --}}
-    @if ($viewingCredentialsClientId)
-        @php $credClient = $this->credentialClient; @endphp
-        @if ($credClient)
-            <div class="cl-cred-overlay" wire:keydown.escape.window="closeCredentials">
-                <div class="cl-cred-backdrop" wire:click="closeCredentials"></div>
-                <div class="cl-cred-modal" role="dialog" aria-modal="true">
-                    <header class="cl-cred-head">
-                        <div class="cl-cred-head-title">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><line x1="10.85" y1="12.15" x2="19" y2="4"/><line x1="18" y1="5" x2="20" y2="7"/><line x1="15" y1="8" x2="17" y2="10"/></svg>
-                            <span>Kredensial Aplikasi — {{ $credClient->name }}</span>
-                        </div>
-                        <button type="button" wire:click="closeCredentials" class="cl-cred-close" aria-label="Tutup">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                        </button>
-                    </header>
-                    <div class="cl-cred-body">
-                        @include('filament.modals.clients.client-all-credentials', ['clientId' => $credClient->id])
-                    </div>
-                </div>
+    {{-- The credential manager draws its own header and footer; closing goes through it,
+         so Escape or a backdrop click can ask before throwing away unsaved edits. --}}
+    @if ($viewingCredentialsClientId && $this->credentialClient)
+        <div class="cl-cred-overlay" x-data x-on:kis-cred-close="$wire.closeCredentials()">
+            <div class="cl-cred-backdrop" x-on:click="$dispatch('kis-cred-dismiss')"></div>
+            <div class="cl-cred-modal" role="dialog" aria-modal="true" aria-labelledby="kis-cred-title-{{ $viewingCredentialsClientId }}" x-trap.noscroll="true">
+                @livewire('client.management.credential-manager', ['clientId' => $viewingCredentialsClientId, 'closable' => true], key('cred-' . $viewingCredentialsClientId))
             </div>
-        @endif
+        </div>
     @endif
 
     @once
@@ -521,21 +599,19 @@
             [x-cloak] { display: none !important; }
 
             .cl-root {
-                /* Light theme tokens */
-                --cl-ink: #0f172a;
-                --cl-muted: #64748b;
-                --cl-subtle: #94a3b8;
-                --cl-line: #eef0f3;
-                --cl-line-strong: #d8dde3;
+                /* Tokens map onto the panel palette (AdminPanelProvider::palette(), DESIGN.md). */
+                --cl-ink: rgb(var(--gray-950));
+                --cl-muted: rgb(var(--gray-500));
+                --cl-subtle: rgb(var(--gray-400));
+                --cl-line: rgb(var(--gray-200));
+                --cl-line-strong: rgb(var(--gray-300));
                 --cl-bg: #ffffff;
-                --cl-bg-soft: #f7f8fa;
-                --cl-bg-hover: #f4f5f7;
-                --cl-accent: #6366f1;
-                --cl-accent-ink: #4f46e5;
-                --cl-accent-soft: #eef2ff;
-                /* Mode-sensitive surfaces — re-mapped in dark mode */
-                --cl-cred-hover-bg: #e0e7ff;
-                font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+                --cl-bg-soft: rgb(var(--gray-50));
+                --cl-bg-hover: rgb(var(--gray-100));
+                --cl-accent: rgb(var(--primary-600));
+                --cl-accent-ink: rgb(var(--primary-700));
+                --cl-accent-soft: rgb(var(--primary-50));
+                font-family: inherit;
                 color: var(--cl-ink);
                 font-size: 13.5px;
                 display: flex;
@@ -543,21 +619,19 @@
                 gap: 14px;
             }
 
-            /* Dark mode — Filament toggles `.dark` on <html>. Same near-black
-               palette as the Project Dashboard so both surfaces match. */
+            /* Dark: the panel's own tinted gray, so the list matches the rest of the app. */
             .dark .cl-root {
-                --cl-ink: #f3f4f6;
-                --cl-muted: #9ca3af;
-                --cl-subtle: #6b7280;
-                --cl-line: #2e2e2e;
-                --cl-line-strong: #525252;
-                --cl-bg: #171717;
-                --cl-bg-soft: #0a0a0a;
-                --cl-bg-hover: #262626;
-                --cl-accent: #818cf8;
-                --cl-accent-ink: #a5b4fc;
-                --cl-accent-soft: #1e1b4b;
-                --cl-cred-hover-bg: #1e1b4b;
+                --cl-ink: #ffffff;
+                --cl-muted: rgb(var(--gray-400));
+                --cl-subtle: rgb(var(--gray-500));
+                --cl-line: rgba(255, 255, 255, .08);
+                --cl-line-strong: rgba(255, 255, 255, .14);
+                --cl-bg: rgb(var(--gray-900));
+                --cl-bg-soft: rgba(255, 255, 255, .03);
+                --cl-bg-hover: rgba(255, 255, 255, .05);
+                --cl-accent: rgb(var(--primary-400));
+                --cl-accent-ink: rgb(var(--primary-300));
+                --cl-accent-soft: rgba(var(--primary-500), .14);
             }
 
             /* Toolbar */
@@ -582,7 +656,7 @@
                 color: var(--cl-ink);
                 box-shadow:
                     inset 0 0 0 1px var(--cl-accent),
-                    0 0 0 3px rgba(99, 102, 241, .12);
+                    0 0 0 3px rgba(var(--primary-500), .12);
             }
             .cl-search:focus-within .cl-search-icon { color: var(--cl-accent-ink); }
 
@@ -645,8 +719,8 @@
                 padding: 3px 7px;
                 border-radius: 6px;
                 box-shadow:
-                    inset 0 -1px 0 rgba(15, 23, 42, .06),
-                    0 0 0 1px rgba(15, 23, 42, .06);
+                    inset 0 -1px 0 rgba(13, 20, 23, .06),
+                    0 0 0 1px rgba(13, 20, 23, .06);
                 letter-spacing: .02em;
                 flex-shrink: 0;
             }
@@ -662,10 +736,10 @@
                 font: inherit; font-size: 13px; font-weight: 500;
                 color: var(--cl-ink);
                 cursor: pointer;
-                box-shadow: inset 0 0 0 1px var(--cl-line-strong), 0 1px 2px rgba(15,23,42,.03);
+                box-shadow: inset 0 0 0 1px var(--cl-line-strong), 0 1px 2px rgba(13, 20, 23,.03);
                 transition: box-shadow .14s, transform .08s;
             }
-            .cl-filter-btn:hover { box-shadow: inset 0 0 0 1px var(--cl-muted), 0 2px 6px rgba(15,23,42,.07); }
+            .cl-filter-btn:hover { box-shadow: inset 0 0 0 1px var(--cl-muted), 0 2px 6px rgba(13, 20, 23,.07); }
             .cl-filter-btn:active { transform: translateY(1px); }
 
             /* Icon-only variant — square button, just the icon */
@@ -686,7 +760,7 @@
             .cl-filter-caret { color: var(--cl-subtle); margin-left: 2px; }
             .cl-filter.is-active .cl-filter-btn {
                 background: var(--cl-accent-soft);
-                box-shadow: inset 0 0 0 1px var(--cl-accent), 0 1px 2px rgba(99,102,241,.08);
+                box-shadow: inset 0 0 0 1px var(--cl-accent), 0 1px 2px rgba(var(--primary-500), .08);
             }
             .cl-filter.is-active .cl-filter-ico, .cl-filter.is-active .cl-filter-label { color: var(--cl-accent-ink); }
 
@@ -695,9 +769,10 @@
                 position: absolute; top: calc(100% + 8px); left: 0; z-index: 50;
                 width: 320px; max-height: 480px;
                 background: var(--cl-bg); border-radius: 14px;
-                box-shadow: 0 0 0 1px rgba(15,23,42,.04), 0 16px 40px rgba(15,23,42,.14);
+                box-shadow: 0 0 0 1px rgba(13, 20, 23,.04), 0 16px 40px rgba(13, 20, 23,.14);
                 display: flex; flex-direction: column; overflow: hidden;
             }
+            .cl-filter-mega-end { left: auto; right: 0; }
             .cl-filter-mega-head {
                 display: flex; align-items: center; justify-content: space-between;
                 padding: 12px 16px;
@@ -768,42 +843,7 @@
             .cl-toolbar-spacer { flex: 1; }
             .cl-toolbar-total { font-size: 12.5px; color: var(--cl-muted); font-weight: 500; }
 
-            /* Active chips */
-            .cl-active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 2px; }
-            .cl-active-label {
-                font-size: 11px; font-weight: 700; text-transform: uppercase;
-                letter-spacing: .08em; color: var(--cl-subtle); margin-right: 2px;
-            }
-            .cl-active-chip {
-                display: inline-flex; align-items: center; gap: 7px;
-                padding: 5px 7px 5px 11px;
-                background: var(--cl-bg); border: 0; border-radius: 99px;
-                font: inherit; font-size: 12px; color: var(--cl-ink); cursor: pointer;
-                box-shadow: inset 0 0 0 1px var(--cl-line-strong), 0 1px 2px rgba(15,23,42,.04);
-                transition: box-shadow .12s, transform .08s;
-            }
-            .cl-active-chip:hover { box-shadow: inset 0 0 0 1px var(--cl-muted), 0 2px 6px rgba(15,23,42,.08); }
-            .cl-active-chip svg {
-                color: var(--cl-subtle); padding: 3px; margin-left: -2px;
-                border-radius: 50%; box-sizing: content-box;
-                transition: background .12s, color .12s;
-            }
-            .cl-active-chip:hover svg { background: var(--cl-bg-hover); color: var(--cl-ink); }
-            .cl-chip-kind { color: var(--cl-muted); font-weight: 500; }
-            .cl-chip-sep { color: var(--cl-subtle); }
-            .cl-chip-value { font-weight: 600; }
-            .cl-chip-pill {
-                padding: 2px 8px; border-radius: 99px;
-                font-size: 11px; font-weight: 600;
-                display: inline-flex; align-items: center;
-            }
-            .cl-clear-all {
-                font: inherit; font-size: 12px; font-weight: 600;
-                color: var(--cl-muted); background: transparent; border: 0;
-                cursor: pointer; padding: 6px 10px; margin-left: auto;
-                border-radius: 6px; transition: color .12s, background .12s;
-            }
-            .cl-clear-all:hover { color: var(--cl-accent-ink); background: var(--cl-accent-soft); }
+            /* Active filters use the kis active-filters component (styles in theme.css). */
 
             /* Table head & rows — matches project list spacing.
                Grid columns are inlined per-render via $gridStyle (dynamic
@@ -813,33 +853,49 @@
                 gap: 10px;
                 align-items: center;
             }
-            .cl-table-head {
-                padding: 4px 18px 10px;
-                font-size: 11px; font-weight: 700;
-                text-transform: uppercase; letter-spacing: .06em;
-                color: var(--cl-subtle);
-                border-bottom: 1px solid var(--cl-line-strong);
+            /* One frame for the whole list. overflow: clip (not hidden) rounds the corners
+               without becoming a scroll container, so the header can stay sticky. */
+            .cl-table {
+                background: var(--cl-bg);
+                border: 1px solid var(--cl-line);
+                border-radius: 14px;
+                overflow: clip;
             }
+            .cl-table-head {
+                position: sticky;
+                top: 4rem;                          /* below Filament's sticky topbar */
+                z-index: 6;
+                padding: 10px 20px;
+                font-size: 11px; font-weight: 800;
+                text-transform: uppercase; letter-spacing: .07em;
+                color: var(--cl-muted);
+                background: var(--cl-bg-soft);
+                border-bottom: 1px solid var(--cl-line);
+            }
+            .dark .cl-table-head { background: rgb(var(--gray-900)); box-shadow: inset 0 -1px 0 var(--cl-line); }
             .cl-sortable { cursor: pointer; user-select: none; transition: color .12s; }
             .cl-sortable:hover { color: var(--cl-accent); }
             .cl-sort-arrow { color: var(--cl-accent); margin-left: 2px; }
             .cl-row {
-                padding: 13px 16px 13px 22px;       /* extra left padding for the card's accent bar */
+                padding: 12px 20px;
                 background: transparent;
                 border-bottom: 1px solid var(--cl-line);
                 transition: background .12s;
+                cursor: pointer;
             }
             .cl-row > *, .cl-table-head > * { min-width: 0; }
             .cl-row:hover { background: var(--cl-bg-hover); }
+            .cl-row:hover .cl-client-name { color: var(--cl-accent-ink); }
 
             /* Circle logo cell */
             .cl-col-logo { display: flex; align-items: center; justify-content: center; }
+            /* Soft tile in the Kisantra style (initials), white with a hairline when there is a logo. */
             .cl-logo {
                 position: relative;
-                width: 32px; height: 32px;
-                border-radius: 50%;
-                background: linear-gradient(135deg, var(--cl-accent), var(--cl-accent-ink));
-                color: white;
+                width: 36px; height: 36px;
+                border-radius: 10px;
+                background: rgb(var(--primary-100));
+                color: rgb(var(--primary-700));
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
@@ -847,28 +903,35 @@
                 font-weight: 700;
                 letter-spacing: .02em;
                 overflow: hidden;
-                box-shadow:
-                    inset 0 0 0 1px rgba(255, 255, 255, .15),
-                    0 1px 2px rgba(15, 23, 42, .12),
-                    0 0 0 2px var(--cl-bg);
                 flex-shrink: 0;
             }
-            .cl-logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            .cl-logo:has(img) {
+                box-shadow: inset 0 0 0 1px var(--cl-line);
+            }
+            .dark .cl-logo {
+                background: rgba(var(--primary-500), .16);
+                color: rgb(var(--primary-300));
+            }
+            .cl-logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; background: white; }
             .cl-logo-initials { user-select: none; }
 
             /* Name col */
+            /* One line each, so every row has the same height; the full text is in the title. */
             .cl-client-name {
-                font-weight: 600; font-size: 14px;
+                display: block;
+                overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                font-weight: 700; font-size: 14px;
                 color: var(--cl-ink); text-decoration: none;
                 transition: color .12s;
             }
             .cl-client-name:hover { color: var(--cl-accent-ink); }
+            .cl-row > .cl-col-name { min-width: 0; }
             .cl-client-meta {
                 display: flex; align-items: center; gap: 7px;
                 margin-top: 2px;
                 font-size: 11px; color: var(--cl-muted);
             }
-            .cl-npwp { font-family: 'SF Mono', Menlo, monospace; font-size: 10.5px; letter-spacing: .02em; }
+            .cl-npwp { font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
             .cl-meta-sep { color: var(--cl-subtle); }
             .cl-subtype { color: var(--cl-muted); }
 
@@ -894,68 +957,8 @@
                 flex: 1; min-width: 0;
             }
 
-            /* Pills — multi-layer recipe:
-               - Top inset highlight for chip depth
-               - Inset 1px tint border using currentColor at low opacity (same-color stroke)
-               - Soft outer shadow for lift
-               - Hairline ambient shadow for definition on any bg */
-            .cl-pill {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                padding: 4px 11px;
-                border-radius: 99px;
-                font-size: 11px;
-                font-weight: 600;
-                letter-spacing: .01em;
-                white-space: nowrap;
-                line-height: 1.4;
-                box-shadow:
-                    inset 0 1px 0 rgba(255, 255, 255, .55),
-                    inset 0 0 0 1px color-mix(in srgb, currentColor 18%, transparent),
-                    0 1px 2px rgba(15, 23, 42, .07);
-            }
-            /* "Soft" variant — quieter (used by Type / PKP columns):
-               smaller, no top highlight, lighter inset border, no drop. */
-            .cl-pill-soft {
-                padding: 3px 10px;
-                font-size: 10.5px;
-                font-weight: 600;
-                box-shadow:
-                    inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent),
-                    0 1px 1px rgba(15, 23, 42, .04);
-            }
-            .cl-pill-dot {
-                width: 7px; height: 7px;
-                border-radius: 50%;
-                flex-shrink: 0;
-                box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 12%, transparent);
-            }
-            .cl-pill-dot-sm {
-                width: 5px; height: 5px;
-                box-shadow: 0 0 0 1.5px color-mix(in srgb, currentColor 10%, transparent);
-            }
-
-            /* Dark-mode treatment for status / type / PKP pills.
-               Pills carry inline `color` (dark hue) + `background` (light pastel)
-               set by PHP, which looks like a sticker on a dark page. Override:
-                 1. Lighten the text so it reads on the dark surface,
-                 2. Derive a deep tinted bg from the (now lighter) text color,
-                 3. Drop the white-gloss highlight, keep a subtle outline.
-               Inline `style="..."` must be beaten with `!important`. */
-            .dark .cl-pill,
-            .dark .cl-pill-soft,
-            .dark .cl-chip-pill {
-                color: color-mix(in srgb, currentColor 55%, white) !important;
-                background: color-mix(in srgb, currentColor 22%, var(--cl-bg)) !important;
-                box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 28%, transparent) !important;
-            }
-            /* Dot inline bg is the original dark hue — match it to the
-               lightened pill text so it stays visible on the new bg. */
-            .dark .cl-pill-dot,
-            .dark .cl-pill-dot-sm {
-                background: currentColor !important;
-            }
+            /* Filter panel: contract option label (other options are kis badges). */
+            .cl-filter-option-label { font-weight: 600; }
 
             /* Group */
             .cl-group-name { font-size: 12px; color: var(--cl-muted); font-weight: 500; }
@@ -971,34 +974,38 @@
             .cl-act-wrap { position: relative; display: flex; gap: 4px; }
 
             /* Prominent credential pill — accent-tinted background, key icon + label */
+            /* Outline button (DESIGN.md "btn o sm"): visible, but quieter than the primary action. */
             .cl-cred-pill {
                 display: inline-flex;
                 align-items: center;
                 gap: 6px;
                 height: 28px;
                 padding: 0 11px 0 9px;
-                background: var(--cl-accent-soft);
+                background: var(--cl-bg);
                 border: 0;
-                border-radius: 7px;
+                border-radius: 9px;
                 font: inherit;
-                font-size: 11.5px;
-                font-weight: 600;
+                font-size: 12px;
+                font-weight: 700;
                 color: var(--cl-accent-ink);
                 cursor: pointer;
                 white-space: nowrap;
-                box-shadow: inset 0 0 0 1px rgba(99, 102, 241, .18);
-                transition: background .12s, box-shadow .12s, transform .08s;
+                box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-accent-ink) 38%, transparent);
+                transition: background .12s, box-shadow .12s;
             }
             .cl-cred-pill:hover {
-                background: var(--cl-cred-hover-bg);
-                box-shadow: inset 0 0 0 1px rgba(99, 102, 241, .35), 0 1px 3px rgba(99, 102, 241, .15);
+                background: var(--cl-accent-soft);
+                box-shadow: inset 0 0 0 1px var(--cl-accent);
             }
+            .cl-cred-pill:focus-visible { outline: 2px solid var(--cl-accent); outline-offset: 2px; }
             .cl-cred-pill:active { transform: translateY(1px); }
             .cl-cred-pill svg { flex-shrink: 0; }
             .cl-cred-pill-label { line-height: 1; }
 
             /* Origin badge for clients that came in through Client Management */
-            .cl-client-meta { flex-wrap: wrap; row-gap: 3px; }
+            .cl-client-meta { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; }
+            .cl-client-meta > * { flex-shrink: 0; }
+            .cl-client-meta > .cl-subtype { flex-shrink: 1; overflow: hidden; text-overflow: ellipsis; }
             .cl-origin {
                 display: inline-flex; align-items: center;
                 padding: 1px 7px; border-radius: 99px;
@@ -1007,12 +1014,12 @@
                 color: var(--cl-origin-ink); background: var(--cl-origin-bg);
                 box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cl-origin-ink) 16%, transparent);
             }
-            .cl-origin-created   { --cl-origin-ink: #4338ca; --cl-origin-bg: #eef2ff; }
-            .cl-origin-matched   { --cl-origin-ink: #0e7490; --cl-origin-bg: #ecfeff; }
-            .cl-origin-withdrawn { --cl-origin-ink: #b91c1c; --cl-origin-bg: #fef2f2; }
-            .dark .cl-origin-created   { --cl-origin-ink: #a5b4fc; --cl-origin-bg: #1e1b4b; }
-            .dark .cl-origin-matched   { --cl-origin-ink: #67e8f9; --cl-origin-bg: #083344; }
-            .dark .cl-origin-withdrawn { --cl-origin-ink: #fca5a5; --cl-origin-bg: #450a0a; }
+            .cl-origin-created   { --cl-origin-ink: #10657f; --cl-origin-bg: #eef9fd; }
+            .cl-origin-matched   { --cl-origin-ink: #10657f; --cl-origin-bg: #eef9fd; }
+            .cl-origin-withdrawn { --cl-origin-ink: #af3628; --cl-origin-bg: #fff4f2; }
+            .dark .cl-origin-created   { --cl-origin-ink: #89d2ea; --cl-origin-bg: #042632; }
+            .dark .cl-origin-matched   { --cl-origin-ink: #89d2ea; --cl-origin-bg: #042632; }
+            .dark .cl-origin-withdrawn { --cl-origin-ink: #fed0c7; --cl-origin-bg: #40140e; }
 
             /* Three-dot actions button — neutral */
             .cl-act-btn {
@@ -1027,7 +1034,7 @@
                 position: absolute; top: calc(100% + 4px); right: 0; z-index: 20;
                 background: var(--cl-bg); border-radius: 10px; padding: 4px;
                 min-width: 140px;
-                box-shadow: 0 0 0 1px rgba(15,23,42,.04), 0 10px 28px rgba(15,23,42,.12);
+                box-shadow: 0 0 0 1px rgba(13, 20, 23,.04), 0 10px 28px rgba(13, 20, 23,.12);
             }
             .cl-act-item {
                 display: block; width: 100%;
@@ -1070,59 +1077,28 @@
                Matches the project list's .cu-group-card recipe.
                NOTE: no overflow:hidden — would clip the credential modal
                and the actions dropdown that pop out of the card. */
-            .cl-group-card {
-                position: relative;
-                background: var(--cl-bg);
-                border: 1px solid var(--cl-line);
-                border-radius: 10px;
-                margin-bottom: 20px;
-                transition: border-color .15s;
-            }
-            .cl-group-card:hover {
-                border-color: var(--cl-line-strong);
-            }
-            .cl-group-card::before {
-                content: '';
-                position: absolute;
-                top: 0; left: 0; bottom: 0;
-                width: 3px;
-                background: var(--group-color, var(--cl-line-strong));
-                border-top-left-radius: 9px;
-                border-bottom-left-radius: 9px;
-            }
-            .cl-group-card-flat::before { background: var(--cl-line-strong); }
+            /* Groups live inside the one table: no card, no accent edge. */
+            .cl-group { display: block; }
 
-            /* Drop the bottom border on the last row of a card and round
-               its corners to match the card's. */
-            .cl-group-card > .cl-row:last-child {
-                border-bottom: 0;
-                border-bottom-left-radius: 9px;
-                border-bottom-right-radius: 9px;
-            }
-            .cl-group-card > .cl-group-more {
-                border-bottom-left-radius: 9px;
-                border-bottom-right-radius: 9px;
-            }
-
-            /* Group header — flat, with the badge as the visual anchor.
-               Extra left padding accommodates the card's accent stripe. */
+            /* Group header: a quiet section row inside the table. */
             .cl-group-row {
                 display: flex;
                 align-items: center;
                 gap: 12px;
-                padding: 13px 16px 12px 22px;
-                background: var(--cl-bg);
+                padding: 9px 20px;
+                background: var(--cl-bg-soft);
                 border-bottom: 1px solid var(--cl-line);
-                border-top-left-radius: 9px;
-                border-top-right-radius: 9px;
             }
+            /* Soft tone badge (data-kis-tone): the group label, not a solid block. */
             .cl-group-badge {
                 display: inline-flex;
                 align-items: center;
                 gap: 7px;
                 padding: 6px 12px 6px 9px;
-                border-radius: 6px;
-                color: #ffffff;
+                border-radius: 7px;
+                background: var(--s-bg);
+                color: var(--s-color);
+                box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--s-color) 22%, transparent);
                 font-size: 11.5px;
                 font-weight: 700;
                 text-transform: uppercase;
@@ -1141,12 +1117,18 @@
                 font-weight: 600;
                 color: var(--cl-muted);
             }
+            .cl-group-mini {
+                margin-left: auto;
+                font-size: 12px;
+                font-weight: 600;
+                color: var(--cl-muted);
+            }
 
             /* Show more — footer strip with soft background and top border */
             .cl-group-more {
-                padding: 8px 18px;
-                background: var(--cl-bg-soft);
-                border-top: 1px solid var(--cl-line);
+                padding: 6px 12px;
+                background: var(--cl-bg);
+                border-bottom: 1px solid var(--cl-line);
                 display: flex;
                 justify-content: flex-start;
             }
@@ -1170,11 +1152,17 @@
 
             /* List footer / total */
             .cl-list-footer {
-                padding: 18px 0 4px;
+                padding: 11px 20px;
                 display: flex;
                 align-items: center;
+                justify-content: space-between;
                 gap: 10px;
+                font-size: 12.5px;
+                color: var(--cl-muted);
+                background: var(--cl-bg-soft);
             }
+            .cl-list-footer b { color: var(--cl-ink); font-variant-numeric: tabular-nums; }
+            .cl-list-hint { font-size: 12px; color: var(--cl-subtle); }
             .cl-list-total {
                 font-size: 12px;
                 font-weight: 500;
@@ -1196,43 +1184,26 @@
             }
             .cl-cred-backdrop {
                 position: absolute; inset: 0;
-                background: rgba(15,23,42,.45);
+                background: rgba(13, 20, 23, .45);
                 animation: clFade .15s ease-out;
             }
             @keyframes clFade { from { opacity: 0; } to { opacity: 1; } }
             .cl-cred-modal {
                 position: relative;
-                width: 100%; max-width: 880px;
+                width: 100%; max-width: 920px;
                 max-height: calc(100vh - 48px);
-                background: var(--cl-bg);
-                border-radius: 14px;
-                box-shadow: 0 24px 60px rgba(15,23,42,.3);
-                overflow: hidden;
+                max-height: calc(100dvh - 48px);
                 display: flex; flex-direction: column;
-                animation: clSlide .2s ease-out;
+                overflow: hidden;
+                border-radius: 16px;
+                background: var(--cl-bg);
+                box-shadow: 0 24px 48px -16px rgba(13, 20, 23, .32), 0 2px 6px rgba(13, 20, 23, .08);
+                animation: clSlide .2s cubic-bezier(.22, 1, .36, 1);
             }
+            .dark .cl-cred-modal { box-shadow: 0 0 0 1px var(--cl-line), 0 24px 48px -16px rgba(0, 0, 0, .6); }
             @keyframes clSlide { from { transform: translateY(6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-            .cl-cred-head {
-                display: flex; align-items: center; justify-content: space-between;
-                padding: 16px 20px;
-                border-bottom: 1px solid var(--cl-line);
-            }
-            .cl-cred-head-title {
-                display: flex; align-items: center; gap: 10px;
-                font-size: 14px; font-weight: 700; color: var(--cl-ink);
-            }
-            .cl-cred-head-title svg { color: var(--cl-accent); }
-            .cl-cred-close {
-                width: 28px; height: 28px;
-                background: transparent; border: 0; border-radius: 6px;
-                color: var(--cl-muted); cursor: pointer;
-                display: flex; align-items: center; justify-content: center;
-                transition: background .12s, color .12s;
-            }
-            .cl-cred-close:hover { background: var(--cl-bg-hover); color: var(--cl-ink); }
-            .cl-cred-body {
-                flex: 1; overflow-y: auto;
-                padding: 20px;
+            @media (prefers-reduced-motion: reduce) {
+                .cl-cred-backdrop, .cl-cred-modal { animation: none; }
             }
 
             /* ============== RESPONSIVE ============== */
@@ -1299,8 +1270,7 @@
 
                 /* Credential modal — tighter padding on small screens. */
                 .cl-cred-overlay { padding: 12px; }
-                .cl-cred-head { padding: 14px 16px; }
-                .cl-cred-body { padding: 14px; }
+                .cl-cred-modal { max-height: calc(100dvh - 24px); }
             }
         </style>
     @endonce

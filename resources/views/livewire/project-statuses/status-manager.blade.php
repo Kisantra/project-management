@@ -1,8 +1,9 @@
 @php
     use App\Livewire\ProjectStatuses\StatusManager;
+    use App\Support\Ui\Tone;
     $categoryLabels = StatusManager::CATEGORY_LABELS;
-    $swatches = StatusManager::COLOR_SWATCHES;
     $shapes = StatusManager::SHAPES;
+    $formSwatch = Tone::swatch($form_tone);
 @endphp
 
 <div class="ps-root"
@@ -13,8 +14,7 @@
     {{-- ============== HEADER ============== --}}
     <div class="ps-header">
         <div>
-            <h2 class="ps-title">Project Statuses</h2>
-            <p class="ps-subtitle">Define the statuses available across all projects. Drag to reorder. Locked statuses can be renamed and recolored but not deleted.</p>
+            <p class="ps-subtitle">Status yang tersedia untuk semua proyek. Seret untuk mengubah urutan. Status sistem bisa diganti nama, nada, dan ikonnya, tetapi tidak bisa dihapus.</p>
         </div>
     </div>
 
@@ -24,7 +24,7 @@
             <section class="ps-cat">
                 <header class="ps-cat-head">
                     <span class="ps-cat-label">{{ $catLabel }}</span>
-                    <button type="button" wire:click="startCreate('{{ $catKey }}')" class="ps-cat-add" title="Add status">
+                    <button type="button" wire:click="startCreate('{{ $catKey }}')" class="ps-cat-add" title="Tambah status">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                     </button>
                 </header>
@@ -45,12 +45,12 @@
                      ">
                     @foreach ($grouped[$catKey] as $status)
                         <div class="ps-row" data-id="{{ $status->id }}" wire:key="status-{{ $status->id }}">
-                            <button type="button" class="ps-drag" title="Drag to reorder">
+                            <button type="button" class="ps-drag" title="Seret untuk mengubah urutan">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
                             </button>
 
                             <span class="ps-row-icon">
-                                @include('livewire.projects.partials.status-shape', ['shape' => $status->shape, 'color' => $status->color, 'size' => 18])
+                                @include('livewire.projects.partials.status-shape', ['shape' => $status->shape, 'color' => $status->tone_swatch['color'], 'tone' => \App\Support\Ui\Tone::forProjectStatus($status), 'size' => 18])
                             </span>
 
                             <span class="ps-row-label">{{ $status->label }}</span>
@@ -58,7 +58,7 @@
                             @if ($status->is_system)
                                 <span class="ps-locked">
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-                                    System
+                                    Sistem
                                 </span>
                             @endif
 
@@ -69,7 +69,7 @@
                                 <div x-show="open" @click.outside="open = false" x-cloak class="ps-act-menu">
                                     <button type="button" wire:click="startEdit({{ $status->id }})" @click="open = false" class="ps-act-item">
                                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="m18.5 2.5 3 3L12 15l-4 1 1-4z"/></svg>
-                                        Edit
+                                        Ubah
                                     </button>
                                     @if (! $status->is_system)
                                         <button type="button"
@@ -78,7 +78,7 @@
                                                 @click="open = false"
                                                 class="ps-act-item ps-act-danger">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-                                            Delete
+                                            Hapus
                                         </button>
                                     @endif
                                 </div>
@@ -90,12 +90,12 @@
                 @if ($grouped[$catKey]->isEmpty())
                     <button type="button" wire:click="startCreate('{{ $catKey }}')" class="ps-empty-add">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                        Add status
+                        Tambah status
                     </button>
                 @else
                     <button type="button" wire:click="startCreate('{{ $catKey }}')" class="ps-row-add">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                        Add status
+                        Tambah status
                     </button>
                 @endif
             </section>
@@ -106,8 +106,8 @@
     <div x-show="formOpen" x-cloak class="ps-modal-backdrop" @click.self="$wire.cancel()">
         <div class="ps-modal" @keydown.escape.window="$wire.cancel()">
             <header class="ps-modal-head">
-                <h3>{{ $editingId ? 'Edit Status' : 'New Status' }}</h3>
-                <button type="button" wire:click="cancel" class="ps-modal-close" aria-label="Close">
+                <h3>{{ $editingId ? 'Ubah status' : 'Status baru' }}</h3>
+                <button type="button" wire:click="cancel" class="ps-modal-close" aria-label="Tutup">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
             </header>
@@ -115,14 +115,14 @@
             <div class="ps-modal-body">
                 {{-- Label --}}
                 <div class="ps-field">
-                    <label class="ps-field-label">Name</label>
-                    <input type="text" wire:model="form_label" maxlength="60" class="ps-input" placeholder="e.g. In Review">
+                    <label class="ps-field-label">Nama</label>
+                    <input type="text" wire:model.live.debounce.300ms="form_label" maxlength="60" class="ps-input" placeholder="mis. Menunggu Klien">
                     @error('form_label') <span class="ps-field-error">{{ $message }}</span> @enderror
                 </div>
 
                 {{-- Category (locked for system statuses) --}}
                 <div class="ps-field">
-                    <label class="ps-field-label">Category</label>
+                    <label class="ps-field-label">Kategori</label>
                     @php
                         $catLocked = $editingId && optional(\App\Models\ProjectStatus::find($editingId))->is_system;
                     @endphp
@@ -132,38 +132,36 @@
                         @endforeach
                     </select>
                     @if ($catLocked)
-                        <span class="ps-field-hint">System statuses can't change category.</span>
+                        <span class="ps-field-hint">Kategori status sistem tidak bisa diubah.</span>
                     @endif
                     @error('editingCategory') <span class="ps-field-error">{{ $message }}</span> @enderror
                 </div>
 
-                {{-- Color --}}
+                {{-- Tone: one of the design-system voices instead of a free colour --}}
                 <div class="ps-field">
-                    <label class="ps-field-label">Color</label>
-                    <div class="ps-swatches">
-                        @foreach ($swatches as $sw)
-                            <button type="button"
-                                    wire:click="$set('form_color', '{{ $sw }}')"
-                                    class="ps-swatch {{ $form_color === $sw ? 'is-active' : '' }}"
-                                    style="background: {{ $sw }};"
-                                    title="{{ $sw }}">
-                            </button>
+                    <span class="ps-field-label" id="ps-tone-label">Nada</span>
+                    <div class="ps-tones" role="radiogroup" aria-labelledby="ps-tone-label">
+                        @foreach (Tone::LABELS as $tone => $meta)
+                            <label @class(['ps-tone', 'is-active' => $form_tone === $tone])>
+                                <input type="radio" class="sr-only" name="ps-tone" value="{{ $tone }}" wire:model.live="form_tone">
+                                <x-kis.badge :tone="$tone" dot>{{ $meta['label'] }}</x-kis.badge>
+                                <span class="ps-tone-hint">{{ $meta['hint'] }}</span>
+                            </label>
                         @endforeach
-                        <input type="color" wire:model.live="form_color" class="ps-swatch-custom" title="Custom color">
                     </div>
-                    @error('form_color') <span class="ps-field-error">{{ $message }}</span> @enderror
+                    @error('form_tone') <span class="ps-field-error">{{ $message }}</span> @enderror
                 </div>
 
                 {{-- Shape --}}
                 <div class="ps-field">
-                    <label class="ps-field-label">Icon</label>
+                    <label class="ps-field-label">Ikon</label>
                     <div class="ps-shapes">
                         @foreach ($shapes as $shape)
                             <button type="button"
                                     wire:click="$set('form_shape', '{{ $shape }}')"
                                     class="ps-shape {{ $form_shape === $shape ? 'is-active' : '' }}"
                                     title="{{ $shape }}">
-                                @include('livewire.projects.partials.status-shape', ['shape' => $shape, 'color' => $form_color, 'size' => 20])
+                                @include('livewire.projects.partials.status-shape', ['shape' => $shape, 'color' => $formSwatch['color'], 'tone' => $form_tone, 'size' => 20])
                             </button>
                         @endforeach
                     </div>
@@ -172,20 +170,21 @@
 
                 {{-- Preview --}}
                 <div class="ps-field">
-                    <label class="ps-field-label">Preview</label>
+                    <label class="ps-field-label">Pratinjau</label>
                     <div class="ps-preview">
                         <span class="ps-row-icon">
-                            @include('livewire.projects.partials.status-shape', ['shape' => $form_shape, 'color' => $form_color, 'size' => 18])
+                            @include('livewire.projects.partials.status-shape', ['shape' => $form_shape, 'color' => $formSwatch['color'], 'tone' => $form_tone, 'size' => 18])
                         </span>
                         <span class="ps-preview-label">{{ $form_label ?: '—' }}</span>
+                        <x-kis.badge :tone="$form_tone" dot>{{ $form_label ?: 'Status' }}</x-kis.badge>
                     </div>
                 </div>
             </div>
 
             <footer class="ps-modal-foot">
-                <button type="button" wire:click="cancel" class="ps-btn ps-btn-ghost">Cancel</button>
+                <button type="button" wire:click="cancel" class="ps-btn ps-btn-ghost">Batal</button>
                 <button type="button" wire:click="save" class="ps-btn ps-btn-primary">
-                    {{ $editingId ? 'Save changes' : 'Create status' }}
+                    {{ $editingId ? 'Simpan' : 'Buat status' }}
                 </button>
             </footer>
         </div>
@@ -197,22 +196,38 @@
             [x-cloak] { display: none !important; }
 
             .ps-root {
-                --ps-ink: #0f172a;
-                --ps-muted: #64748b;
-                --ps-subtle: #94a3b8;
-                --ps-line: #e5e7eb;
-                --ps-line-soft: #eef0f3;
+                --ps-ink: rgb(var(--gray-950));
+                --ps-muted: rgb(var(--gray-500));
+                --ps-subtle: rgb(var(--gray-400));
+                --ps-line: rgb(var(--gray-200));
+                --ps-line-soft: rgb(var(--gray-200));
                 --ps-bg: #ffffff;
-                --ps-bg-soft: #f7f8fa;
-                --ps-bg-hover: #f4f5f7;
-                --ps-accent: #6366f1;
-                --ps-accent-ink: #4f46e5;
-                --ps-accent-soft: #eef2ff;
-                --ps-danger: #dc2626;
-                --ps-danger-soft: #fee2e2;
-                font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+                --ps-bg-soft: rgb(var(--gray-50));
+                --ps-bg-hover: rgb(var(--gray-100));
+                --ps-accent: rgb(var(--primary-600));
+                --ps-accent-ink: rgb(var(--primary-700));
+                --ps-accent-soft: rgb(var(--primary-50));
+                --ps-danger: rgb(var(--danger-700));
+                --ps-danger-soft: rgb(var(--danger-50));
+                font-family: inherit;
                 color: var(--ps-ink);
                 font-size: 13.5px;
+            }
+
+            .dark .ps-root {
+                --ps-ink: #ffffff;
+                --ps-muted: rgb(var(--gray-400));
+                --ps-subtle: rgb(var(--gray-500));
+                --ps-line: rgba(255, 255, 255, .1);
+                --ps-line-soft: rgba(255, 255, 255, .08);
+                --ps-bg: rgb(var(--gray-900));
+                --ps-bg-soft: rgba(255, 255, 255, .03);
+                --ps-bg-hover: rgba(255, 255, 255, .05);
+                --ps-accent: rgb(var(--primary-400));
+                --ps-accent-ink: rgb(var(--primary-300));
+                --ps-accent-soft: rgba(var(--primary-500), .14);
+                --ps-danger: rgb(var(--danger-300));
+                --ps-danger-soft: rgba(var(--danger-500), .14);
             }
 
             .ps-header { margin-bottom: 24px; }
@@ -454,46 +469,57 @@
                 width: 100%;
                 height: 38px;
                 padding: 0 12px;
-                background: var(--ps-bg);
+                background-color: var(--ps-bg);
                 border: 1px solid var(--ps-line);
-                border-radius: 8px;
+                border-radius: 11px;
                 font: inherit;
                 font-size: 13px;
                 color: var(--ps-ink);
                 transition: border-color .12s, box-shadow .12s;
             }
+            /* Keep the panel's single select chevron (a `background` shorthand tiled it). */
+            select.ps-input {
+                padding-right: 34px;
+                background-repeat: no-repeat;
+                background-position: right 10px center;
+                background-size: 16px 16px;
+            }
             .ps-input:focus {
                 outline: 0;
                 border-color: var(--ps-accent);
-                box-shadow: 0 0 0 3px rgba(99, 102, 241, .15);
+                box-shadow: 0 0 0 3px rgba(var(--primary-500), .2);
             }
             .ps-input:disabled { background: var(--ps-bg-soft); color: var(--ps-muted); cursor: not-allowed; }
 
-            .ps-swatches {
-                display: flex;
-                flex-wrap: wrap;
+            .ps-tones {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 6px;
-                align-items: center;
             }
-            .ps-swatch {
-                width: 26px; height: 26px;
-                border: 2px solid transparent;
-                border-radius: 50%;
+            .ps-tone {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+                padding: 10px;
+                border-radius: 11px;
                 cursor: pointer;
-                transition: transform .1s;
+                box-shadow: inset 0 0 0 1px var(--ps-line);
+                transition: box-shadow .12s, background .12s;
             }
-            .ps-swatch:hover { transform: scale(1.1); }
-            .ps-swatch.is-active {
-                border-color: var(--ps-ink);
-                box-shadow: 0 0 0 2px var(--ps-bg), 0 0 0 4px var(--ps-ink);
+            .ps-tone:hover { box-shadow: inset 0 0 0 1px var(--ps-muted); }
+            .ps-tone.is-active {
+                background: var(--ps-accent-soft);
+                box-shadow: inset 0 0 0 1.5px var(--ps-accent);
             }
-            .ps-swatch-custom {
-                width: 26px; height: 26px;
-                padding: 0;
-                border: 1.5px dashed var(--ps-line);
-                border-radius: 50%;
-                cursor: pointer;
-                background: var(--ps-bg-soft);
+            .ps-tone:has(:focus-visible) {
+                outline: 2px solid var(--ps-accent);
+                outline-offset: 2px;
+            }
+            .ps-tone-hint {
+                font-size: 12px;
+                line-height: 1.35;
+                color: var(--ps-muted);
             }
 
             .ps-shapes {

@@ -1,1119 +1,150 @@
-<x-filament::page>
-    {{-- Livewire Page Transition Styles --}}
-    <style>
-        /* Smooth page transitions for wire:navigate */
-        [wire\:navigate] {
-            transition: opacity 150ms ease-in-out, transform 150ms ease-in-out;
-        }
+{{--
+    Tax report page body (docs/mockups/tax-report-detail-redesign.html). The
+    header comes from ViewTaxReport::getHeader(). Below it: period navigation,
+    one strip of tax types that doubles as the tab list, then the workspace of
+    the selected type. The open type is ?jenis= (kisUrlTab in kis-ui.js).
+--}}
+@php
+    use App\Services\TaxReport\ReportOverview;
 
-        [wire\:navigate]:active {
-            transform: scale(0.98);
-        }
+    $record = $this->record;
+    $cards = $overview->cards();
+@endphp
 
-        /* Page transition animation */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(8px);
-            }
+<x-filament-panels::page>
+    <div class="kis-tr"
+         x-data="kisUrlTab({ param: 'jenis', value: @js($this->initialType), fallback: 'ppn', allowed: @js($overview->openTabs()), resets: ['tab'] })">
 
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+        {{-- Period: year + twelve months of this client --}}
+        <div class="kis-trp">
+            <nav class="kis-rail__wrap kis-trp__years" aria-label="Tahun">
+                @foreach ($overview->years() as $year)
+                    @if ($year['current'])
+                        <span class="kis-rail__chip is-on" aria-current="true">{{ $year['year'] }} <em>{{ $year['count'] }}</em></span>
+                    @else
+                        <a href="{{ $year['url'] }}" class="kis-rail__chip" x-on:click="kisFollow($event, $el)">{{ $year['year'] }} <em>{{ $year['count'] }}</em></a>
+                    @endif
+                @endforeach
+            </nav>
 
-        .page-transition {
-            animation: fadeIn 300ms ease-out;
-        }
+            <nav class="kis-trp__months" aria-label="Bulan {{ $overview->year() }}">
+                @foreach ($overview->months() as $month)
+                    @php
+                        $mark = match ($month['state']) {
+                            'done' => '✓ Lapor',
+                            'pending' => 'Belum',
+                            'nocontract' => 'Ada data',
+                            default => '–',
+                        };
+                    @endphp
+                    @if ($month['url'] && ! $month['current'])
+                        <a href="{{ $month['url'] }}" x-on:click="kisFollow($event, $el)"
+                           class="kis-trp__m is-{{ $month['state'] }}" data-kis-tip='@json($month['tip'])'
+                           aria-label="{{ $month['name'] }}: {{ $mark }}">
+                            @if ($month['activity'])<i class="kis-trp__act" aria-hidden="true"></i>@endif
+                            <span>{{ $month['short'] }}</span>
+                            <small>{{ $mark }}</small>
+                        </a>
+                    @else
+                        <span @class(['kis-trp__m', 'is-' . $month['state'], 'is-current' => $month['current']])
+                              @if ($month['tip']) data-kis-tip='@json($month['tip'])' @endif
+                              @if ($month['current']) aria-current="page" @endif>
+                            @if ($month['activity'])<i class="kis-trp__act" aria-hidden="true"></i>@endif
+                            <span>{{ $month['short'] }}</span>
+                            <small>{{ $mark }}</small>
+                        </span>
+                    @endif
+                @endforeach
+            </nav>
 
-        /* Loading state */
-        .loading-blur {
-            filter: blur(2px);
-            pointer-events: none;
-        }
-
-        /* Progress bar for navigation */
-        @keyframes progress {
-            0% {
-                width: 0%;
-            }
-
-            50% {
-                width: 70%;
-            }
-
-            100% {
-                width: 100%;
-            }
-        }
-
-        .progress-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #3B82F6, #60A5FA);
-            z-index: 9999;
-            animation: progress 800ms ease-in-out;
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
-        }
-
-        /* Status pulse animation */
-        @keyframes statusPulse {
-
-            0%,
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-
-            50% {
-                opacity: 0.8;
-                transform: scale(1.05);
-            }
-        }
-
-        .status-pulse {
-            animation: statusPulse 2s ease-in-out infinite;
-        }
-
-        /* Custom scrollbar for month navigation on mobile */
-        .month-scroll::-webkit-scrollbar {
-            height: 3px;
-        }
-
-        .month-scroll::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .month-scroll::-webkit-scrollbar-thumb {
-            background: #d1d5db;
-            border-radius: 3px;
-        }
-
-        .month-scroll::-webkit-scrollbar-thumb:hover {
-            background: #9ca3af;
-        }
-
-        /* Mobile tooltip adjustments */
-        .mobile-tooltip {
-            position: fixed;
-            bottom: 4px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 9999;
-        }
-
-        @media (min-width: 768px) {
-            .mobile-tooltip {
-                position: absolute;
-                bottom: auto;
-                top: 100%;
-                left: 50%;
-                transform: translateX(-50%);
-            }
-        }
-
-        /* Responsive grid adjustments */
-        @media (max-width: 640px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-                gap: 0.5rem;
-            }
-        }
-    </style>
-
-    {{-- Progress Bar (shown during navigation) --}}
-    <div wire:loading wire:target="$refresh" class="progress-bar"></div>
-
-    <div x-data="{ 
-        activeTab: 'invoices',
-        selectedMonth: '{{ $record->month }}',
-        showMobileMenu: false,
-        isMobile: window.innerWidth < 768
-    }" x-init="
-        window.addEventListener('resize', () => {
-            isMobile = window.innerWidth < 768;
-        });
-    " wire:loading.class="opacity-50 pointer-events-none" wire:target="$refresh">
-
-        {{-- Loading Indicator --}}
-        <div wire:loading wire:target="$refresh"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/20 backdrop-blur-sm">
-            <div class="mx-4 flex items-center gap-3 rounded-xl bg-white px-6 py-4 shadow-2xl dark:bg-gray-900">
-                <svg class="h-6 w-6 animate-spin text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none"
-                    viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                    </path>
-                </svg>
-                <span class="text-sm font-semibold text-gray-900 dark:text-white">Loading...</span>
+            <div class="kis-trp__legend" aria-hidden="true">
+                <span class="is-done">✓ Semua jenis lapor</span>
+                <span class="is-pending">Ada yang belum</span>
+                <span class="is-act">Ada transaksi</span>
             </div>
         </div>
 
-        {{-- Client Header - Responsive --}}
-        <div class="page-transition mb-3 md:mb-4">
-            <div class="">
-                <div class="flex flex-col gap-3 p-3 md:flex-row md:items-center md:justify-between md:px-6 md:py-4">
-                    {{-- Client Info with dropdown selector --}}
-                    <div class="flex items-center gap-3"
-                        x-data="{
-                            open: false,
-                            search: '',
-                            clients: @js($clientNavMap),
-                            get filtered() {
-                                if (!this.search) return this.clients;
-                                const q = this.search.toLowerCase();
-                                return this.clients.filter(c => c.name.toLowerCase().includes(q));
-                            },
-                            navigate(url) {
-                                if (url) window.location.href = url;
-                            }
-                        }"
-                        @click.outside="open = false; search = ''">
+        {{-- Tax types: one strip, each cell opens its workspace --}}
+        <div class="kis-trs" role="tablist" aria-label="Jenis pajak">
+            @foreach ($cards as $card)
+                @php
+                    $inner = view('filament.pages.tax-report.partials.type-cell', ['card' => $card])->render();
+                @endphp
+                @if ($card['locked'])
+                    <div class="kis-trs__cell is-locked" title="Kontrak {{ $card['label'] }} belum aktif untuk klien ini">{!! $inner !!}</div>
+                @else
+                    <button type="button" role="tab" id="kis-tab-{{ $card['key'] }}" aria-controls="kis-ws-{{ $card['key'] }}"
+                            class="kis-trs__cell" x-bind:class="tab === @js($card['key']) && 'is-on'"
+                            x-bind:aria-selected="tab === @js($card['key'])" x-on:click="show(@js($card['key']))">{!! $inner !!}</button>
+                @endif
+            @endforeach
+        </div>
 
-                        <div class="flex h-8 w-8 md:h-10 md:w-10 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600">
-                            <x-filament::icon icon="heroicon-o-building-office-2"
-                                class="h-4 w-4 md:h-5 md:w-5 text-white" />
-                        </div>
+        {{-- Workspaces --}}
+        <section id="kis-ws-ppn" role="tabpanel" aria-labelledby="kis-tab-ppn" class="kis-trw"
+                 x-show="tab === 'ppn'" @style(['display: none' => $this->initialType !== 'ppn'])>
+            @livewire('tax-report.ppn.tax-report-invoices', ['taxReportId' => $record->id], key('ppn-' . $record->id))
+        </section>
 
-                        {{-- Clickable client name trigger --}}
-                        <div class="relative min-w-0 flex-1">
-                            <button @click="open = !open" type="button"
-                                class="group flex items-center gap-2 rounded-lg px-2 py-1 text-left transition-colors hover:bg-blue-50 dark:hover:bg-blue-900/20">
-                                <div class="min-w-0 flex-1">
-                                    <h1 class="truncate text-base font-bold text-gray-900 transition-colors group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-400 md:text-lg">
-                                        {{ $record->client->name }}
-                                    </h1>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                                        Tax Report • {{ $currentYear }} • {{ $currentMonth }}
-                                    </p>
-                                </div>
-                                <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-600 transition-colors group-hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-400 dark:group-hover:bg-blue-800/60">
-                                    <x-filament::icon icon="heroicon-o-chevron-down"
-                                        class="h-3.5 w-3.5 transition-transform duration-200"
-                                        ::class="{ 'rotate-180': open }" />
-                                </span>
+        <section id="kis-ws-pph" role="tabpanel" aria-labelledby="kis-tab-pph" class="kis-trw"
+                 x-show="tab === 'pph'" @style(['display: none' => $this->initialType !== 'pph'])>
+            @livewire('tax-report.pph.tax-report-pph', ['taxReportId' => $record->id], key('pph-' . $record->id))
+        </section>
+
+        @unless ($cards['bupot']['locked'])
+            @php $unifikasiSpt = (bool) $overview->summary('bupot')?->bukti_lapor; @endphp
+            <section id="kis-ws-unifikasi" role="tabpanel" aria-labelledby="kis-tab-unifikasi" class="kis-trw"
+                     x-show="tab === 'unifikasi'" @style(['display: none' => $this->initialType !== 'unifikasi'])>
+                <div class="kis-ws" x-data="kisUrlTab({ param: 'tab', value: @js($this->initialUnifikasiTab), fallback: 'bupot', allowed: @js(\App\Filament\Resources\TaxReportResource\Pages\ViewTaxReport::UNIFIKASI_TABS) })">
+                    <div class="kis-subtabs">
+                        <nav class="kis-subtabs__nav" role="tablist" aria-label="Bagian PPh Unifikasi">
+                            <button type="button" role="tab" class="kis-subtab" x-bind:class="tab === 'bupot' && 'is-on'" x-bind:aria-selected="tab === 'bupot'" x-on:click="show('bupot')">
+                                Bukti potong <i>{{ $cards['bupot']['value'] }}</i>
                             </button>
-
-                            {{-- Dropdown panel --}}
-                            <div x-show="open" x-cloak
-                                x-transition:enter="transition ease-out duration-100"
-                                x-transition:enter-start="opacity-0 scale-95"
-                                x-transition:enter-end="opacity-100 scale-100"
-                                x-transition:leave="transition ease-in duration-75"
-                                x-transition:leave-start="opacity-100 scale-100"
-                                x-transition:leave-end="opacity-0 scale-95"
-                                class="absolute left-0 top-full z-50 mt-1.5 w-72 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-gray-900/10 dark:bg-gray-900 dark:ring-white/10"
-                                @click.stop>
-
-                                {{-- Search --}}
-                                <div class="border-b border-gray-100 p-2 dark:border-gray-800">
-                                    <div class="relative">
-                                        <x-filament::icon icon="heroicon-o-magnifying-glass"
-                                            class="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                        <input x-model="search" x-ref="searchInput" @keydown.escape="open = false"
-                                            type="text" placeholder="Cari klien..."
-                                            class="w-full rounded-lg border-0 bg-gray-50 py-1.5 pl-8 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-1 focus:ring-blue-500 dark:bg-gray-800 dark:text-white" />
-                                    </div>
-                                </div>
-
-                                {{-- Client list --}}
-                                <div class="max-h-60 overflow-y-auto py-1">
-                                    <template x-for="client in filtered" :key="client.id">
-                                        <button
-                                            @click="navigate(client.url)"
-                                            :disabled="client.is_current"
-                                            :class="{
-                                                'bg-blue-50 dark:bg-blue-900/20': client.is_current,
-                                                'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer': !client.is_current,
-                                            }"
-                                            class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors"
-                                            type="button">
-
-                                            {{-- Icon --}}
-                                            <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md"
-                                                :class="client.is_current
-                                                    ? 'bg-blue-100 dark:bg-blue-800'
-                                                    : 'bg-gray-100 dark:bg-gray-800'">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5"
-                                                    :class="client.is_current
-                                                        ? 'text-blue-600 dark:text-blue-400'
-                                                        : 'text-gray-500 dark:text-gray-400'"
-                                                    fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                                        d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3H9m3.75-6h1.5m-1.5 3h1.5m-1.5 3h1.5M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21" />
-                                                </svg>
-                                            </span>
-
-                                            {{-- Name --}}
-                                            <span class="flex-1 truncate font-medium"
-                                                :class="client.is_current
-                                                    ? 'text-blue-700 dark:text-blue-300'
-                                                    : 'text-gray-900 dark:text-white'"
-                                                x-text="client.name"></span>
-
-                                            {{-- Current checkmark --}}
-                                            <template x-if="client.is_current">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                                                </svg>
-                                            </template>
-                                        </button>
-                                    </template>
-
-                                    {{-- Empty search state --}}
-                                    <div x-show="filtered.length === 0"
-                                        class="px-3 py-6 text-center text-sm text-gray-400">
-                                        Klien tidak ditemukan
-                                    </div>
-                                </div>
-
-                                {{-- Footer --}}
-                                <div class="border-t border-gray-100 px-3 py-2 dark:border-gray-800">
-                                    <p class="text-[10px] text-gray-400">
-                                        Klien dengan laporan
-                                        <span class="font-semibold text-gray-500 dark:text-gray-300">{{ $currentMonth }} {{ $currentYear }}</span>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+                            <button type="button" role="tab" class="kis-subtab" x-bind:class="tab === 'spt' && 'is-on'" x-bind:aria-selected="tab === 'spt'" x-on:click="show('spt')">
+                                SPT
+                                @if ($unifikasiSpt)
+                                    <em class="is-done">Terunggah</em>
+                                @elseif ($cards['bupot']['status'] === ReportOverview::NO_ACTIVITY)
+                                    <i>Nihil</i>
+                                @else
+                                    <em>Belum</em>
+                                @endif
+                            </button>
+                        </nav>
+                        <span class="kis-subtabs__ctx">PPh Unifikasi · {{ $overview->periodLabel() }}</span>
                     </div>
 
-                    {{-- Status & Quick Stats - Responsive --}}
-                    <div class="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
-                        {{-- Quick Stats - Mobile: 2x2 grid, Desktop: horizontal --}}
-                        <div class="stats-grid grid grid-cols-4 gap-2 md:flex md:items-center md:gap-4">
-                            <div class="flex items-center gap-1.5 md:gap-2">
-                                <div
-                                    class="flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-md md:rounded-lg bg-blue-50 dark:bg-blue-900/30">
-                                    <x-filament::icon icon="heroicon-o-document-text"
-                                        class="h-3 w-3 md:h-4 md:w-4 text-blue-600 dark:text-blue-400" />
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">PPN</p>
-                                    <p class="text-xs md:text-sm font-bold text-gray-900 dark:text-white">{{
-                                        $record->invoices->count() }}</p>
-                                </div>
-                            </div>
+                    {{-- Only due when there was withholding; without an answer the period keeps counting as outstanding. --}}
+                    @livewire('tax-report.activity-confirmation', ['taxReportId' => $record->id, 'type' => 'bupot'], key('act-bupot-' . $record->id))
 
-                            <div class="hidden md:block h-8 w-px bg-gray-200 dark:bg-gray-700"></div>
-
-                            <div class="flex items-center gap-1.5 md:gap-2">
-                                <div
-                                    class="flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-md md:rounded-lg bg-purple-50 dark:bg-purple-900/30">
-                                    <x-filament::icon icon="heroicon-o-banknotes"
-                                        class="h-3 w-3 md:h-4 md:w-4 text-purple-600 dark:text-purple-400" />
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">PPh</p>
-                                    <p class="text-xs md:text-sm font-bold text-gray-900 dark:text-white">{{
-                                        $record->incomeTaxs->count() }}</p>
-                                </div>
-                            </div>
-
-                            <div class="hidden md:block h-8 w-px bg-gray-200 dark:bg-gray-700"></div>
-
-                            <div class="flex items-center gap-1.5 md:gap-2">
-                                <div
-                                    class="flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-md md:rounded-lg bg-orange-50 dark:bg-orange-900/30">
-                                    <x-filament::icon icon="heroicon-o-receipt-percent"
-                                        class="h-3 w-3 md:h-4 md:w-4 text-orange-600 dark:text-orange-400" />
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">Bupot</p>
-                                    <p class="text-xs md:text-sm font-bold text-gray-900 dark:text-white">{{
-                                        $record->bupots->count() }}</p>
-                                </div>
-                            </div>
-
-                            <div class="hidden md:block h-8 w-px bg-gray-200 dark:bg-gray-700"></div>
-
-                            {{-- ✅ NEW: PPh Badan Stats --}}
-                            <div class="flex items-center gap-1.5 md:gap-2">
-                                <div
-                                    class="flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-md md:rounded-lg bg-indigo-50 dark:bg-indigo-900/30">
-                                    <x-filament::icon icon="heroicon-o-building-office"
-                                        class="h-3 w-3 md:h-4 md:w-4 text-indigo-600 dark:text-indigo-400" />
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-[10px] md:text-xs text-gray-500 dark:text-gray-400">PPh Badan</p>
-                                    <p class="text-xs md:text-sm font-bold text-gray-900 dark:text-white">0</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="hidden md:block h-8 w-px bg-gray-200 dark:bg-gray-700"></div>
-
-                        {{-- Reporting Status Indicator - Responsive --}}
-                        @php
-                        // Efficient: Use eager-loaded summaries
-                        $summaries = $record->relationLoaded('taxCalculationSummaries')
-                        ? $record->taxCalculationSummaries
-                        : $record->taxCalculationSummaries()->select('id', 'tax_report_id', 'tax_type',
-                        'report_status')->get();
-
-                        // Get status for each tax type from summaries
-                        $ppnSummary = $summaries->firstWhere('tax_type', 'ppn');
-                        $pphSummary = $summaries->firstWhere('tax_type', 'pph');
-                        $bupotSummary = $summaries->firstWhere('tax_type', 'bupot');
-                        $pphBadanSummary = $summaries->firstWhere('tax_type', 'pph_badan');
-
-                        $ppnReported = $ppnSummary && $ppnSummary->report_status === 'Sudah Lapor';
-                        $pphReported = $pphSummary && $pphSummary->report_status === 'Sudah Lapor';
-                        $bupotReported = $bupotSummary && $bupotSummary->report_status === 'Sudah Lapor';
-                        $pphBadanReported = $pphBadanSummary && $pphBadanSummary->report_status === 'Sudah Lapor';
-
-                        // Count reported
-                        $reportedCount = ($ppnReported ? 1 : 0) + ($pphReported ? 1 : 0) + ($bupotReported ? 1 : 0) +
-                        ($pphBadanReported ? 1 : 0);
-                        $totalCount = 4;
-
-                        // All reported check
-                        $allReported = $reportedCount === $totalCount;
-
-                        // Build not reported list
-                        $notReportedList = [];
-                        if (!$ppnReported && $ppnSummary) $notReportedList[] = 'PPN';
-                        if (!$pphReported && $pphSummary) $notReportedList[] = 'PPh';
-                        if (!$bupotReported && $bupotSummary) $notReportedList[] = 'Bupot';
-                        if (!$pphBadanReported && $pphBadanSummary) $notReportedList[] = 'PPh Badan';
-
-                        // Status text with details
-                        if ($allReported) {
-                        $statusText = 'Semua Sudah Lapor';
-                        $statusDetail = null;
-                        } elseif ($reportedCount > 0) {
-                        $statusText = "{$reportedCount}/{$totalCount} Sudah Lapor";
-                        $statusDetail = 'Belum: ' . implode(', ', $notReportedList);
-                        } else {
-                        $statusText = 'Belum Lapor';
-                        $statusDetail = count($notReportedList) > 0 ? 'Belum: ' . implode(', ', $notReportedList) :
-                        'Semua belum dilaporkan';
-                        }
-                        @endphp
-
-                        <div
-                            class="inline-flex items-center gap-2 rounded-lg shadow-sm {{ $allReported ? 'bg-green-50 dark:bg-green-900/20' : ($reportedCount > 0 ? 'bg-yellow-50 dark:bg-yellow-900/20' : 'bg-orange-50 dark:bg-orange-900/20') }} px-3 py-1.5">
-                            <span class="relative flex h-2 w-2">
-                                @if($allReported)
-                                <span class="relative inline-flex h-2 w-2 rounded-full bg-green-500"></span>
-                                @elseif($reportedCount > 0)
-                                <span
-                                    class="absolute inline-flex h-full w-full animate-ping rounded-full bg-yellow-400 opacity-75"></span>
-                                <span class="relative inline-flex h-2 w-2 rounded-full bg-yellow-500"></span>
-                                @else
-                                <span
-                                    class="absolute inline-flex h-full w-full animate-ping rounded-full bg-orange-400 opacity-75"></span>
-                                <span class="relative inline-flex h-2 w-2 rounded-full bg-orange-500"></span>
-                                @endif
-                            </span>
-                            <div class="flex flex-col gap-0.5">
-                                <span
-                                    class="text-xs font-semibold leading-none {{ $allReported ? 'text-green-700 dark:text-green-400' : ($reportedCount > 0 ? 'text-yellow-700 dark:text-yellow-400' : 'text-orange-700 dark:text-orange-400') }}">
-                                    {{ $statusText }}
-                                </span>
-                                @if($statusDetail)
-                                <span
-                                    class="text-[10px] leading-none {{ $reportedCount > 0 ? 'text-yellow-600 dark:text-yellow-500' : 'text-orange-600 dark:text-orange-500' }}">
-                                    {{ $statusDetail }}
-                                </span>
-                                @endif
-                            </div>
-                        </div>
+                    <div x-show="tab === 'bupot'" @style(['display: none' => $this->initialUnifikasiTab !== 'bupot'])>
+                        {{-- The same table as on the edit page (all actions, filters and the bukti setor upload). --}}
+                        @livewire(\App\Filament\Resources\TaxReportResource\RelationManagers\BupotsRelationManager::class, [
+                            'ownerRecord' => $record,
+                            'pageClass' => \App\Filament\Resources\TaxReportResource\Pages\ViewTaxReport::class,
+                        ], key('bupots-' . $record->id))
+                    </div>
+                    <div x-show="tab === 'spt'" @style(['display: none' => $this->initialUnifikasiTab !== 'spt'])>
+                        @livewire('tax-report.spt-upload', ['taxReportId' => $record->id, 'type' => 'bupot'], key('spt-bupot-' . $record->id))
                     </div>
                 </div>
-            </div>
-        </div>
+            </section>
+        @endunless
 
-        {{-- 12-Month Navigation Tabs - Responsive --}}
-        <div class="mb-3 md:mb-4">
-            <div
-                class="overflow-hidden rounded-lg md:rounded-xl bg-white shadow-sm ring-1 ring-gray-900/5 dark:bg-gray-900 dark:ring-white/10">
-                <div class="p-2 md:p-3 space-y-3">
-                    {{-- Year Navigation --}}
-                    {{-- Year Navigation --}}
-                    <div class="flex items-center justify-between gap-2">
-                        <h3 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Navigasi Tahun</h3>
-
-                        @php
-                        // Get available years for this client
-                        $availableYears = \App\Models\TaxReport::where('client_id', $record->client_id)
-                        ->select('year')
-                        ->distinct()
-                        ->orderBy('year', 'desc')
-                        ->pluck('year')
-                        ->toArray();
-
-                        if (empty($availableYears)) {
-                        $availableYears = [$record->year ?? $record->created_at->year];
-                        }
-
-                        $currentRecordYear = $record->year ?? $record->created_at->year;
-
-                        // Pre-load ALL year-month reports for this client
-                        $allReports = \App\Models\TaxReport::where('client_id', $record->client_id)
-                        ->with(['taxCalculationSummaries' => function($query) {
-                        $query->select('id', 'tax_report_id', 'tax_type', 'report_status');
-                        }])
-                        ->withCount(['invoices', 'incomeTaxs', 'bupots'])
-                        ->select('id', 'client_id', 'month', 'year')
-                        ->get()
-                        ->groupBy('year');
-                        @endphp
-
-                        <div class="flex items-center gap-1">
-                            @foreach($availableYears as $year)
-                            @php
-                            $yearReportCount = \App\Models\TaxReport::where('client_id', $record->client_id)
-                            ->where('year', $year)
-                            ->count();
-                            $isCurrentYear = $year == $currentRecordYear;
-
-                            // Get first month report for this year (ordered by calendar month)
-                            $firstMonthReport = \App\Models\TaxReport::where('client_id', $record->client_id)
-                            ->where('year', $year)
-                            ->orderByRaw("FIELD(month, 'January', 'February', 'March', 'April', 'May', 'June', 'July',
-                            'August', 'September', 'October', 'November', 'December')")
-                            ->first();
-                            @endphp
-
-                            @if($firstMonthReport)
-                            <a href="{{ route('filament.admin.resources.tax-reports.view', $firstMonthReport) }}"
-                                wire:navigate
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 {{ $isCurrentYear ? 'bg-primary-600 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700' }}">
-                                @if($isCurrentYear)
-                                <span class="w-1.5 h-1.5 rounded-full bg-white"></span>
-                                @endif
-                                <span>{{ $year }}</span>
-                                <span
-                                    class="px-1.5 py-0.5 rounded-md text-xs font-semibold {{ $isCurrentYear ? 'bg-primary-700 text-primary-100' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' }}">
-                                    {{ $yearReportCount }}
-                                </span>
-                            </a>
-                            @else
-                            {{-- Show disabled state if no reports exist for that year --}}
-                            <div
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold bg-gray-50 text-gray-400 border border-gray-200 cursor-not-allowed dark:bg-gray-900 dark:text-gray-600 dark:border-gray-800">
-                                <span>{{ $year }}</span>
-                                <span
-                                    class="px-1.5 py-0.5 rounded-md text-xs font-semibold bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600">
-                                    0
-                                </span>
-                            </div>
-                            @endif
-                            @endforeach
-                        </div>
+        @unless ($cards['pph_badan']['locked'])
+            <section id="kis-ws-badan" role="tabpanel" aria-labelledby="kis-tab-badan" class="kis-trw"
+                     x-show="tab === 'badan'" @style(['display: none' => $this->initialType !== 'badan'])>
+                {{-- PPh Badan is reported only when there is activity, like PPh Unifikasi. --}}
+                <div class="kis-ws">
+                    <div class="kis-subtabs">
+                        <span class="kis-subtab is-on" aria-current="true">SPT</span>
+                        <span class="kis-subtabs__ctx">PPh Badan · {{ $overview->periodLabel() }}</span>
                     </div>
-
-                    {{-- Divider --}}
-                    <div class="border-t border-gray-200 dark:border-gray-700"></div>
-
-                    {{-- Month Navigation --}}
-                    <div>
-                        <h3
-                            class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                            Navigasi Bulan - {{ $currentRecordYear }}
-                        </h3>
-
-                        <style>
-                            /* Warna kartu navigasi bulan berdasarkan status lapor kontrak klien */
-                            .tr-month { border-color: #e5e7eb; background: #ffffff; transition: box-shadow .15s, border-color .15s, background .15s; }
-                            .tr-month:hover { box-shadow: 0 1px 3px rgba(15,23,42,.10); }
-                            .dark .tr-month { border-color: #374151; background: rgba(31,41,55,.5); }
-                            .tr-month.is-active { border-color: #3b82f6; background: #eff6ff; box-shadow: 0 1px 2px rgba(15,23,42,.08); }
-                            .dark .tr-month.is-active { border-color: #60a5fa; background: rgba(30,58,138,.30); }
-                            .tr-month.is-reported { border-color: #86efac; background: #f0fdf4; }
-                            .dark .tr-month.is-reported { border-color: rgba(34,197,94,.45); background: rgba(20,83,45,.30); }
-                            .tr-month.is-unreported { border-color: #fdba74; background: #fff7ed; }
-                            .dark .tr-month.is-unreported { border-color: rgba(249,115,22,.45); background: rgba(124,45,18,.30); }
-                        </style>
-
-                        @php
-                        $months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
-                        'September',
-                        'October', 'November', 'December'];
-
-                        // Get reports for current year
-                        $yearReports = $allReports->get($currentRecordYear, collect())->keyBy('month');
-                        @endphp
-
-                        {{-- Mobile: Horizontal scrollable, Desktop: Grid --}}
-                        <div class="month-scroll overflow-x-auto md:overflow-x-visible">
-                            <div class="flex gap-1.5 md:grid md:grid-cols-12 md:gap-2" style="min-width: max-content;">
-                                @foreach($months as $index => $monthName)
-                                @php
-                                $monthReport = $yearReports->get($monthName);
-                                $hasReport = !is_null($monthReport);
-                                $isCurrent = $monthName === $record->month && $currentRecordYear == ($record->year ??
-                                $record->created_at->year);
-
-                                // Hanya jenis pajak yang DIKONTRAK klien yang dihitung status lapornya.
-                                $client = $record->client;
-                                $contracted = array_keys(array_filter([
-                                'ppn'       => $client->ppn_contract ?? false,
-                                'pph'       => $client->pph_contract ?? false,
-                                'bupot'     => $client->bupot_contract ?? false,
-                                'pph_badan' => $client->pph_badan_contract ?? false,
-                                ]));
-
-                                $hasActivity = false;
-                                $monthIsReported = false;
-                                $monthState = 'nodata'; // nodata | reported | unreported | nocontract
-
-                                if ($hasReport) {
-                                $hasActivity = ($monthReport->invoices_count ?? 0) > 0 ||
-                                ($monthReport->income_taxs_count ?? 0) > 0 ||
-                                ($monthReport->bupots_count ?? 0) > 0;
-
-                                $sumByType = ($monthReport->taxCalculationSummaries ?? collect())->keyBy('tax_type');
-
-                                if (count($contracted) === 0) {
-                                $monthState = 'nocontract';
-                                } else {
-                                $reportedContracted = collect($contracted)->filter(
-                                fn ($t) => optional($sumByType->get($t))->report_status === 'Sudah Lapor'
-                                )->count();
-                                $monthIsReported = $reportedContracted === count($contracted);
-                                $monthState = $monthIsReported ? 'reported' : 'unreported';
-                                }
-                                }
-
-                                // Kelas warna kartu (lihat <style> .tr-month). Bulan aktif = biru.
-                                $stateClass = $isCurrent ? 'is-active'
-                                : ($monthState === 'reported' ? 'is-reported'
-                                : ($monthState === 'unreported' ? 'is-unreported' : ''));
-                                @endphp
-
-                                @if($hasReport)
-                                <a href="{{ route('filament.admin.resources.tax-reports.view', $monthReport) }}"
-                                    wire:navigate
-                                    class="group relative flex flex-col items-center justify-center overflow-hidden rounded-md md:rounded-lg border-2 px-2 py-2 md:px-2 md:py-3 transition-all duration-200 flex-shrink-0 w-16 md:w-auto tr-month {{ $stateClass }}">
-
-                                    {{-- Ripple effect on hover --}}
-                                    <div
-                                        class="absolute inset-0 scale-0 rounded-lg bg-blue-400/10 transition-transform duration-300 group-hover:scale-100">
-                                    </div>
-
-                                    {{-- Reporting Status Indicator --}}
-                                    <div class="absolute left-0.5 top-0.5 md:left-1 md:top-1 z-10">
-                                        @if($monthState === 'reported')
-                                        <div class="flex h-3 w-3 md:h-4 md:w-4 items-center justify-center rounded-full bg-green-500 shadow-sm"
-                                            title="Semua kontrak sudah lapor">
-                                            <x-filament::icon icon="heroicon-m-check"
-                                                class="h-1.5 w-1.5 md:h-2.5 md:w-2.5 text-white" />
-                                        </div>
-                                        @elseif($monthState === 'unreported')
-                                        <div class="flex h-3 w-3 md:h-4 md:w-4 items-center justify-center rounded-full bg-orange-500 shadow-sm"
-                                            title="Belum semua kontrak lapor">
-                                            <x-filament::icon icon="heroicon-m-exclamation-triangle"
-                                                class="h-1.5 w-1.5 md:h-2.5 md:w-2.5 text-white" />
-                                        </div>
-                                        @endif
-                                    </div>
-
-                                    {{-- Activity Indicator --}}
-                                    @if($hasActivity)
-                                    <div class="absolute right-0.5 top-0.5 md:right-1 md:top-1 z-10">
-                                        <span class="flex h-1.5 w-1.5 md:h-2 md:w-2">
-                                            <span
-                                                class="absolute inline-flex h-full w-full animate-ping rounded-full {{ $isCurrent ? 'bg-blue-400' : 'bg-green-400' }} opacity-75"></span>
-                                            <span
-                                                class="relative inline-flex h-1.5 w-1.5 md:h-2 md:w-2 rounded-full {{ $isCurrent ? 'bg-blue-500' : 'bg-green-500' }}"></span>
-                                        </span>
-                                    </div>
-                                    @endif
-
-                                    <span
-                                        class="relative z-10 text-[9px] md:text-[10px] font-semibold uppercase tracking-wider {{ $isCurrent ? 'text-blue-700 dark:text-blue-300' : 'text-gray-600 dark:text-gray-400' }}">
-                                        {{ substr($monthName, 0, 3) }}
-                                    </span>
-                                    <span
-                                        class="relative z-10 mt-0.5 text-xs font-bold {{ $isCurrent ? 'text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-white' }}">
-                                        {{ $index + 1 }}
-                                    </span>
-
-                                    {{-- Tooltip on hover --}}
-                                    <div class="absolute left-1/2 top-full z-50 mt-2 hidden min-w-[140px] -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-xl group-hover:block dark:bg-gray-800 md:block"
-                                        x-show="!isMobile">
-                                        <div class="space-y-0.5">
-                                            <div class="flex items-center justify-between gap-3">
-                                                <span class="text-gray-400">PPN:</span>
-                                                <span class="font-semibold">{{ $monthReport->invoices_count ?? 0
-                                                    }}</span>
-                                            </div>
-                                            <div class="flex items-center justify-between gap-3">
-                                                <span class="text-gray-400">PPh:</span>
-                                                <span class="font-semibold">{{ $monthReport->income_taxs_count ?? 0
-                                                    }}</span>
-                                            </div>
-                                            <div class="flex items-center justify-between gap-3">
-                                                <span class="text-gray-400">Bupot:</span>
-                                                <span class="font-semibold">{{ $monthReport->bupots_count ?? 0 }}</span>
-                                            </div>
-                                        </div>
-                                        <div
-                                            class="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900 dark:bg-gray-800">
-                                        </div>
-                                    </div>
-                                </a>
-                                @else
-                                <div
-                                    class="flex flex-col items-center justify-center rounded-md md:rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 px-2 py-2 md:px-2 md:py-3 opacity-50 dark:border-gray-800 dark:bg-gray-900/20 flex-shrink-0 w-16 md:w-auto">
-                                    <span
-                                        class="text-[9px] md:text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-600">
-                                        {{ substr($monthName, 0, 3) }}
-                                    </span>
-                                    <span class="mt-0.5 text-xs font-bold text-gray-400 dark:text-gray-600">
-                                        {{ $index + 1 }}
-                                    </span>
-                                </div>
-                                @endif
-                                @endforeach
-                            </div>
-                        </div>
-
-                        {{-- Legend - Responsive --}}
-                        <div
-                            class="mt-2 md:mt-3 flex flex-wrap items-center justify-center gap-x-3 md:gap-x-6 gap-y-1 md:gap-y-2 text-xs">
-                            <div class="flex items-center gap-1 md:gap-1.5">
-                                <div class="h-2 w-2 rounded-full bg-blue-500"></div>
-                                <span class="text-gray-600 dark:text-gray-400 text-[10px] md:text-xs">Bulan Aktif</span>
-                            </div>
-                            <div class="flex items-center gap-1 md:gap-1.5">
-                                <div class="h-2 w-2 rounded-full bg-green-500"></div>
-                                <span class="text-gray-600 dark:text-gray-400 text-[10px] md:text-xs">Sudah Lapor</span>
-                            </div>
-                            <div class="flex items-center gap-1 md:gap-1.5">
-                                <div class="h-2 w-2 rounded-full bg-orange-500"></div>
-                                <span class="text-gray-600 dark:text-gray-400 text-[10px] md:text-xs">Belum Lapor</span>
-                            </div>
-                            <div class="flex items-center gap-1 md:gap-1.5">
-                                <div class="h-2 w-2 rounded-full border-2 border-dashed border-gray-300"></div>
-                                <span class="text-gray-600 dark:text-gray-400 text-[10px] md:text-xs">Belum Ada
-                                    Data</span>
-                            </div>
-                        </div>
-                    </div>
+                    @livewire('tax-report.activity-confirmation', ['taxReportId' => $record->id, 'type' => 'pph_badan'], key('act-badan-' . $record->id))
+                    @livewire('tax-report.spt-upload', ['taxReportId' => $record->id, 'type' => 'pph_badan'], key('spt-badan-' . $record->id))
                 </div>
-            </div>
-        </div>
-
-        {{-- Tax Type Navigation Tabs - Responsive Redesign --}}
-        <div class="mb-3 md:mb-4">
-            <div class="overflow-hidden">
-                <div class="p-2 md:p-3">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
-                        {{-- PPN Tab --}}
-                        <button @click="activeTab = 'invoices'"
-                            :class="activeTab === 'invoices' 
-                                    ? 'border-blue-500 bg-gradient-to-br from-blue-50 to-blue-100 shadow-lg shadow-blue-500/20 dark:border-blue-400 dark:from-blue-900/30 dark:to-blue-900/10' 
-                                    : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:border-blue-600'"
-                            class="group relative flex flex-row md:flex-col items-center gap-3 rounded-lg md:rounded-xl border-2 px-3 py-3 md:px-4 md:py-4 transition-all duration-200">
-
-                            {{-- Reporting Status Badge --}}
-                            <div class="absolute -right-1 -top-1 md:-right-2 md:-top-2 z-10">
-                                @if($ppnReported)
-                                <div class="flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full bg-green-500 shadow-lg ring-2 ring-white dark:ring-gray-900"
-                                    title="Sudah Lapor">
-                                    <x-filament::icon icon="heroicon-m-check-circle"
-                                        class="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                </div>
-                                @else
-                                <div class="status-pulse flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full bg-orange-500 shadow-lg ring-2 ring-white dark:ring-gray-900"
-                                    title="Belum Lapor">
-                                    <x-filament::icon icon="heroicon-m-exclamation-circle"
-                                        class="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                </div>
-                                @endif
-                            </div>
-
-                            {{-- Icon --}}
-                            <div :class="activeTab === 'invoices' ? 'bg-blue-600 shadow-lg shadow-blue-500/50' : 'bg-gray-100 group-hover:bg-blue-100 dark:bg-gray-700'"
-                                class="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl transition-all duration-200 flex-shrink-0">
-                                <x-filament::icon icon="heroicon-o-document-text"
-                                    :class="activeTab === 'invoices' ? 'text-white' : 'text-gray-600 group-hover:text-blue-600 dark:text-gray-400'"
-                                    class="h-5 w-5 md:h-6 md:w-6" />
-                            </div>
-
-                            {{-- Label & Count --}}
-                            <div class="flex-1 text-left md:text-center">
-                                <p :class="activeTab === 'invoices' ? 'text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-white'"
-                                    class="text-sm font-bold">
-                                    PPN
-                                </p>
-                                <p :class="activeTab === 'invoices' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'"
-                                    class="mt-0.5 text-xs font-medium">
-                                    {{ $record->invoices->count() }} Faktur
-                                </p>
-                                {{-- Status Text --}}
-                                <p
-                                    class="mt-1 text-[10px] font-semibold {{ $ppnReported ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400' }}">
-                                    {{ $ppnReported ? '✓ Sudah Lapor' : '⚠ Belum Lapor' }}
-                                </p>
-                            </div>
-
-                            {{-- Active Indicator - Desktop Only --}}
-                            <div x-show="activeTab === 'invoices'"
-                                class="absolute -bottom-1 left-1/2 -translate-x-1/2 hidden md:block">
-                                <div class="h-1 w-16 rounded-full bg-blue-600 shadow-lg"></div>
-                            </div>
-                        </button>
-
-                        {{-- PPh Tab --}}
-                        <button @click="activeTab = 'pph'"
-                            :class="activeTab === 'pph' 
-                                    ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-purple-100 shadow-lg shadow-purple-500/20 dark:border-purple-400 dark:from-purple-900/30 dark:to-purple-900/10' 
-                                    : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50/50 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:border-purple-600'"
-                            class="group relative flex flex-row md:flex-col items-center gap-3 rounded-lg md:rounded-xl border-2 px-3 py-3 md:px-4 md:py-4 transition-all duration-200">
-
-                            {{-- Reporting Status Badge --}}
-                            <div class="absolute -right-1 -top-1 md:-right-2 md:-top-2 z-10">
-                                @if($pphReported)
-                                <div class="flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full bg-green-500 shadow-lg ring-2 ring-white dark:ring-gray-900"
-                                    title="Sudah Lapor">
-                                    <x-filament::icon icon="heroicon-m-check-circle"
-                                        class="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                </div>
-                                @else
-                                <div class="status-pulse flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full bg-orange-500 shadow-lg ring-2 ring-white dark:ring-gray-900"
-                                    title="Belum Lapor">
-                                    <x-filament::icon icon="heroicon-m-exclamation-circle"
-                                        class="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                </div>
-                                @endif
-                            </div>
-
-                            {{-- Icon --}}
-                            <div :class="activeTab === 'pph' ? 'bg-purple-600 shadow-lg shadow-purple-500/50' : 'bg-gray-100 group-hover:bg-purple-100 dark:bg-gray-700'"
-                                class="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl transition-all duration-200 flex-shrink-0">
-                                <x-filament::icon icon="heroicon-o-banknotes"
-                                    :class="activeTab === 'pph' ? 'text-white' : 'text-gray-600 group-hover:text-purple-600 dark:text-gray-400'"
-                                    class="h-5 w-5 md:h-6 md:w-6" />
-                            </div>
-
-                            {{-- Label & Count --}}
-                            <div class="flex-1 text-left md:text-center">
-                                <p :class="activeTab === 'pph' ? 'text-purple-900 dark:text-purple-100' : 'text-gray-900 dark:text-white'"
-                                    class="text-sm font-bold">
-                                    PPh
-                                </p>
-                                <p :class="activeTab === 'pph' ? 'text-purple-600 dark:text-purple-400' : 'text-gray-500 dark:text-gray-400'"
-                                    class="mt-0.5 text-xs font-medium">
-                                    {{ $record->incomeTaxs->count() }} Transaksi
-                                </p>
-                                {{-- Status Text --}}
-                                <p
-                                    class="mt-1 text-[10px] font-semibold {{ $pphReported ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400' }}">
-                                    {{ $pphReported ? '✓ Sudah Lapor' : '⚠ Belum Lapor' }}
-                                </p>
-                            </div>
-
-                            {{-- Active Indicator - Desktop Only --}}
-                            <div x-show="activeTab === 'pph'"
-                                class="absolute -bottom-1 left-1/2 -translate-x-1/2 hidden md:block">
-                                <div class="h-1 w-16 rounded-full bg-purple-600 shadow-lg"></div>
-                            </div>
-                        </button>
-
-                        {{-- Bupot Tab - Conditional based on client contract --}}
-                        @php
-                        $hasBupotContract = $client->bupot_contract ?? false;
-                        @endphp
-                        
-                        @if($hasBupotContract)
-                        <button @click="activeTab = 'bupot'"
-                            :class="activeTab === 'bupot' 
-                                    ? 'border-orange-500 bg-gradient-to-br from-orange-50 to-orange-100 shadow-lg shadow-orange-500/20 dark:border-orange-400 dark:from-orange-900/30 dark:to-orange-900/10' 
-                                    : 'border-gray-200 bg-white hover:border-orange-300 hover:bg-orange-50/50 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:border-orange-600'"
-                            class="group relative flex flex-row md:flex-col items-center gap-3 rounded-lg md:rounded-xl border-2 px-3 py-3 md:px-4 md:py-4 transition-all duration-200">
-
-                            {{-- Reporting Status Badge --}}
-                            <div class="absolute -right-1 -top-1 md:-right-2 md:-top-2 z-10">
-                                @if($bupotReported)
-                                <div class="flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full bg-green-500 shadow-lg ring-2 ring-white dark:ring-gray-900"
-                                    title="Sudah Lapor">
-                                    <x-filament::icon icon="heroicon-m-check-circle"
-                                        class="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                </div>
-                                @else
-                                <div class="status-pulse flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full bg-orange-500 shadow-lg ring-2 ring-white dark:ring-gray-900"
-                                    title="Belum Lapor">
-                                    <x-filament::icon icon="heroicon-m-exclamation-circle"
-                                        class="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                </div>
-                                @endif
-                            </div>
-
-                            {{-- Icon --}}
-                            <div :class="activeTab === 'bupot' ? 'bg-orange-600 shadow-lg shadow-orange-500/50' : 'bg-gray-100 group-hover:bg-orange-100 dark:bg-gray-700'"
-                                class="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl transition-all duration-200 flex-shrink-0">
-                                <x-filament::icon icon="heroicon-o-receipt-percent"
-                                    :class="activeTab === 'bupot' ? 'text-white' : 'text-gray-600 group-hover:text-orange-600 dark:text-gray-400'"
-                                    class="h-5 w-5 md:h-6 md:w-6" />
-                            </div>
-
-                            {{-- Label & Count --}}
-                            <div class="flex-1 text-left md:text-center">
-                                <p :class="activeTab === 'bupot' ? 'text-orange-900 dark:text-orange-100' : 'text-gray-900 dark:text-white'"
-                                    class="text-sm font-bold">
-                                    <span class="md:hidden">Bupot</span>
-                                    <span class="hidden md:inline">PPh Unifikasi</span>
-                                </p>
-                                <p :class="activeTab === 'bupot' ? 'text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400'"
-                                    class="mt-0.5 text-xs font-medium">
-                                    {{ $record->bupots->count() }} Bupot
-                                </p>
-                                {{-- Status Text --}}
-                                <p
-                                    class="mt-1 text-[10px] font-semibold {{ $bupotReported ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400' }}">
-                                    {{ $bupotReported ? '✓ Sudah Lapor' : '⚠ Belum Lapor' }}
-                                </p>
-                            </div>
-
-                            {{-- Active Indicator - Desktop Only --}}
-                            <div x-show="activeTab === 'bupot'"
-                                class="absolute -bottom-1 left-1/2 -translate-x-1/2 hidden md:block">
-                                <div class="h-1 w-16 rounded-full bg-orange-600 shadow-lg"></div>
-                            </div>
-                        </button>
-                        @else
-                        {{-- Disabled Bupot Tab - Contract not active --}}
-                        <div 
-                            x-data="{ showTooltip: false }"
-                            @mouseenter="showTooltip = true"
-                            @mouseleave="showTooltip = false"
-                            class="group relative flex flex-row md:flex-col items-center gap-3 rounded-lg md:rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-3 py-3 md:px-4 md:py-4 opacity-60 cursor-not-allowed dark:border-gray-600 dark:bg-gray-800/30">
-
-                            {{-- Lock icon badge --}}
-                            <div class="absolute -right-1 -top-1 md:-right-2 md:-top-2 z-10">
-                                <div class="flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full bg-gray-400 shadow-lg ring-2 ring-white dark:ring-gray-900">
-                                    <x-filament::icon icon="heroicon-m-lock-closed" class="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                </div>
-                            </div>
-
-                            {{-- Icon --}}
-                            <div class="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-gray-200 dark:bg-gray-700 flex-shrink-0">
-                                <x-filament::icon icon="heroicon-o-receipt-percent" class="h-5 w-5 md:h-6 md:w-6 text-gray-400 dark:text-gray-500" />
-                            </div>
-
-                            {{-- Label & Count --}}
-                            <div class="flex-1 text-left md:text-center">
-                                <p class="text-sm font-bold text-gray-500 dark:text-gray-400">
-                                    <span class="md:hidden">Bupot</span>
-                                    <span class="hidden md:inline">PPh Unifikasi</span>
-                                </p>
-                                <p class="mt-0.5 text-xs font-medium text-gray-400 dark:text-gray-500">0 Bupot</p>
-                                <p class="mt-1 text-[10px] font-semibold text-gray-400 dark:text-gray-500">
-                                    🔒 Tidak Aktif
-                                </p>
-                            </div>
-
-                            {{-- Tooltip --}}
-                            <div 
-                                x-show="showTooltip"
-                                x-transition:enter="transition ease-out duration-200"
-                                x-transition:enter-start="opacity-0 translate-y-1"
-                                x-transition:enter-end="opacity-100 translate-y-0"
-                                x-transition:leave="transition ease-in duration-150"
-                                x-transition:leave-start="opacity-100 translate-y-0"
-                                x-transition:leave-end="opacity-0 translate-y-1"
-                                class="absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-center text-xs text-white shadow-xl dark:bg-gray-700"
-                            >
-                                <p class="font-medium">Fitur PPh Unifikasi tidak tersedia</p>
-                                <p class="mt-1 text-gray-300 dark:text-gray-400">Kontrak PPh Unifikasi (Bupot) untuk klien ini belum aktif.</p>
-                                <div class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900 dark:bg-gray-700"></div>
-                            </div>
-                        </div>
-                        @endif
-
-                        {{-- PPh Badan Tab - Conditional based on client contract --}}
-                        @php
-                        $hasPphBadanContract = $client->pph_badan_contract ?? false;
-                        @endphp
-                        
-                        @if($hasPphBadanContract)
-                        <button @click="activeTab = 'pph_badan'"
-                            :class="activeTab === 'pph_badan' 
-                                    ? 'border-indigo-500 bg-gradient-to-br from-indigo-50 to-indigo-100 shadow-lg shadow-indigo-500/20 dark:border-indigo-400 dark:from-indigo-900/30 dark:to-indigo-900/10' 
-                                    : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/50 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:border-indigo-600'"
-                            class="group relative flex flex-row md:flex-col items-center gap-3 rounded-lg md:rounded-xl border-2 px-3 py-3 md:px-4 md:py-4 transition-all duration-200">
-
-                            {{-- Reporting Status Badge --}}
-                            <div class="absolute -right-1 -top-1 md:-right-2 md:-top-2 z-10">
-                                @if($pphBadanReported)
-                                <div class="flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full bg-green-500 shadow-lg ring-2 ring-white dark:ring-gray-900"
-                                    title="Sudah Lapor">
-                                    <x-filament::icon icon="heroicon-m-check-circle"
-                                        class="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                </div>
-                                @else
-                                <div class="status-pulse flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full bg-orange-500 shadow-lg ring-2 ring-white dark:ring-gray-900"
-                                    title="Belum Lapor">
-                                    <x-filament::icon icon="heroicon-m-exclamation-circle"
-                                        class="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                </div>
-                                @endif
-                            </div>
-
-                            {{-- Icon --}}
-                            <div :class="activeTab === 'pph_badan' ? 'bg-indigo-600 shadow-lg shadow-indigo-500/50' : 'bg-gray-100 group-hover:bg-indigo-100 dark:bg-gray-700'"
-                                class="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl transition-all duration-200 flex-shrink-0">
-                                <x-filament::icon icon="heroicon-o-building-office"
-                                    :class="activeTab === 'pph_badan' ? 'text-white' : 'text-gray-600 group-hover:text-indigo-600 dark:text-gray-400'"
-                                    class="h-5 w-5 md:h-6 md:w-6" />
-                            </div>
-
-                            {{-- Label & Count --}}
-                            <div class="flex-1 text-left md:text-center">
-                                <p :class="activeTab === 'pph_badan' ? 'text-indigo-900 dark:text-indigo-100' : 'text-gray-900 dark:text-white'"
-                                    class="text-sm font-bold">
-                                    PPh Badan
-                                </p>
-                                <p :class="activeTab === 'pph_badan' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'"
-                                    class="mt-0.5 text-xs font-medium">
-                                    0 Transaksi
-                                </p>
-                                {{-- Status Text --}}
-                                <p
-                                    class="mt-1 text-[10px] font-semibold {{ $pphBadanReported ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400' }}">
-                                    {{ $pphBadanReported ? '✓ Sudah Lapor' : '⚠ Belum Lapor' }}
-                                </p>
-                            </div>
-
-                            {{-- Active Indicator - Desktop Only --}}
-                            <div x-show="activeTab === 'pph_badan'"
-                                class="absolute -bottom-1 left-1/2 -translate-x-1/2 hidden md:block">
-                                <div class="h-1 w-16 rounded-full bg-indigo-600 shadow-lg"></div>
-                            </div>
-                        </button>
-                        @else
-                        {{-- Disabled PPh Badan Tab - Contract not active --}}
-                        <div 
-                            x-data="{ showTooltip: false }"
-                            @mouseenter="showTooltip = true"
-                            @mouseleave="showTooltip = false"
-                            class="group relative flex flex-row md:flex-col items-center gap-3 rounded-lg md:rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-3 py-3 md:px-4 md:py-4 opacity-60 cursor-not-allowed dark:border-gray-600 dark:bg-gray-800/30">
-
-                            {{-- Lock icon badge --}}
-                            <div class="absolute -right-1 -top-1 md:-right-2 md:-top-2 z-10">
-                                <div class="flex h-6 w-6 md:h-8 md:w-8 items-center justify-center rounded-full bg-gray-400 shadow-lg ring-2 ring-white dark:ring-gray-900">
-                                    <x-filament::icon icon="heroicon-m-lock-closed" class="h-4 w-4 md:h-5 md:w-5 text-white" />
-                                </div>
-                            </div>
-
-                            {{-- Icon --}}
-                            <div class="flex h-10 w-10 md:h-12 md:w-12 items-center justify-center rounded-lg md:rounded-xl bg-gray-200 dark:bg-gray-700 flex-shrink-0">
-                                <x-filament::icon icon="heroicon-o-building-office" class="h-5 w-5 md:h-6 md:w-6 text-gray-400 dark:text-gray-500" />
-                            </div>
-
-                            {{-- Label & Count --}}
-                            <div class="flex-1 text-left md:text-center">
-                                <p class="text-sm font-bold text-gray-500 dark:text-gray-400">
-                                    PPh Badan
-                                </p>
-                                <p class="mt-0.5 text-xs font-medium text-gray-400 dark:text-gray-500">0 Transaksi</p>
-                                <p class="mt-1 text-[10px] font-semibold text-gray-400 dark:text-gray-500">
-                                    🔒 Tidak Aktif
-                                </p>
-                            </div>
-
-                            {{-- Tooltip --}}
-                            <div 
-                                x-show="showTooltip"
-                                x-transition:enter="transition ease-out duration-200"
-                                x-transition:enter-start="opacity-0 translate-y-1"
-                                x-transition:enter-end="opacity-100 translate-y-0"
-                                x-transition:leave="transition ease-in duration-150"
-                                x-transition:leave-start="opacity-100 translate-y-0"
-                                x-transition:leave-end="opacity-0 translate-y-1"
-                                class="absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-center text-xs text-white shadow-xl dark:bg-gray-700"
-                            >
-                                <p class="font-medium">Fitur PPh Badan tidak tersedia</p>
-                                <p class="mt-1 text-gray-300 dark:text-gray-400">Kontrak PPh Badan untuk klien ini belum aktif.</p>
-                                <div class="absolute -bottom-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gray-900 dark:bg-gray-700"></div>
-                            </div>
-                        </div>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Tab Content - Responsive --}}
-        <div class="space-y-4">
-            {{-- PPN Content --}}
-            <div x-show="activeTab === 'invoices'" x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 transform translate-y-2"
-                x-transition:enter-end="opacity-100 transform translate-y-0" style="display: none;">
-                @livewire('tax-report.ppn.tax-report-invoices', ['taxReportId' => $record->id])
-            </div>
-
-            {{-- PPh Content --}}
-            <div x-show="activeTab === 'pph'" x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 transform translate-y-2"
-                x-transition:enter-end="opacity-100 transform translate-y-0" style="display: none;">
-                @livewire('tax-report.pph.tax-report-pph', ['taxReportId' => $record->id])
-            </div>
-
-            {{-- Bupot Content --}}
-            <div x-show="activeTab === 'bupot'" x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 transform translate-y-2"
-                x-transition:enter-end="opacity-100 transform translate-y-0" style="display: none;">
-                <div class="space-y-4">
-                    {{-- Konfirmasi ada/tidaknya aktivitas. PPh Unifikasi hanya
-                         wajib dilaporkan bila masa ini memang ada pemotongan;
-                         tanpa pernyataan eksplisit, masa ini akan terus terhitung
-                         sebagai tunggakan di dashboard. --}}
-                    @livewire('tax-report.activity-confirmation',
-                        ['taxReportId' => $record->id, 'type' => 'bupot'],
-                        key('act-bupot-' . $record->id))
-
-                    @livewire('tax-report.spt-upload',
-                        ['taxReportId' => $record->id, 'type' => 'bupot'],
-                        key('spt-bupot-' . $record->id))
-                </div>
-            </div>
-
-            {{-- ✅ NEW: PPh Badan Content --}}
-            <div x-show="activeTab === 'pph_badan'" x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 transform translate-y-2"
-                x-transition:enter-end="opacity-100 transform translate-y-0" style="display: none;">
-                {{-- Konfirmasi ada/tidaknya aktivitas. PPh Badan bersifat
-                     tahunan dan hanya dilaporkan bila ada aktivitas, jadi
-                     perlakuannya sama dengan PPh Unifikasi. --}}
-                <div class="mb-4">
-                    @livewire('tax-report.activity-confirmation',
-                        ['taxReportId' => $record->id, 'type' => 'pph_badan'],
-                        key('act-badan-' . $record->id))
-                </div>
-
-                {{-- Placeholder content --}}
-                <div
-                    class="overflow-hidden rounded-lg md:rounded-xl bg-white shadow-sm ring-1 ring-gray-900/5 dark:bg-gray-900 dark:ring-white/10">
-                    <div class="p-6 md:p-8 text-center">
-                        <div
-                            class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
-                            <x-filament::icon icon="heroicon-o-building-office"
-                                class="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
-                        </div>
-                        <h3 class="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
-                            PPh Badan
-                        </h3>
-                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                            Fitur PPh Badan (Corporate Income Tax) akan segera tersedia.
-                        </p>
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-500">
-                            Livewire component: <code
-                                class="text-indigo-600 dark:text-indigo-400">tax-report.components.tax-report-pph-badan</code>
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+            </section>
+        @endunless
     </div>
-</x-filament::page>
+</x-filament-panels::page>

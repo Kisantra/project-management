@@ -46,7 +46,9 @@ class TaxReportResource extends Resource
 {
     protected static ?string $model = TaxReport::class;
 
-    protected static ?string $modelLabel = 'Laporan Pajaks';
+    protected static ?string $modelLabel = 'Laporan Pajak';
+
+    protected static ?string $pluralModelLabel = 'Laporan Pajak';
 
     protected static ?string $navigationLabel = 'Laporan Pajak';
 
@@ -180,21 +182,34 @@ class TaxReportResource extends Resource
                         },
                     ]);
             })
-            // Use custom content view for card layout
-            ->content(view('filament.pages.tax-report.components.tax-report-cards'))
+            // Custom list (grouped per month, one column per tax type); see ListTaxReports::slots().
+            ->content(view('filament.pages.tax-report.components.tax-report-list'))
+            // Newest period first; month is stored as an English name, so order it by calendar position.
+            ->defaultSort(fn (Builder $query): Builder => $query
+                ->orderBy('year', 'desc')
+                ->orderByRaw(self::monthOrderSql('desc'))
+                ->orderBy('id'))
             ->columns([
                 TextColumn::make('client.name')
                     ->label('Client')
                     ->badge()
                     ->color('gray')
-                    ->sortable()
+                    // Per client, newest period first.
+                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query
+                        ->orderBy(Client::select('name')->whereColumn('clients.id', 'tax_reports.client_id'), $direction)
+                        ->orderBy('year', 'desc')
+                        ->orderByRaw(self::monthOrderSql('desc'))
+                        ->orderBy('id'))
                     ->searchable(),
 
                 TextColumn::make('month')
                     ->label('Periode')
                     ->badge()
                     ->color('info')
-                    ->sortable(),
+                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query
+                        ->orderBy('year', $direction)
+                        ->orderByRaw(self::monthOrderSql($direction))
+                        ->orderBy('id')),
 
                 // PPN Status from tax_calculation_summaries
                 Tables\Columns\IconColumn::make('ppn_status')
@@ -637,10 +652,7 @@ class TaxReportResource extends Resource
                     Tables\Actions\Action::make('update_ppn_status')
                         ->label('Update Status PPN')
                         ->icon('heroicon-o-document-check')
-                        ->color(function (TaxReport $record): string {
-                            $ppnSummary = $record->taxCalculationSummaries->firstWhere('tax_type', 'ppn');
-                            return $ppnSummary && $ppnSummary->report_status === 'Sudah Lapor' ? 'success' : 'warning';
-                        })
+                        ->color('primary')
                         ->form([
                             Select::make('report_status')
                                 ->label('Status Laporan PPN')
@@ -695,10 +707,7 @@ class TaxReportResource extends Resource
                     Tables\Actions\Action::make('update_pph_status')
                         ->label('Update Status PPh')
                         ->icon('heroicon-o-receipt-percent')
-                        ->color(function (TaxReport $record): string {
-                            $pphSummary = $record->taxCalculationSummaries->firstWhere('tax_type', 'pph');
-                            return $pphSummary && $pphSummary->report_status === 'Sudah Lapor' ? 'success' : 'warning';
-                        })
+                        ->color('primary')
                         ->form([
                             Select::make('report_status')
                                 ->label('Status Laporan PPh')
@@ -753,10 +762,7 @@ class TaxReportResource extends Resource
                     Tables\Actions\Action::make('update_bupot_status')
                         ->label('Update Status Bupot')
                         ->icon('heroicon-o-document-text')
-                        ->color(function (TaxReport $record): string {
-                            $bupotSummary = $record->taxCalculationSummaries->firstWhere('tax_type', 'bupot');
-                            return $bupotSummary && $bupotSummary->report_status === 'Sudah Lapor' ? 'success' : 'warning';
-                        })
+                        ->color('primary')
                         ->form([
                             Select::make('report_status')
                                 ->label('Status Laporan Bupot')
@@ -811,10 +817,7 @@ class TaxReportResource extends Resource
                     Tables\Actions\Action::make('update_pph_badan_status')
                         ->label('Update Status PPh Badan')
                         ->icon('heroicon-o-building-office')
-                        ->color(function (TaxReport $record): string {
-                            $pphBadanSummary = $record->taxCalculationSummaries->firstWhere('tax_type', 'pph_badan');
-                            return $pphBadanSummary && $pphBadanSummary->report_status === 'Sudah Lapor' ? 'success' : 'warning';
-                        })
+                        ->color('primary')
                         ->form([
                             Select::make('report_status')
                                 ->label('Status Laporan PPh Badan')
@@ -988,5 +991,13 @@ class TaxReportResource extends Resource
             'view' => Pages\ViewTaxReport::route('/{record}'),
             'edit' => Pages\EditTaxReport::route('/{record}/edit'),
         ];
+    }
+
+    /** ORDER BY fragment that sorts tax_reports.month (English names) by calendar position. */
+    public static function monthOrderSql(string $direction): string
+    {
+        $months = implode(', ', array_map(fn (string $month) => "'{$month}'", \App\Filament\Resources\TaxReportResource\Pages\ListTaxReports::MONTHS));
+
+        return "FIELD(tax_reports.month, {$months}) " . ($direction === 'desc' ? 'desc' : 'asc');
     }
 }

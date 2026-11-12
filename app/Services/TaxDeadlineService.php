@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Support\TaxPeriod;
+
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -61,20 +63,7 @@ class TaxDeadlineService
      * Locale aplikasi adalah 'en', dan mengubahnya secara global akan mengubah
      * tampilan tanggal di seluruh panel.
      */
-    private const MONTHS_ID = [
-        1 => 'Januari',
-        2 => 'Februari',
-        3 => 'Maret',
-        4 => 'April',
-        5 => 'Mei',
-        6 => 'Juni',
-        7 => 'Juli',
-        8 => 'Agustus',
-        9 => 'September',
-        10 => 'Oktober',
-        11 => 'November',
-        12 => 'Desember',
-    ];
+    private const MONTHS_ID = TaxPeriod::NAMES;
 
     /**
      * Periode yang ditagih oleh tenggat di bulan tertentu: selalu bulan sebelumnya.
@@ -112,7 +101,7 @@ class TaxDeadlineService
      *
      * @return array<int, array<string, mixed>>
      */
-    public function deadlinesFor(Carbon $anchor, ?Carbon $today = null, ?int $clientId = null): array
+    public function deadlinesFor(Carbon $anchor, ?Carbon $today = null, int|array|null $clientId = null): array
     {
         $today = ($today ?? Carbon::today())->copy()->startOfDay();
         $period = $this->periodFor($anchor);
@@ -201,7 +190,7 @@ class TaxDeadlineService
      *
      * @return array{pph: int, ppn: int, payment: int}
      */
-    public function outstandingCounts(Carbon $period, ?int $clientId = null): array
+    public function outstandingCounts(Carbon $period, int|array|null $clientId = null): array
     {
         $row = $this->periodQuery($period, $clientId)
             ->selectRaw("
@@ -230,8 +219,9 @@ class TaxDeadlineService
      * Memfilter month DAN year. Kode sebelumnya hanya memfilter nama bulan,
      * sehingga periode Januari 2026 tercampur dengan Januari 2025.
      */
-    public function periodQuery(Carbon $period, ?int $clientId = null): \Illuminate\Database\Query\Builder
+    public function periodQuery(Carbon $period, int|array|null $clientId = null): \Illuminate\Database\Query\Builder
     {
+        // One client (int), a set of clients (array, e.g. the user's own on the dashboard), or all (null).
         return DB::table('tax_calculation_summaries as s')
             ->join('tax_reports', 's.tax_report_id', '=', 'tax_reports.id')
             ->join('clients', 'tax_reports.client_id', '=', 'clients.id')
@@ -239,7 +229,8 @@ class TaxDeadlineService
             ->where('tax_reports.year', $period->year)
             ->where('clients.status', 'Active')
             ->whereRaw(self::CONTRACTED)
-            ->when($clientId, fn ($q) => $q->where('clients.id', $clientId));
+            ->when(is_int($clientId), fn ($q) => $q->where('clients.id', $clientId))
+            ->when(is_array($clientId), fn ($q) => $q->whereIn('clients.id', $clientId));
     }
 
     /** Nama bulan Indonesia, contoh: "Juni". */

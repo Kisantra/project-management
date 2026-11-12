@@ -95,7 +95,9 @@
     },
     "extra": {
         "laravel": {
-            "dont-discover": []
+            "dont-discover": [
+                "solution-forest/filament-access-management"
+            ]
         }
     },
     "config": {

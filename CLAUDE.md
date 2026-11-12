@@ -18,7 +18,7 @@ When I give you a question or task, follow this approach:
 
 4. **Project-specific things to always check** before agreeing to a plan:
    - Which **panel** (admin `/` vs client `/klien`) the change targets — and whether files are landing in the right folder ([Client/Panel/](app/Livewire/Client/Panel/) vs [Client/Management/](app/Livewire/Client/Management/)).
-   - Permission gating (`auth()->user()->can(...)` on Filament resources).
+   - Permission gating: a permission whose path pattern covers the page (see Access control below), plus `auth()->user()->can(...)` where a resource checks it.
    - Whether a **migration** is being edited in-place (don't) vs added as a new file (do).
    - Whether activity logging should fire via the `Trackable` trait (descriptions in Bahasa Indonesia).
    - Whether the change affects the **Reverb broadcast** path or **Google Drive** upload job.
@@ -48,7 +48,7 @@ Panel routing is enforced by [RedirectToProperPanelMiddleware.php](app/Http/Midd
 - **Laravel Reverb** for WebSockets / real-time (chat, notifications)
 - **Tailwind CSS** 3.4 + Vite 5 (front-end build)
 - **Spatie Activitylog** + `FilamentUserActivity` (audit trail)
-- **Solution Forest Filament Access Management** (roles & permissions)
+- **Spatie Permission** with URL-pattern permissions, managed on the **Peran & Izin** page (`/peran-izin`). The Solution Forest access plugin is still in composer but disabled (`dont-discover`); it only stays so two old migrations can load its `Utils` class.
 - **Google Drive** as cloud filesystem (`yaza/laravel-google-drive-storage`) — `FILESYSTEM_CLOUD=google`
 - **Maatwebsite/Excel** (import/export), **dompdf** (PDF), **Pusher** (broadcasting fallback)
 - **AI**: Gemini (`google-gemini-php/laravel`), OpenAI SDK, NeuronAI (`app/Neuron/TaxBotAgent.php`) — used in [TaxChat.php](app/Filament/Pages/TaxChat.php) and [InvoiceAIService.php](app/Services/InvoiceAIService.php)
@@ -104,7 +104,7 @@ routes/
 ### Filament resources
 - Navigation groups are fixed in [AdminPanelProvider.php:57-65](app/Providers/Filament/AdminPanelProvider.php#L57-L65): `Project Management`, `Tax Management`, `Tugas Harian` (menus currently hidden), `Client Management`, `Standard Operating Procedures`, `Master Data`, `Administration`. Pick one — don't invent new groups.
 - **Letters (Penyuratan) do not live here.** The letters module moved to the digital-marketing app (`~/Projects/client-management`, Surat menu), which is the office's single register for outgoing letters. Don't rebuild letter templates, numbering or signatures in this repo.
-- Access control uses **Filament Access Management** permissions, e.g. `auth()->user()->can('clients.*')`. Both `shouldRegisterNavigation()` and `canAccess()` should be set on each resource.
+- Access control: every Spatie permission has path patterns in `permissions.http_path` (e.g. `clients*`). [AuthorizePanelPath](app/Http/Middleware/AuthorizePanelPath.php) blocks any admin URL that none of the user's permissions match ([PathPermission](app/Support/Access/PathPermission.php) holds the matching rules; super-admin passes everything via `Gate::before`). A new page is therefore 403 for non-super-admins until a permission covers its path: add or extend one on `/peran-izin`. Resources may additionally check `auth()->user()->can('clients.*')`; set both `shouldRegisterNavigation()` and `canAccess()` so the menu matches what the user can open.
 - Primary color is **Cyan** (overridden from Amber later in the provider).
 
 ### Livewire ↔ Blade naming

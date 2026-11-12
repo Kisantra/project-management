@@ -88,11 +88,13 @@ class ProsesClientIntake extends Page
         return $this->getIntake()->isPending() ? 'Cek & proses klien masuk' : 'Klien masuk';
     }
 
+    /** What CM is, in one line (the deal itself is in the summary card below). */
     public function getSubheading(): string | Htmlable | null
     {
-        $intake = $this->getIntake();
-
-        return $intake->name . ' · diterima ' . $intake->created_at->locale('id')->translatedFormat('j M Y H.i');
+        return new HtmlString(
+            '<span class="kis-lead">Data deal dari <b>Client Management (CM)</b>, aplikasi tim marketing Kisantra. '
+            . 'Isian bertanda CM berasal dari sana; ubah bila perlu sebelum diproses.</span>'
+        );
     }
 
     // ---------------------------------------------------------------------

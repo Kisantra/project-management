@@ -2,10 +2,13 @@
 
 namespace App\Livewire\TaxReport\Ppn;
 
-use Livewire\Component;
+use App\Filament\Resources\TaxReportResource;
 use App\Models\TaxReport;
-use App\Models\TaxCalculationSummary;
-use Carbon\Carbon;
+use App\Services\TaxReport\PpnBreakdown;
+use App\Support\TaxPeriod;
+use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
+use Livewire\Component;
 use App\Exports\TaxReport\PPN\YearlyTaxReportsExport;
 use Maatwebsite\Excel\Facades\Excel;
 use Filament\Notifications\Notification;
@@ -30,92 +33,77 @@ class YearlySummary extends Component
         $this->clientName = $currentReport->client->name;
     }
 
-    public function getTimelineDataProperty()
+    /**
+     * Twelve months of the year with the stored PPN summary of each report,
+     * the year totals and the points for the chart. Peredaran bruto comes from
+     * PpnBreakdown (the summary has no such column).
+     */
+    #[Computed]
+    public function year(): array
     {
-        // Get all tax reports for this client in the current year with PPN summaries
-        $taxReports = TaxReport::where('client_id', $this->clientId)
+        $reports = TaxReport::where('client_id', $this->clientId)
             ->where('year', $this->currentYear)
-            ->with(['taxCalculationSummaries' => function($query) {
-                $query->where('tax_type', 'ppn');
-            }])
-            ->get();
+            ->with(['taxCalculationSummaries' => fn ($query) => $query->where('tax_type', 'ppn')])
+            ->get()
+            ->keyBy(fn (TaxReport $report) => TaxPeriod::index($report->month));
 
-        // Define month order for sorting
-        $monthOrder = [
-            'January' => 1, 'February' => 2, 'March' => 3, 'April' => 4,
-            'May' => 5, 'June' => 6, 'July' => 7, 'August' => 8,
-            'September' => 9, 'October' => 10, 'November' => 11, 'December' => 12
-        ];
+        $rows = [];
+        $totals = ['kurang' => 0.0, 'kurangMonths' => 0, 'lebih' => 0.0, 'lebihMonths' => 0, 'bruto' => 0.0, 'reported' => 0, 'withReports' => 0];
+        $chart = ['labels' => [], 'titles' => [], 'up' => [], 'down' => []];
 
-        // Sort by month order
-        $taxReports = $taxReports->sortBy(function ($report) use ($monthOrder) {
-            return $monthOrder[$report->month] ?? 0;
-        })->values();
+        foreach (TaxPeriod::NAMES as $number => $name) {
+            $report = $reports->get($number);
+            $summary = $report?->taxCalculationSummaries->first();
+            $saldo = (float) ($summary?->saldo_final ?? 0);
+            $status = $summary?->status_final;
 
-        $timelineData = [];
-        $totalPpnMasuk = 0;
-        $totalPpnKeluar = 0;
-        $totalKurangBayar = 0;
-        $totalLebihBayar = 0;
-        $totalPeredaranBruto = 0;
-        $monthsWithReports = 0;
-        $sudahLaporCount = 0;
-        $belumLaporCount = 0;
-
-        foreach ($taxReports as $report) {
-            $ppnSummary = $report->taxCalculationSummaries->where('tax_type', 'ppn')->first();
-            
-            if ($ppnSummary) {
-                $monthsWithReports++;
-                $totalPpnMasuk += $ppnSummary->pajak_masuk ?? 0;
-                $totalPpnKeluar += $ppnSummary->pajak_keluar ?? 0;
-                $totalPeredaranBruto += $ppnSummary->peredaran_bruto ?? 0;
-                
-                if ($ppnSummary->status_final === 'Kurang Bayar') {
-                    $totalKurangBayar += abs($ppnSummary->saldo_final);
-                } elseif ($ppnSummary->status_final === 'Lebih Bayar') {
-                    $totalLebihBayar += abs($ppnSummary->saldo_final);
-                }
-
-                // Count report status
-                if ($ppnSummary->report_status === 'Sudah Lapor') {
-                    $sudahLaporCount++;
-                } else {
-                    $belumLaporCount++;
-                }
+            if ($report) {
+                $totals['withReports']++;
+                $totals['bruto'] += PpnBreakdown::for($report)->dppKeluar();
+            }
+            if ($summary?->report_status === 'Sudah Lapor') {
+                $totals['reported']++;
+            }
+            if ($status === 'Kurang Bayar') {
+                $totals['kurang'] += abs($saldo);
+                $totals['kurangMonths']++;
+            } elseif ($status === 'Lebih Bayar') {
+                $totals['lebih'] += abs($saldo);
+                $totals['lebihMonths']++;
             }
 
-            // Format month name with year
-            $monthName = $report->month . ' ' . $this->currentYear;
-
-            $timelineData[] = [
-                'id' => $report->id,
-                'month' => $report->month,
-                'month_name' => $monthName,
-                'month_short' => substr($report->month, 0, 3) . ' ' . $this->currentYear,
-                'ppn_summary' => $ppnSummary,
-                'is_current' => $report->month === $this->currentMonth,
+            $rows[] = [
+                'number' => $number,
+                'name' => $name,
+                'current' => $number === TaxPeriod::index($this->currentMonth),
+                'url' => $report ? TaxReportResource::getUrl('view', ['record' => $report->id]) : null,
+                'hasReport' => (bool) $report,
+                'summary' => (bool) $summary,
+                'masuk' => (float) ($summary?->pajak_masuk ?? 0),
+                'keluar' => (float) ($summary?->pajak_keluar ?? 0),
+                'received' => (float) ($summary?->kompensasi_diterima ?? 0) + (float) ($summary?->manual_kompensasi ?? 0),
+                'given' => (float) ($summary?->kompensasi_terpakai ?? 0),
+                'saldo' => $saldo,
+                'status' => $status,
+                'reported' => $summary?->report_status === 'Sudah Lapor',
+                'reportedAt' => TaxPeriod::date($summary?->reported_at),
             ];
+
+            $chart['labels'][] = TaxPeriod::SHORT[$number];
+            $chart['titles'][] = TaxPeriod::label($number, $this->currentYear);
+            $chart['up'][] = $status === 'Kurang Bayar' ? abs($saldo) : 0.0;
+            $chart['down'][] = $status === 'Lebih Bayar' ? abs($saldo) : 0.0;
         }
 
-        return [
-            'timeline' => $timelineData,
-            'year' => $this->currentYear,
-            'totals' => [
-                'ppn_masuk' => $totalPpnMasuk,
-                'ppn_keluar' => $totalPpnKeluar,
-                'kurang_bayar' => $totalKurangBayar,
-                'lebih_bayar' => $totalLebihBayar,
-                'peredaran_bruto' => $totalPeredaranBruto,
-                'net_position' => $totalKurangBayar - $totalLebihBayar,
-            ],
-            'statistics' => [
-                'total_months' => count($timelineData),
-                'months_with_reports' => $monthsWithReports,
-                'sudah_lapor' => $sudahLaporCount,
-                'belum_lapor' => $belumLaporCount,
-            ],
-        ];
+        return ['rows' => $rows, 'totals' => $totals, 'chart' => $chart];
+    }
+
+    /** Computed values are rebuilt per request; re-rendering is the refresh. */
+    #[On('tax-report-changed')]
+    #[On('compensationUpdated')]
+    #[On('spt-updated')]
+    public function refreshYear(): void
+    {
     }
 
     public function exportYearlyReport()
@@ -211,8 +199,6 @@ class YearlySummary extends Component
 
     public function render()
     {
-        return view('livewire.tax-report.ppn.yearly-summary', [
-            'timelineData' => $this->timelineData,
-        ]);
+        return view('livewire.tax-report.ppn.yearly-summary');
     }
 }

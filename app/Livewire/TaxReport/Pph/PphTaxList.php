@@ -50,7 +50,7 @@ class PphTaxList extends Component implements HasForms, HasTable
     {
         $this->taxReportId = $taxReportId;
         $this->taxReport = TaxReport::with('client')->findOrFail($taxReportId);
-        $this->calculateStatistics();
+        $this->calculateStatistics(false);
     }
 
     public function table(Table $table): Table
@@ -92,7 +92,7 @@ class PphTaxList extends Component implements HasForms, HasTable
                         return $computed[$record->id];
                     })
                     ->alignCenter()
-                    ->extraCellAttributes(['class' => 'font-mono text-gray-500 text-xs']),
+                    ->extraCellAttributes(['class' => 'tabular-nums text-gray-500 text-xs']),
 
                 TextColumn::make('masa_pajak')
                     ->label('Masa Pajak')
@@ -119,12 +119,14 @@ class PphTaxList extends Component implements HasForms, HasTable
                 
                 TextColumn::make('dasar_pengenaan_pajak')
                     ->label('DPP')
-                    ->money('IDR')
+                    ->formatStateUsing(fn ($state) => \App\Services\TaxReport\ReportOverview::rupiah((float) $state))
+                    ->alignEnd()
                     ->sortable(),
                 
                 TextColumn::make('pajak_penghasilan')
                     ->label('PPh')
-                    ->money('IDR')
+                    ->formatStateUsing(fn ($state) => \App\Services\TaxReport\ReportOverview::rupiah((float) $state))
+                    ->alignEnd()
                     ->sortable()
                     ->weight('bold'),
                 
@@ -132,8 +134,8 @@ class PphTaxList extends Component implements HasForms, HasTable
                     ->label('Status')
                     ->badge()
                     ->color(fn (string $state): string => match (strtoupper($state)) {
-                        'NORMAL' => 'success',
-                        'PEMBETULAN' => 'warning',
+                        'NORMAL' => 'gray',
+                        'PEMBETULAN' => 'primary',
                         'PEMBATALAN' => 'danger',
                         default => 'gray',
                     }),
@@ -142,14 +144,14 @@ class PphTaxList extends Component implements HasForms, HasTable
                     ->label('Lapor SPT')
                     ->badge()
                     ->formatStateUsing(fn ($state) => $state ? 'Ya' : 'Tidak')
-                    ->color(fn ($state): string => $state ? 'success' : 'gray')
+                    ->color(fn ($state): string => $state ? 'primary' : 'gray')
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('bukti_potong')
                     ->label('Bukti')
                     ->formatStateUsing(fn ($state) => $state ? '✓' : '-')
                     ->alignCenter()
-                    ->color(fn ($state) => $state ? 'success' : 'gray')
+                    ->color(fn ($state) => $state ? 'primary' : 'gray')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
@@ -157,9 +159,9 @@ class PphTaxList extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                     Action::make('import_excel')
-                        ->label('Import Excel')
+                        ->label('Impor Excel DJP')
                         ->icon('heroicon-o-arrow-down-tray')
-                        ->color('success')
+                        ->color('primary')
                         ->form([
                             FileUpload::make('file')
                                 ->label('File Excel')
@@ -207,7 +209,7 @@ class PphTaxList extends Component implements HasForms, HasTable
                 Action::make('download_template')
                     ->label('Download Template')
                     ->icon('heroicon-o-document-arrow-down')
-                    ->color('info')
+                    ->color('gray')
                     ->action(function () {
                         $templatePath = storage_path('app/templates/income_tax_template.xlsx');
                         
@@ -224,17 +226,20 @@ class PphTaxList extends Component implements HasForms, HasTable
                     ->visible(fn () => file_exists(storage_path('app/templates/income_tax_template.xlsx'))),
                 
                 Action::make('export_excel')
-                    ->label('Export Excel')
+                    ->label('Ekspor Excel')
                     ->icon('heroicon-o-arrow-up-tray')
-                    ->color('primary')
+                    ->color('gray')
                     ->action(fn () => $this->exportToExcel())
                     ->visible(fn () => IncomeTax::where('tax_report_id', $this->taxReportId)->count() > 0),
 
             ])
             ->actions([
                 Action::make('edit')
+                    ->label('Ubah')
+                    ->iconButton()
+                    ->tooltip('Ubah')
                     ->icon('heroicon-o-pencil')
-                    ->color('warning')
+                    ->color('gray')
                     ->form([
                         TextInput::make('nomor_pemotongan')
                             ->label('Nomor Pemotongan')
@@ -299,6 +304,9 @@ class PphTaxList extends Component implements HasForms, HasTable
                     }),
                 
                 Action::make('delete')
+                    ->label('Hapus')
+                    ->iconButton()
+                    ->tooltip('Hapus')
                     ->icon('heroicon-o-trash')
                     ->color('danger')
                     ->requiresConfirmation()
@@ -322,7 +330,7 @@ class PphTaxList extends Component implements HasForms, HasTable
                 BulkAction::make('update_status')
                     ->label('Update Status')
                     ->icon('heroicon-o-pencil-square')
-                    ->color('warning')
+                    ->color('gray')
                     ->form([
                         Select::make('status')
                             ->label('Status Baru')
@@ -335,6 +343,7 @@ class PphTaxList extends Component implements HasForms, HasTable
                     ])
                     ->action(function (Collection $records, array $data): void {
                         $records->each->update(['status' => $data['status']]);
+                        $this->calculateStatistics();
                         
                         Notification::make()
                             ->title('Status Berhasil Diupdate')
@@ -344,6 +353,8 @@ class PphTaxList extends Component implements HasForms, HasTable
                     })
                     ->deselectRecordsAfterCompletion(),
             ])
+            ->heading('Bukti potong PPh 21')
+            ->description(fn () => 'Rp ' . number_format((float) $this->pph21Total, 0, ',', '.') . ' dari ' . $this->pph21Count . ' bukti potong')
             ->emptyStateHeading('Belum ada data PPh 21')
             ->emptyStateDescription('Tambahkan data PPh menggunakan tombol Import Excel')
             ->emptyStateIcon('heroicon-o-document-text')
@@ -642,8 +653,16 @@ class PphTaxList extends Component implements HasForms, HasTable
         return in_array($value, ['TRUE', '1', 'YES', 'Y']);
     }
 
-    public function calculateStatistics(): void
+    /**
+     * Totals for the table heading. After a change (import, edit, delete) the
+     * PPh workspace and the page strip re-read their numbers too.
+     */
+    public function calculateStatistics(bool $changed = true): void
     {
+        if ($changed) {
+            $this->dispatch('tax-report-changed', taxReportId: $this->taxReportId);
+        }
+
         $incomeTaxes = IncomeTax::where('tax_report_id', $this->taxReportId)->get();
         
         // PPh 21

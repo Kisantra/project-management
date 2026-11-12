@@ -85,8 +85,8 @@ class KaryawanList extends Component implements HasForms, HasTable
                     ->label('Tipe')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'Karyawan Tetap' => 'success',
-                        'Harian' => 'warning',
+                        'Karyawan Tetap' => 'gray',
+                        'Harian' => 'gray',
                         default => 'gray',
                     })
                     ->sortable(),
@@ -105,24 +105,29 @@ class KaryawanList extends Component implements HasForms, HasTable
                             : "TK/{$record->tk}"
                     )
                     ->color(fn ($state): string => match($state) {
-                        'married' => 'success',
-                        'single' => 'info',
+                        'married' => 'gray',
+                        'single' => 'gray',
                         default => 'gray',
                     }),
                 
                 TextColumn::make('salary')
                     ->label('Gaji')
-                    ->money('IDR')
+                    ->formatStateUsing(fn ($state) => \App\Services\TaxReport\ReportOverview::rupiah((float) $state))
+                    ->alignEnd()
                     ->sortable()
                     ->placeholder('Belum diatur'),
                 
                 TextColumn::make('status')
-                    ->label('Status Aktif')
+                    ->label('Status')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => ucfirst($state))
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'active' => 'Aktif',
+                        'inactive' => 'Tidak aktif',
+                        default => ucfirst((string) $state),
+                    })
                     ->color(fn (string $state): string => match ($state) {
-                        'active' => 'success',
-                        'inactive' => 'danger',
+                        'active' => 'primary',
+                        'inactive' => 'gray',
                         default => 'gray',
                     })
                     ->sortable(),
@@ -154,16 +159,16 @@ class KaryawanList extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 Action::make('export_excel')
-                    ->label('Export Excel')
+                    ->label('Ekspor Excel')
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->color('primary')
+                    ->color('gray')
                     ->action(fn () => $this->exportToExcel())
                     ->visible(fn () => Employee::where('client_id', $this->clientId)->count() > 0),
                 
                 Action::make('create')
                     ->label('Tambah Karyawan')
                     ->icon('heroicon-o-plus')
-                    ->color('success')
+                    ->color('primary')
                     ->form([
                         TextInput::make('name')
                             ->label('Nama Lengkap')
@@ -273,8 +278,11 @@ class KaryawanList extends Component implements HasForms, HasTable
             ])
             ->actions([
                 Action::make('edit')
+                    ->label('Ubah')
+                    ->iconButton()
+                    ->tooltip('Ubah')
                     ->icon('heroicon-o-pencil')
-                    ->color('warning')
+                    ->color('gray')
                     ->form([
                         TextInput::make('name')
                             ->label('Nama Lengkap')
@@ -369,6 +377,9 @@ class KaryawanList extends Component implements HasForms, HasTable
                     }),
                 
                 Action::make('delete')
+                    ->label('Hapus')
+                    ->iconButton()
+                    ->tooltip('Hapus')
                     ->icon('heroicon-o-trash')
                     ->color('danger')
                     ->requiresConfirmation()
@@ -392,7 +403,7 @@ class KaryawanList extends Component implements HasForms, HasTable
                 BulkAction::make('update_status')
                     ->label('Update Status')
                     ->icon('heroicon-o-pencil-square')
-                    ->color('warning')
+                    ->color('gray')
                     ->form([
                         Select::make('status')
                             ->label('Status Baru')
@@ -418,7 +429,7 @@ class KaryawanList extends Component implements HasForms, HasTable
                 BulkAction::make('update_type')
                     ->label('Update Tipe')
                     ->icon('heroicon-o-tag')
-                    ->color('info')
+                    ->color('gray')
                     ->form([
                         Select::make('type')
                             ->label('Tipe Baru')
@@ -443,12 +454,11 @@ class KaryawanList extends Component implements HasForms, HasTable
             ->emptyStateDescription('Tambahkan karyawan untuk klien ini')
             ->emptyStateIcon('heroicon-o-user-group')
             ->emptyStateActions([
-                Action::make('create')
+                // Opens the header "Tambah Karyawan" form (it used to click the first table button on the page).
+                Action::make('create_first')
                     ->label('Tambah Karyawan')
                     ->icon('heroicon-o-plus')
-                    ->color('success')
-                    ->url('#')
-                    ->extraAttributes(['onclick' => 'document.querySelector(\'[wire\\\\:click*="mountTableAction"]\').click()']),
+                    ->action(fn () => $this->replaceMountedTableAction('create')),
             ])
             ->defaultSort('created_at', 'desc')
             ->striped()

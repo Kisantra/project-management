@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Klien Masuk · Usulan redesign (12 Nov 2026)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--background, #fff); color: var(--foreground, #111); }
+  .chrome { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding: 2px 2px 12px; font-size: 13px; }
+  .chrome .seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border, #ddd); border-radius: 9px; background: var(--muted, #f4f4f5); }
+  .chrome .seg button { font: inherit; padding: 5px 11px; border: 0; border-radius: 7px; background: transparent; color: var(--muted-foreground, #555); cursor: pointer; }
+  .chrome .seg button[aria-pressed="true"] { background: var(--background, #fff); color: var(--foreground, #111); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 600; }
+  .frame { border: 1px solid var(--border, #ddd); border-radius: 12px; overflow-x: auto; overflow-y: hidden; }
+
+  .pm {
+    --ground: #f1f7f9; --surface: #ffffff; --subtle: #f1f7f9; --subtle-2: #ebf2f4;
+    --ink: #0d1417; --ink-2: #363f43; --ink-3: #626a6f; --ink-4: #8b9497;
+    --line: #dee5e7; --line-soft: #ebf2f4; --line-strong: #ccd4d7;
+    --primary: #157a9c; --primary-700: #10657f; --primary-soft: #dff4fe; --primary-50: #eef9fd;
+    --danger: #cf4232; --danger-text: #af3628; --danger-soft: #fff4f2;
+    --tile: #1790b5;
+    font-family: "Manrope", system-ui, sans-serif; font-size: 14px; line-height: 1.45; color: var(--ink); background: var(--ground);
+    -webkit-font-smoothing: antialiased; display: grid; grid-template-columns: 236px 1fr; min-width: 1240px;
+  }
+  .pm.dark {
+    --ground: #0d1417; --surface: #151c20; --subtle: #1b2327; --subtle-2: #222b30;
+    --ink: #ffffff; --ink-2: #ccd4d7; --ink-3: #8b9497; --ink-4: #626a6f;
+    --line: rgba(255,255,255,.09); --line-soft: rgba(255,255,255,.05); --line-strong: rgba(255,255,255,.16);
+    --primary: #4ab4d2; --primary-700: #89d2ea; --primary-soft: rgba(23,144,181,.18); --primary-50: rgba(23,144,181,.1);
+    --danger: #ef806f; --danger-text: #feac9e; --danger-soft: rgba(207,66,50,.16);
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .pm svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* frame */
+  .side { padding: 14px 10px 14px 12px; }
+  .app { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; }
+  .app .logo { width: 36px; height: 36px; border-radius: 10px; background: var(--tile); display: grid; place-items: center; color: #fff; font-weight: 800; }
+  .app b { display: block; font-size: 14px; font-weight: 800; }
+  .app small { font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+  .grp { font-size: 11.5px; font-weight: 700; color: var(--ink-3); padding: 14px 10px 5px; }
+  .it { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+  .it.on { background: var(--primary-soft); color: var(--primary-700); font-weight: 700; }
+  .panel { margin: 10px 10px 10px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; min-width: 0; }
+  .top { height: 60px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 28px; }
+  .top .search { width: 220px; height: 36px; border-radius: 11px; border: 1px solid var(--line); display: flex; align-items: center; padding: 0 12px; color: var(--ink-4); font-size: 13px; }
+  .top .av { width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: var(--surface); display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+  .page { padding: 24px 32px 40px; }
+
+  /* shared bits */
+  .btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border-radius: 11px; font: inherit; font-size: 13.5px; font-weight: 700; border: 0; cursor: pointer; white-space: nowrap; }
+  .btn.p { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(16,101,127,.25); }
+  .pm.dark .btn.p { background: #157a9c; }
+  .btn.o { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-strong); }
+  .btn.o svg { color: var(--ink-3); }
+  .btn.sm { height: 32px; padding: 0 11px; font-size: 12.5px; border-radius: 9px; }
+  .btn.ghost { background: transparent; color: var(--primary-700); padding: 0 8px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .badge.dot::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: currentColor; }
+  .badge.blue { background: var(--primary-soft); color: var(--primary-700); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-700) 20%, transparent); }
+  .badge.red { background: var(--danger-soft); color: var(--danger-text); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger-text) 22%, transparent); }
+  .badge.neutral { background: var(--subtle-2); color: var(--ink-2); box-shadow: inset 0 0 0 1px var(--line); }
+  .badge.outline { background: var(--surface); color: var(--primary-700); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-700) 40%, transparent); }
+  .lbl { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .card { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+
+
+  .crumb { display: flex; gap: 8px; align-items: center; font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+  .crumb b { color: var(--ink-2); }
+  .hd { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 8px 0 18px; }
+  h1 { margin: 0; font-size: 25px; font-weight: 800; letter-spacing: -.03em; line-height: 1.15; display: flex; align-items: center; gap: 10px; }
+  .lead { margin: 6px 0 0; font-size: 13.5px; font-weight: 600; color: var(--ink-3); }
+  .lead b { color: var(--ink); font-weight: 800; }
+  .lead a { color: var(--primary-700); font-weight: 700; text-decoration: none; }
+  .acts { display: flex; gap: 8px; }
+  .tool { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .search { width: 300px; height: 38px; border-radius: 11px; box-shadow: inset 0 0 0 1px var(--line-strong); background: var(--surface); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--ink-4); font-size: 13px; font-weight: 500; }
+  .rail { display: inline-flex; gap: 2px; padding: 4px; border-radius: 14px; background: var(--subtle-2); border: 1px solid var(--line); }
+  .rail button { font: inherit; display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 11px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-2); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .rail button i { font-style: normal; font-size: 11px; font-weight: 800; color: var(--ink-3); }
+  .rail button.on { background: var(--surface); color: var(--primary-700); box-shadow: 0 1px 2px rgba(13,20,23,.12), 0 0 0 1px color-mix(in srgb, var(--primary) 22%, transparent); }
+  .rail button.on i { background: var(--primary-soft); color: var(--primary-700); padding: 1px 6px; border-radius: 7px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .tile { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 11px; background: var(--primary-soft); color: var(--primary-700); font-size: 13px; font-weight: 800; }
+  .tile.sm { width: 30px; height: 30px; border-radius: 8px; font-size: 10.5px; background: var(--subtle-2); color: var(--ink-2); }
+  .tile.lg { width: 52px; height: 52px; border-radius: 13px; font-size: 15px; }
+  .gcard { display: flex; flex-direction: column; overflow: hidden; }
+  .gcard .top { height: auto; border: 0; justify-content: flex-start; padding: 16px 18px 14px; gap: 12px; align-items: flex-start; }
+  .gcard .who { flex: 1; min-width: 0; }
+  .gcard .nm { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; letter-spacing: -.015em; }
+  .gcard .nm a { color: inherit; text-decoration: none; }
+  .gcard .mt { margin-top: 3px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  .gcard .sec { display: flex; align-items: center; justify-content: space-between; padding: 0 18px 6px; }
+  .gcard ul { list-style: none; margin: 0; padding: 0 8px 6px; }
+  .gcard li { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; font-size: 13.5px; font-weight: 700; color: var(--ink); }
+  .gcard li:hover { background: var(--subtle); }
+  .gcard li .t { flex: 1; min-width: 0; }
+  .gcard li .t small { display: block; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+  .gcard li .st { font-size: 12px; font-weight: 700; color: var(--ink-3); display: inline-flex; align-items: center; gap: 5px; }
+  .gcard li .st::before { content: ""; width: 6px; height: 6px; border-radius: 99px; background: var(--ink-4); }
+  .gcard li .st.on { color: var(--primary-700); }
+  .gcard li .st.on::before { background: var(--primary); }
+  .gcard .more { display: block; padding: 2px 18px 10px; font-size: 12.5px; font-weight: 700; color: var(--primary-700); }
+  .gcard .ft { margin-top: auto; display: flex; align-items: center; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--line-soft); background: var(--subtle); }
+  .meter { flex: 1; display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 700; color: var(--ink-3); }
+  .meter span { display: block; height: 6px; border-radius: 99px; background: var(--line); overflow: hidden; }
+  .meter span i { display: block; height: 100%; border-radius: 99px; background: var(--tile); }
+  .newcard { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; padding: 30px; border: 1.5px dashed var(--line-strong); border-radius: 14px; color: var(--ink-3); font-size: 13px; font-weight: 600; min-height: 260px; }
+  .newcard b { color: var(--ink); font-size: 15px; font-weight: 800; }
+  .newcard .tile { background: var(--subtle-2); color: var(--ink-3); }
+  /* detail */
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2.1fr); gap: 16px; align-items: start; }
+  .info h3, .roster h3 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.015em; }
+  .info .hd2, .roster .hd2 { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 18px 12px; }
+  .info .cap, .roster .cap { margin-top: 2px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  dl.kv { margin: 0; }
+  dl.kv div { padding: 10px 18px; border-top: 1px solid var(--line-soft); }
+  dl.kv dt { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  dl.kv dd { margin: 3px 0 0; font-size: 13.5px; font-weight: 600; color: var(--ink); line-height: 1.5; }
+  dl.kv dd a { color: var(--primary-700); text-decoration: none; }
+  dl.kv dd.muted { color: var(--ink-4); font-weight: 500; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border-top: 1px solid var(--line); }
+  .stats div { background: var(--surface); padding: 12px 18px; }
+  .stats small { display: block; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+  .stats b { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); background: var(--subtle); padding: 0 12px; height: 36px; border-block: 1px solid var(--line); }
+  td { padding: 0 12px; height: 56px; border-bottom: 1px solid var(--line-soft); font-size: 13.5px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  th:first-child, td:first-child { padding-left: 18px; width: 18px; }
+  td .p { display: block; font-weight: 700; color: var(--ink); }
+  td .s { display: block; font-size: 12px; color: var(--ink-3); }
+  .cl { display: flex; align-items: center; gap: 10px; }
+  .chk { width: 16px; height: 16px; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--line-strong); display: inline-block; }
+  .rtool { display: flex; align-items: center; gap: 8px; padding: 0 18px 12px; }
+  .rtool .search { width: 240px; height: 34px; }
+  .note { margin: 14px 2px 0; font-size: 12.5px; color: var(--muted-foreground, #666); line-height: 1.55; max-width: 980px; }
+  .note b { color: var(--foreground, #111); }
+  .view { display: none; } .view.on { display: block; }
+
+  .strip { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 16px; }
+  .cell { background: var(--surface); padding: 14px 16px 15px; text-align: left; border: 0; font: inherit; color: inherit; cursor: pointer; }
+  .cell:hover { background: var(--subtle); }
+  .cell.on { background: var(--primary-50); box-shadow: inset 0 -2px 0 var(--primary); }
+  .cell .l { font-size: 13px; font-weight: 800; display: flex; justify-content: space-between; align-items: center; }
+  .cell .v { margin-top: 8px; font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+  .cell .c { margin-top: 2px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  .cell .c .bad { color: var(--danger-text); font-weight: 700; }
+  .tcard { overflow: hidden; }
+  .tbar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .tbar .search { width: 260px; height: 34px; }
+  .tbar .sp { flex: 1; }
+  .tbar .hint { font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  th.r, td.r { text-align: right; }
+  td { height: 60px; }
+  td:first-child, th:first-child { padding-left: 18px; width: auto; }
+  td:last-child, th:last-child { padding-right: 18px; }
+  .match { display: inline-flex; flex-direction: column; gap: 2px; }
+  .match small { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+  .wait { font-weight: 700; color: var(--ink-2); }
+  .wait.bad { color: var(--danger-text); }
+  .wait.bad::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 99px; background: var(--danger); margin-right: 6px; vertical-align: middle; }
+  .lnk { color: var(--primary-700); font-weight: 700; text-decoration: none; }
+  .pane { display: none; } .pane.on { display: block; }
+  .explain { display: inline-flex; align-items: center; gap: 6px; margin-left: 4px; font-size: 12.5px; font-weight: 700; color: var(--primary-700); cursor: help; border-bottom: 1px dashed currentColor; }
+  .proc { margin-top: 26px; }
+  .proc .bar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; }
+  .proc .bar .who { flex: 1; }
+  .proc .bar .who b { font-size: 18px; font-weight: 800; letter-spacing: -.02em; display: block; }
+  .proc .bar .who span { font-size: 13px; font-weight: 600; color: var(--ink-3); }
+  .facts { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 1px; background: var(--line); border-top: 1px solid var(--line); }
+  .facts div { background: var(--surface); padding: 10px 18px; }
+  .facts small { display: block; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+  .facts b { font-size: 14px; font-weight: 800; }
+  .steps { display: flex; gap: 6px; padding: 12px 18px; border-top: 1px solid var(--line); font-size: 13px; font-weight: 700; color: var(--ink-3); }
+  .steps span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; background: var(--subtle-2); }
+  .steps span.on { background: var(--primary-soft); color: var(--primary-700); }
+  .steps i { font-style: normal; width: 18px; height: 18px; border-radius: 99px; display: grid; place-items: center; background: var(--surface); font-size: 11px; }
+</style>
+</head>
+<body>
+<div class="chrome">
+  <div class="seg" role="group"><button type="button" aria-pressed="true" data-theme="light">Terang</button><button type="button" aria-pressed="false" data-theme="dark">Gelap</button></div>
+  <span style="color:var(--muted-foreground,#666)">Klik sel strip untuk berganti tab. Data contoh.</span>
+</div>
+<div class="frame">
+<div class="pm" id="pm">
+  <aside class="side">
+    <div class="app"><span class="logo">K</span><span><b>Project Management</b><small>Kisantra</small></span></div>
+    <div class="grp">Client Management</div>
+    <div class="it"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/></svg>Clients</div>
+    <div class="it"><svg class="i" viewBox="0 0 24 24"><path d="M3 21h18M5 21V9l7-5 7 5v12"/></svg>Grup Client</div>
+    <div class="it on"><svg class="i" viewBox="0 0 24 24"><path d="M4 13h4l2 3h4l2-3h4M4 13l2-8h12l2 8v6H4z"/></svg>Klien Masuk <span style="margin-left:auto;font-size:11.5px;color:#fff;background:var(--primary);border-radius:99px;padding:0 7px;line-height:19px">4</span></div>
+  </aside>
+  <main class="panel">
+    <div class="top"><div class="search" style="width:220px">Search</div><div class="av">A</div></div>
+    <div class="page">
+      <div class="hd">
+        <div>
+          <h1>Klien Masuk</h1>
+          <p class="lead">Deal dari <b>Client Management (CM)</b>, aplikasi tim marketing Kisantra. Cek datanya sebelum dijadikan klien dan proyek. <span class="explain" title="Begitu lead mencapai Deal di CM, datanya dikirim ke sini. Isian bertanda CM berasal dari sana.">Cara kerjanya</span></p>
+        </div>
+      </div>
+      <div class="strip" role="tablist">
+        <button class="cell on" data-tab="wait"><div class="l">Menunggu dicek <span class="badge red dot">2 lewat 3 hari</span></div><div class="v num">4</div><div class="c">Nilai deal <b style="color:var(--ink)">Rp 87.500.000</b> · tertua <span class="bad">8 hari</span></div></button>
+        <button class="cell" data-tab="done"><div class="l">Selesai</div><div class="v num">12</div><div class="c">3 diproses bulan ini · 1 kabar ke CM gagal</div></button>
+        <button class="cell" data-tab="cancel"><div class="l">Batal di CM</div><div class="v num">1</div><div class="c">1 sudah telanjur dibuat kliennya</div></button>
+      </div>
+
+      <section class="pane on" data-pane="wait">
+        <div class="card tcard">
+          <div class="tbar"><div class="search">Cari klien, layanan, PJ marketing</div><span class="sp"></span><span class="hint">Urut: paling lama menunggu dulu</span></div>
+          <table>
+            <thead><tr><th>Klien</th><th>Layanan</th><th class="r">Nilai deal</th><th>Deal</th><th>Di PM</th><th>Menunggu</th><th></th></tr></thead>
+            <tbody><tr><td><span class="p">PT Sinar Laut Abadi</span><span class="s">Badan · Perseroan Terbatas (PT)</span></td><td>PPh Badan + PPN bulanan</td><td class="r num"><b style="color:var(--ink)">Rp 45.000.000</b></td><td><span class="p num">4 Nov 2026</span><span class="s">oleh Dimas</span></td><td><span style="color:var(--ink-3)">Klien baru</span></td><td><span class="wait bad">8 hari</span></td><td class="r"><button class="btn p sm">Cek &amp; proses</button></td></tr><tr><td><span class="p">CV Mitra Tani</span><span class="s">Badan · CV</span></td><td>SPT Tahunan Badan</td><td class="r num"><b style="color:var(--ink)">Rp 12.500.000</b></td><td><span class="p num">6 Nov 2026</span><span class="s">oleh Rina</span></td><td><span class="match"><span class="badge outline">Mungkin klien lama</span><small>CV. Mitra Tani Jaya</small></span></td><td><span class="wait bad">6 hari</span></td><td class="r"><button class="btn p sm">Cek &amp; proses</button></td></tr><tr><td><span class="p">Budi Santoso</span><span class="s">Pribadi</span></td><td>SPT Tahunan Pribadi</td><td class="r num"><b style="color:var(--ink)">Rp 2.500.000</b></td><td><span class="p num">10 Nov 2026</span><span class="s">oleh Dimas</span></td><td><span style="color:var(--ink-3)">Klien baru</span></td><td><span class="wait ">2 hari</span></td><td class="r"><button class="btn p sm">Cek &amp; proses</button></td></tr><tr><td><span class="p">PT Abbasy Anugerah Jaya</span><span class="s">Badan · PT</span></td><td>Pendampingan pemeriksaan</td><td class="r num"><b style="color:var(--ink)">Rp 27.500.000</b></td><td><span class="p num">11 Nov 2026</span><span class="s">oleh Yoga</span></td><td><span class="match"><span class="badge outline">Klien lama, layanan baru</span><small>PT. ABBASY ANUGERAH JAYA</small></span></td><td><span class="wait ">1 hari</span></td><td class="r"><button class="btn p sm">Cek &amp; proses</button></td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="pane" data-pane="done">
+        <div class="card tcard">
+          <div class="tbar"><div class="search">Cari klien, layanan</div></div>
+          <table>
+            <thead><tr><th>Klien</th><th>Layanan</th><th class="r">Nilai deal</th><th>Klien di PM</th><th>Proyek</th><th>Diproses</th><th>Kabar ke CM</th><th></th></tr></thead>
+            <tbody>
+              <tr><td><span class="p">PT Harapan Baru</span><span class="s">Badan · PT</span></td><td>PPN bulanan</td><td class="r num"><b style="color:var(--ink)">Rp 18.000.000</b></td><td><a class="lnk" href="#">PT. HARAPAN BARU</a><span class="s">Klien baru dibuat</span></td><td><a class="lnk" href="#">PPN Bulanan 2026</a></td><td><span class="p">9 Nov 2026</span><span class="s">Iqal Azhari</span></td><td><span class="badge blue dot">Terkirim</span></td><td class="r"><button class="btn o sm">Lihat</button></td></tr>
+              <tr><td><span class="p">CV Sumber Rejeki</span><span class="s">Badan · CV</span></td><td>SPT Tahunan Badan</td><td class="r num"><b style="color:var(--ink)">Rp 9.000.000</b></td><td><a class="lnk" href="#">CV. SUMBER REJEKI</a><span class="s">Ditautkan ke klien lama</span></td><td><a class="lnk" href="#">SPT Tahunan 2026</a></td><td><span class="p">7 Nov 2026</span><span class="s">Admin</span></td><td><span class="badge red dot">Gagal</span><span class="s">Kirim ulang di halaman detail</span></td><td class="r"><button class="btn o sm">Lihat</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="pane" data-pane="cancel">
+        <div class="card tcard">
+          <div class="tbar"><div class="search">Cari klien</div></div>
+          <table>
+            <thead><tr><th>Klien</th><th>Layanan</th><th class="r">Nilai deal</th><th>Alasan di CM</th><th>Dibatalkan</th><th>Di PM</th><th></th></tr></thead>
+            <tbody>
+              <tr><td><span class="p">PT Cahaya Timur</span><span class="s">Badan · PT</span></td><td>PPh Badan</td><td class="r num"><b style="color:var(--ink)">Rp 30.000.000</b></td><td>Klien menunda kerja sama</td><td class="num">10 Nov 2026</td><td><span class="badge red dot">Klien &amp; proyek sudah dibuat</span><span class="s">Tinjau apakah proyek dihentikan</span></td><td class="r"><button class="btn o sm">Lihat</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="proc">
+        <div class="lbl" style="margin-bottom:8px">Halaman "Cek &amp; proses" (bagian atas, usulan)</div>
+        <div class="card">
+          <div class="bar"><span class="tile">SL</span><div class="who"><b>PT Sinar Laut Abadi</b><span>Deal 4 Nov 2026 oleh Dimas · diterima 8 hari lalu</span></div><span class="badge outline dot">Menunggu dicek</span><button class="btn o sm">Lihat lead di CM ↗</button></div>
+          <div class="facts"><div><small>Layanan</small><b>PPh Badan + PPN bulanan</b></div><div><small>Nilai deal</small><b class="num">Rp 45.000.000</b></div><div><small>Bentuk usaha</small><b>Perseroan Terbatas</b></div><div><small>Di PM</small><b>Klien baru</b></div></div>
+          <div class="steps"><span class="on"><i>1</i>Cek</span><span><i>2</i>Data klien</span><span><i>3</i>Proyek</span><span><i>4</i>Dokumen</span></div>
+        </div>
+        <p class="note" style="margin-left:0">Isi wizard (form klien, proyek, dokumen) tetap; yang berubah: ringkasan deal di atas, penjelasan CM jadi satu baris, banner batal memakai merah DESIGN.md.</p>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+<p class="note"><b>Yang berubah:</b> kotak penjelasan CM jadi satu kalimat di bawah judul; tiga tab jadi strip yang menampilkan isi antrean (jumlah, total nilai deal, yang paling lama menunggu, kabar ke CM yang gagal, batal yang sudah telanjur diproses); kolom berbeda per tab sesuai yang perlu dilihat; antrean menunggu diurut dari yang paling lama; "lewat 3 hari" ditandai merah; kolom status dihapus karena tab sudah menyatakannya. Tiga warna saja (status lama memakai kuning/hijau/merah).</p>
+<script>
+  const pm = document.getElementById('pm');
+  document.querySelectorAll('[data-theme]').forEach(b => b.onclick = () => { pm.classList.toggle('dark', b.dataset.theme === 'dark'); document.querySelectorAll('[data-theme]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  document.querySelectorAll('.cell').forEach(c => c.onclick = () => { document.querySelectorAll('.cell').forEach(x => x.classList.toggle('on', x === c)); document.querySelectorAll('.pane').forEach(p => p.classList.toggle('on', p.dataset.pane === c.dataset.tab)); });
+</script>
+</body>
+</html>

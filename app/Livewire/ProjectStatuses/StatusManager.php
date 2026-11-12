@@ -3,6 +3,7 @@
 namespace App\Livewire\ProjectStatuses;
 
 use App\Models\ProjectStatus;
+use App\Support\Ui\Tone;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Str;
 use Livewire\Component;
@@ -14,23 +15,10 @@ class StatusManager extends Component
     public ?int $editingId = null;
     public ?string $editingCategory = null;
     public string $form_label = '';
-    public string $form_color = '#2563eb';
+    public string $form_tone = Tone::BLUE;
     public string $form_shape = 'half';
 
     public const SHAPES = ['empty', 'dashed', 'half', 'clock', 'check', 'x'];
-
-    public const COLOR_SWATCHES = [
-        '#64748b', // slate
-        '#9333ea', // purple
-        '#2563eb', // blue
-        '#0e7490', // cyan
-        '#16a34a', // green
-        '#ca8a04', // amber
-        '#ea580c', // orange
-        '#dc2626', // red
-        '#db2777', // pink
-        '#92400e', // brown
-    ];
 
     public const CATEGORY_LABELS = [
         'not_started' => 'Not Started',
@@ -63,6 +51,7 @@ class StatusManager extends Component
         $this->resetForm();
         $this->editingId = null;
         $this->editingCategory = $category;
+        $this->form_tone = Tone::defaultForProjectStatus($category, $this->form_shape);
         $this->dispatch('open-status-form');
     }
 
@@ -70,7 +59,7 @@ class StatusManager extends Component
     {
         $this->validate([
             'form_label' => 'required|string|max:60',
-            'form_color' => 'required|regex:/^#[0-9a-fA-F]{6}$/',
+            'form_tone' => 'required|in:' . implode(',', Tone::ALL),
             'form_shape' => 'required|in:' . implode(',', self::SHAPES),
             'editingCategory' => 'required|in:' . implode(',', array_keys(self::CATEGORY_LABELS)),
         ]);
@@ -82,11 +71,12 @@ class StatusManager extends Component
                 return;
             }
 
-            // System statuses can be edited (label, color, shape) but
-            // their key and category are locked.
+            // System statuses can be edited (label, tone, shape) but
+            // their key and category are locked. `color` is left alone: the
+            // dashboard charts still read it.
             $payload = [
                 'label' => $this->form_label,
-                'color' => $this->form_color,
+                'tone'  => $this->form_tone,
                 'shape' => $this->form_shape,
             ];
             if (! $status->is_system) {
@@ -106,7 +96,8 @@ class StatusManager extends Component
             $created = ProjectStatus::create([
                 'key'        => $key,
                 'label'      => $this->form_label,
-                'color'      => $this->form_color,
+                'color'      => Tone::swatch($this->form_tone)['color'],
+                'tone'       => $this->form_tone,
                 'shape'      => $this->form_shape,
                 'category'   => $this->editingCategory,
                 'sort_order' => $sortOrder,
@@ -131,7 +122,7 @@ class StatusManager extends Component
         $this->editingId = $status->id;
         $this->editingCategory = $status->category;
         $this->form_label = $status->label;
-        $this->form_color = $status->color;
+        $this->form_tone = Tone::forProjectStatus($status);
         $this->form_shape = $status->shape;
 
         $this->dispatch('open-status-form');
@@ -148,7 +139,7 @@ class StatusManager extends Component
         $this->editingId = null;
         $this->editingCategory = null;
         $this->form_label = '';
-        $this->form_color = '#2563eb';
+        $this->form_tone = Tone::BLUE;
         $this->form_shape = 'half';
         $this->resetValidation();
     }

@@ -1,3 +1,8 @@
+{{--
+    One credential value inside the credential table (credential-manager).
+    The label is hidden on wide screens, where the column header names it,
+    unless show-label is set (secondary fields such as "Kode aktivasi").
+--}}
 @props([
     'label',
     'wire' => null,
@@ -6,75 +11,74 @@
     'mode' => 'view',
     'placeholder' => '',
     'error' => null,
+    // Service name for screen readers, e.g. "Kata sandi Core Tax".
+    'context' => null,
+    'showLabel' => false,
 ])
 
 @php
     $isPassword = $type === 'password';
     $isEdit = $mode === 'edit';
+    $id = 'cf-' . str_replace('.', '-', (string) $wire);
+    $spoken = trim(mb_strtolower($label) . ' ' . $context);
+    // A new key per value: Alpine state (the value to copy) is rebuilt after a save.
+    $key = $id . '-' . $mode . ($isEdit ? '' : '-' . crc32((string) $value));
 @endphp
 
-<div class="space-y-1.5" x-data="{ show: false, copied: false, val: @js((string) $value) }">
-    <label class="block text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{{ $label }}</label>
-
-    @if ($isEdit)
-        {{-- ============ EDIT ============ --}}
-        <div class="relative flex items-center">
-            <input
-                @if ($isPassword) :type="show ? 'text' : 'password'" @else type="{{ $type }}" @endif
-                wire:model="{{ $wire }}"
-                placeholder="{{ $placeholder }}"
-                autocomplete="{{ $isPassword ? 'new-password' : 'off' }}"
-                data-1p-ignore data-lpignore="true" data-form-type="other"
-                @class([
-                    'w-full rounded-lg border bg-white px-3 py-2 text-sm font-mono text-gray-900 shadow-sm transition focus:ring-1 dark:bg-gray-900 dark:text-white',
-                    'pr-9' => $isPassword,
-                    'border-gray-300 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600' => ! $error,
-                    'border-danger-400 focus:border-danger-500 focus:ring-danger-500 dark:border-danger-500/60' => $error,
-                ])
-            />
+@if ($isEdit)
+    <div @class(['kis-cf', 'has-label' => $showLabel]) wire:key="{{ $key }}" x-data="{ show: false }">
+        <label class="kis-cf__label" for="{{ $id }}">{{ $label }}@if ($context)<span class="sr-only"> {{ $context }}</span>@endif</label>
+        <div class="kis-cf__control">
+            <input id="{{ $id }}"
+                   @if ($isPassword) type="password" x-bind:type="show ? 'text' : 'password'" @else type="{{ $type }}" @endif
+                   wire:model="{{ $wire }}"
+                   placeholder="{{ $placeholder }}"
+                   autocomplete="{{ $isPassword ? 'new-password' : 'off' }}"
+                   data-1p-ignore data-lpignore="true" data-form-type="other"
+                   @if ($error) aria-invalid="true" aria-describedby="{{ $id }}-err" @endif
+                   @class(['kis-cf__input', 'has-eye' => $isPassword, 'is-invalid' => $error]) />
             @if ($isPassword)
-                <button type="button" x-on:click="show = !show" tabindex="-1"
-                        class="absolute right-2.5 text-gray-400 transition hover:text-gray-600 dark:hover:text-gray-200">
-                    <svg x-show="!show" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    <svg x-show="show" x-cloak class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                <button type="button" class="kis-cf__eye" x-on:click="show = ! show" x-bind:aria-pressed="show"
+                        aria-label="Tampilkan {{ $spoken }}" x-bind:title="show ? 'Sembunyikan' : 'Tampilkan'">
+                    <x-heroicon-m-eye x-show="! show" class="h-4 w-4" />
+                    <x-heroicon-m-eye-slash x-show="show" x-cloak class="h-4 w-4" />
                 </button>
             @endif
         </div>
         @if ($error)
-            <p class="text-xs text-danger-600 dark:text-danger-400">{{ $error }}</p>
+            <p class="kis-cf__error" id="{{ $id }}-err">{{ $error }}</p>
         @endif
-    @else
-        {{-- ============ VIEW ============ --}}
+    </div>
+@else
+    <div @class(['kis-cf', 'has-label' => $showLabel]) wire:key="{{ $key }}"
+         x-data="{ show: false, copied: false, timer: null, val: @js((string) $value) }">
+        <div class="kis-cf__label">{{ $label }}@if ($context)<span class="sr-only"> {{ $context }}</span>@endif</div>
         @if (filled($value))
-            <div class="group flex items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-2 ring-1 ring-inset ring-gray-200/70 transition hover:ring-gray-300 dark:bg-gray-800/50 dark:ring-gray-700/60 dark:hover:ring-gray-600">
+            <div class="kis-cf__box">
                 @if ($isPassword)
-                    <span class="flex-1 truncate font-mono text-sm tracking-wide text-gray-900 dark:text-gray-100"
-                          x-text="show ? val : '•••••••••••'"></span>
+                    <span class="kis-cf__value is-secret" x-bind:class="show && 'is-shown'" x-text="show ? val : '••••••••••'">••••••••••</span>
                 @else
-                    <span class="flex-1 truncate font-mono text-sm text-gray-900 dark:text-gray-100">{{ $value }}</span>
+                    <span class="kis-cf__value" title="{{ $value }}">{{ $value }}</span>
                 @endif
-
-                @if ($isPassword)
-                    <button type="button" x-on:click="show = !show"
-                            class="shrink-0 rounded-md p-1 text-gray-400 transition hover:bg-white hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                            x-bind:title="show ? 'Sembunyikan' : 'Tampilkan'">
-                        <svg x-show="!show" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                        <svg x-show="show" x-cloak class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                <span class="kis-cf__actions">
+                    @if ($isPassword)
+                        <button type="button" class="kis-cf__btn" x-on:click="show = ! show" x-bind:aria-pressed="show"
+                                aria-label="Tampilkan {{ $spoken }}" x-bind:title="show ? 'Sembunyikan' : 'Tampilkan'">
+                            <x-heroicon-m-eye x-show="! show" class="h-4 w-4" />
+                            <x-heroicon-m-eye-slash x-show="show" x-cloak class="h-4 w-4" />
+                        </button>
+                    @endif
+                    <button type="button" class="kis-cf__btn" x-bind:class="copied && 'is-done'" title="Salin" aria-label="Salin {{ $spoken }}"
+                            x-on:click="kisCopy(val).then(() => { copied = true; clearTimeout(timer); timer = setTimeout(() => copied = false, 1600) })">
+                        <x-heroicon-m-document-duplicate x-show="! copied" class="h-4 w-4" />
+                        <x-heroicon-m-check x-show="copied" x-cloak class="h-4 w-4" />
                     </button>
-                @endif
-
-                <button type="button"
-                        x-on:click="navigator.clipboard.writeText(val); copied = true; setTimeout(() => copied = false, 1500)"
-                        class="shrink-0 rounded-md p-1 text-gray-400 transition hover:bg-white hover:text-gray-700 dark:hover:bg-gray-700 dark:hover:text-gray-200"
-                        x-bind:title="copied ? 'Tersalin!' : 'Salin'">
-                    <svg x-show="!copied" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                    <svg x-show="copied" x-cloak class="h-4 w-4 text-success-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                </button>
+                    <span class="kis-cf__toast" x-show="copied" x-transition.opacity.duration.150ms x-cloak aria-hidden="true">Tersalin</span>
+                    <span class="sr-only" aria-live="polite" x-text="copied ? 'Tersalin' : ''"></span>
+                </span>
             </div>
         @else
-            <div class="flex items-center gap-1.5 rounded-lg border border-dashed border-gray-200 px-3 py-2 dark:border-gray-700">
-                <span class="text-sm italic text-gray-400 dark:text-gray-600">Belum diisi</span>
-            </div>
+            <div class="kis-cf__empty">Belum diisi</div>
         @endif
-    @endif
-</div>
+    </div>
+@endif

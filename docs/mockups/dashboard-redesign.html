@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard · Usulan redesign penuh (11 Nov 2026)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--background, #fff); color: var(--foreground, #111); }
+
+  /* ---------- mockup chrome (outside the app) ---------- */
+  .chrome { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding: 2px 2px 12px; font-size: 13px; }
+  .chrome .seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border, #ddd); border-radius: 9px; background: var(--muted, #f4f4f5); }
+  .chrome .seg button { font: inherit; padding: 5px 11px; border: 0; border-radius: 7px; background: transparent; color: var(--muted-foreground, #555); cursor: pointer; }
+  .chrome .seg button[aria-pressed="true"] { background: var(--background, #fff); color: var(--foreground, #111); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 600; }
+  .frame { border: 1px solid var(--border, #ddd); border-radius: 12px; overflow-x: auto; overflow-y: hidden; }
+
+  /* ---------- Kisantra tokens (DESIGN.md) ---------- */
+  .pm {
+    --ground: #f1f7f9; --surface: #ffffff; --subtle: #f1f7f9; --subtle-2: #ebf2f4;
+    --ink: #0d1417; --ink-2: #363f43; --ink-3: #626a6f; --ink-4: #8b9497;
+    --line: #dee5e7; --line-soft: #ebf2f4; --line-strong: #ccd4d7;
+    --primary: #157a9c; --primary-500: #1790b5; --primary-700: #10657f; --primary-soft: #dff4fe; --primary-50: #eef9fd;
+    --danger: #cf4232; --danger-text: #af3628; --danger-soft: #fff4f2;
+    --b1: #4ab4d2; --b2: #1790b5; --b3: #157a9c; --b4: #10657f; --b5: #005065; --b6: #053b4d; --n1: #8b9497; --n2: #485156;
+    --tip: #0d1417; --tip-ink: #fff;
+    font-family: "Manrope", system-ui, sans-serif; font-size: 14px; line-height: 1.45; color: var(--ink); background: var(--ground);
+    -webkit-font-smoothing: antialiased; display: grid; grid-template-columns: 236px 1fr; min-width: 1180px;
+  }
+  .pm.dark {
+    --ground: #0d1417; --surface: #151c20; --subtle: #1b2327; --subtle-2: #222b30;
+    --ink: #ffffff; --ink-2: #ccd4d7; --ink-3: #8b9497; --ink-4: #626a6f;
+    --line: rgba(255,255,255,.09); --line-soft: rgba(255,255,255,.05); --line-strong: rgba(255,255,255,.16);
+    --primary: #4ab4d2; --primary-500: #4ab4d2; --primary-700: #89d2ea; --primary-soft: rgba(23,144,181,.18); --primary-50: rgba(23,144,181,.1);
+    --danger: #ef806f; --danger-text: #feac9e; --danger-soft: rgba(207,66,50,.16);
+    --b1: #10657f; --b2: #157a9c; --b3: #1790b5; --b4: #4ab4d2; --b5: #89d2ea; --b6: #bce8f8; --n1: #626a6f; --n2: #8b9497;
+    --tip: #ffffff; --tip-ink: #0d1417;
+  }
+  .num, .pm td.n { font-variant-numeric: tabular-nums; }
+  .pm svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* sidebar */
+  .side { padding: 14px 10px 14px 12px; }
+  .app { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; }
+  .app .logo { width: 36px; height: 36px; border-radius: 10px; background: #1790b5; display: grid; place-items: center; color: #fff; font-weight: 800; }
+  .app b { display: block; font-size: 14px; font-weight: 800; letter-spacing: -.01em; }
+  .app small { font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+  .grp { font-size: 11.5px; font-weight: 700; color: var(--ink-3); padding: 14px 10px 5px; }
+  .it { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+  .it.on { background: var(--primary-soft); color: var(--primary-700); font-weight: 700; }
+  .it .cnt { margin-left: auto; font-size: 11.5px; color: var(--ink-3); font-weight: 700; }
+
+  /* inset panel */
+  .panel { margin: 10px 10px 10px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; min-width: 0; }
+  .top { height: 60px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 28px; }
+  .top .search { width: 220px; height: 36px; border-radius: 11px; border: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--ink-4); font-size: 13px; }
+  .top .av { width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: var(--surface); display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+  .page { padding: 28px 32px 40px; }
+
+  /* header */
+  .hd { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+  .eyebrow { font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+  h1 { margin: 2px 0 6px; font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+  .brief { margin: 0; font-size: 14.5px; color: var(--ink-2); max-width: 760px; }
+  .brief b { color: var(--ink); }
+  .brief .bad { color: var(--danger-text); font-weight: 800; }
+  .scope { display: inline-flex; gap: 2px; padding: 3px; border-radius: 11px; background: var(--subtle-2); }
+  .scope button { font: inherit; font-size: 13px; font-weight: 700; padding: 6px 14px; border: 0; border-radius: 9px; background: transparent; color: var(--ink-3); cursor: pointer; }
+  .scope button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(13,20,23,.12); }
+
+  /* grid & cards */
+  .row { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 18px; margin-bottom: 18px; }
+  .c4 { grid-column: span 4; } .c5 { grid-column: span 5; } .c6 { grid-column: span 6; } .c7 { grid-column: span 7; } .c8 { grid-column: span 8; } .c12 { grid-column: span 12; } .c3 { grid-column: span 3; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; min-width: 0; display: flex; flex-direction: column; }
+  .ch { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 20px 0; }
+  .ch h2 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.01em; }
+  .ch p { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-3); font-weight: 600; }
+  .ch .end { font-size: 12px; color: var(--ink-3); font-weight: 600; white-space: nowrap; }
+  .cb { padding: 14px 20px 18px; flex: 1; }
+  .cf { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 20px; border-top: 1px solid var(--line-soft); font-size: 12px; color: var(--ink-3); font-weight: 600; }
+  .cf a, a.lnk { color: var(--primary-700); font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); font-weight: 600; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .legend i.line { height: 3px; border-radius: 2px; width: 14px; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .badge.blue { background: var(--primary-soft); color: var(--primary-700); }
+  .badge.red { background: var(--danger-soft); color: var(--danger-text); }
+  .badge.n { background: var(--subtle-2); color: var(--ink-2); }
+  .badge.o { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-700) 40%, transparent); color: var(--primary-700); }
+
+  /* action cards */
+  .act { padding: 16px 18px; position: relative; text-decoration: none; color: inherit; transition: border-color .15s, background .15s; }
+  .act:hover { border-color: var(--line-strong); background: var(--subtle); }
+  .act .lab { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+  .act .lab .ico { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: var(--subtle-2); color: var(--ink-2); }
+  .act .lab .ico svg.i { width: 15px; height: 15px; }
+  .act.alert .lab .ico { background: var(--danger-soft); color: var(--danger-text); }
+  .act .big { display: flex; align-items: baseline; gap: 8px; margin: 12px 0 4px; }
+  .act .big b { font-size: 32px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+  .act.alert .big b { color: var(--danger-text); }
+  .act .big span { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .act .sub { font-size: 12.5px; color: var(--ink-3); font-weight: 600; min-height: 18px; }
+  .act .sub b { color: var(--ink-2); }
+  .act .mini { margin-top: 12px; height: 6px; border-radius: 99px; background: var(--subtle-2); display: flex; overflow: hidden; gap: 2px; }
+  .act .mini i { display: block; height: 100%; }
+  .act .go { position: absolute; top: 16px; right: 16px; color: var(--ink-4); }
+
+  /* compliance */
+  .kpi { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+  .kpi .v { font-size: 40px; font-weight: 800; letter-spacing: -.035em; line-height: .95; }
+  .kpi .v small { font-size: 18px; font-weight: 800; color: var(--ink-3); }
+  .kpi .meta { font-size: 13px; color: var(--ink-2); font-weight: 600; padding-bottom: 3px; }
+  .kpi .meta b { color: var(--ink); }
+  .delta { display: inline-flex; align-items: center; gap: 4px; height: 22px; padding: 0 7px; border-radius: 7px; font-size: 12px; font-weight: 800; background: var(--primary-soft); color: var(--primary-700); }
+  .delta.flat { background: var(--subtle-2); color: var(--ink-2); }
+  .types { margin-top: 18px; display: grid; gap: 12px; }
+  .ty { display: grid; grid-template-columns: 128px 1fr 92px; align-items: center; gap: 14px; font-size: 13px; }
+  .ty .nm { font-weight: 700; }
+  .ty .nm small { display: block; font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+  .bar100 { height: 12px; border-radius: 99px; display: flex; gap: 2px; overflow: hidden; background: var(--subtle-2); }
+  .bar100 i { display: block; height: 100%; min-width: 2px; cursor: default; }
+  .ty .val { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .ty .val small { display: block; font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+  .ty .val small.bad { color: var(--danger-text); font-weight: 700; }
+
+  .month { margin-top: 20px; padding-top: 16px; border-top: 1px dashed var(--line); }
+  .month .t { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: var(--ink-3); margin-bottom: 8px; }
+
+  /* agenda */
+  .ag { list-style: none; margin: 0; padding: 0; }
+  .ag li.day { font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 12px 0 6px; }
+  .ag li.day:first-child { padding-top: 0; }
+  .ag li.day.today { color: var(--primary-700); }
+  .ag li.ev { display: grid; grid-template-columns: 10px 1fr auto; gap: 10px; align-items: start; padding: 7px 0; border-top: 1px solid var(--line-soft); }
+  .ag li.day + li.ev { border-top: 0; }
+  .ag .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; }
+  .ag .tt { font-size: 13px; font-weight: 700; }
+  .ag .ss { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+
+  /* pipeline */
+  .pipe { height: 14px; border-radius: 99px; display: flex; gap: 2px; overflow: hidden; }
+  .pipe i { display: block; height: 100%; }
+  .plist { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 2px; }
+  .plist li { display: grid; grid-template-columns: 12px 1fr auto 46px; gap: 10px; align-items: center; padding: 6px 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+  .plist li i { width: 10px; height: 10px; border-radius: 3px; }
+  .plist li b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .plist li small { text-align: right; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .fact { background: var(--subtle); border-radius: 11px; padding: 10px 12px; }
+  .fact b { display: block; font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+  .fact span { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+
+  /* workload */
+  .wl { display: grid; gap: 9px; }
+  .wl .r { display: grid; grid-template-columns: 30px 150px 1fr 70px 64px; align-items: center; gap: 12px; font-size: 13px; }
+  .wl .head { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+  .wl .avt { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; background: var(--primary-soft); color: var(--primary-700); }
+  .wl .avt.none { background: var(--danger-soft); color: var(--danger-text); }
+  .wl .nm { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wl .track { height: 10px; display: flex; gap: 2px; }
+  .wl .track i { display: block; height: 100%; }
+  .wl .track i:first-child { border-radius: 99px 0 0 99px; }
+  .wl .track i:last-child { border-radius: 0 99px 99px 0; }
+  .wl .track i:only-child { border-radius: 99px; }
+  .wl .n { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .wl .n.bad { color: var(--danger-text); }
+  .wl .n.mute { color: var(--ink-3); font-weight: 700; }
+
+  /* clients */
+  .tc { display: grid; gap: 11px; }
+  .tc .r { display: grid; grid-template-columns: 22px 1fr 84px; gap: 12px; align-items: center; font-size: 13px; }
+  .tc .rk { font-weight: 800; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+  .tc .nm { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tc .nm small { display: block; font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+  .tc .bar { height: 6px; border-radius: 99px; background: var(--subtle-2); margin-top: 6px; }
+  .tc .bar i { display: block; height: 100%; border-radius: 99px; background: var(--b3); }
+  .tc .v { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+  /* activity */
+  .feed { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; }
+  .feed li { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: start; padding: 9px 0; border-top: 1px solid var(--line-soft); font-size: 13px; }
+  .feed li:nth-child(-n+2) { border-top: 0; }
+  .feed .avt { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 10.5px; font-weight: 800; background: var(--subtle-2); color: var(--ink-2); }
+  .feed .d { color: var(--ink-2); font-weight: 600; }
+  .feed .d b { color: var(--ink); }
+  .feed .w { font-size: 12px; color: var(--ink-4); font-weight: 600; white-space: nowrap; }
+
+  /* charts */
+  svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+  svg.chart text { font-family: "Manrope", system-ui, sans-serif; font-size: 11px; font-weight: 600; fill: var(--ink-3); }
+  svg.chart .grid { stroke: var(--line); stroke-width: 1; }
+  svg.chart .base { stroke: var(--line-strong); stroke-width: 1; }
+  .tipbox { position: fixed; pointer-events: none; z-index: 50; background: var(--tip); color: var(--tip-ink); border-radius: 9px; padding: 8px 10px; font: 600 12px/1.45 "Manrope", system-ui, sans-serif; box-shadow: 0 8px 24px rgba(13,20,23,.18); opacity: 0; transition: opacity .1s; white-space: nowrap; }
+  .tipbox b { font-weight: 800; }
+  .tipbox .r { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+  .tipbox .r i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 6px; }
+  .note { margin: 14px 2px 0; font-size: 12.5px; color: var(--muted-foreground, #666); line-height: 1.55; }
+</style>
+</head>
+<body>
+
+<div class="chrome">
+  <span><b>Usulan redesign Dashboard</b>: data ilustrasi. Arahkan kursor ke grafik untuk detail.</span>
+  <span class="seg" role="group" aria-label="Tema">
+    <button type="button" data-theme="light" aria-pressed="true">Terang</button>
+    <button type="button" data-theme="dark" aria-pressed="false">Gelap</button>
+  </span>
+</div>
+
+<div class="frame">
+<div class="pm" id="pm">
+  <aside class="side">
+    <div class="app"><div class="logo">K</div><div><b>Project Management</b><small>Kisantra</small></div></div>
+    <div class="it on">Dashboard</div>
+    <div class="grp">Project Management</div>
+    <div class="it">Projects<span class="cnt">93</span></div>
+    <div class="it">Kalender</div>
+    <div class="grp">Tax Management</div>
+    <div class="it">Laporan Pajak</div>
+    <div class="grp">Client Management</div>
+    <div class="it">Clients<span class="cnt">96</span></div>
+    <div class="it">Klien Masuk</div>
+    <div class="it">Live Chat</div>
+    <div class="grp">Standard Operating Procedures</div>
+    <div class="it">Prosedur Proyek</div>
+  </aside>
+
+  <main class="panel">
+    <div class="top"><div class="search">Cari…</div><div class="av">IA</div></div>
+    <div class="page">
+
+      <!-- Header: one sentence that says what matters today -->
+      <div class="hd">
+        <div>
+          <div class="eyebrow">Rabu, 11 November 2026</div>
+          <h1>Selamat malam, Iqal</h1>
+          <p class="brief" id="brief"></p>
+        </div>
+        <div class="scope" role="group" aria-label="Lingkup">
+          <button type="button" data-scope="office" aria-pressed="true">Kantor</button>
+          <button type="button" data-scope="me" aria-pressed="false">Saya</button>
+        </div>
+      </div>
+
+      <!-- 1. Perlu perhatian -->
+      <div class="row" id="actions"></div>
+
+      <!-- 2. Kepatuhan pajak + agenda -->
+      <div class="row">
+        <section class="card c8">
+          <div class="ch">
+            <div><h2>Kepatuhan pajak</h2><p>Masa Oktober 2026 · ditagih November 2026</p></div>
+            <div class="legend">
+              <span><i style="background:var(--b3)"></i>Sudah lapor</span>
+              <span><i style="background:var(--line-strong)"></i>Belum lapor</span>
+              <span><i style="background:var(--danger)"></i>Lewat tenggat</span>
+            </div>
+          </div>
+          <div class="cb">
+            <div class="kpi">
+              <div class="v num">83<small>%</small></div>
+              <div class="meta"><b class="num">143 dari 172</b> kewajiban lapor masa ini sudah selesai</div>
+              <span class="delta" title="Dibanding masa September 2026 pada tanggal yang sama">▲ 6 poin dari September, di tanggal yang sama</span>
+            </div>
+            <div class="types" id="types"></div>
+            <div class="month">
+              <div class="t"><span>Tenggat November 2026</span><span>Hari ini tanggal 11</span></div>
+              <svg class="chart" id="spine" viewBox="0 0 760 64" role="img" aria-label="Tenggat bulan November: tanggal 10, 20, dan 30"></svg>
+            </div>
+          </div>
+          <div class="cf"><span>Satu kewajiban = satu klien aktif per masa per jenis pajak.</span><a href="#">Buka Laporan Pajak →</a></div>
+        </section>
+
+        <section class="card c4">
+          <div class="ch"><div><h2>14 hari ke depan</h2><p id="agsub">Tenggat pajak, proyek, dan jadwal</p></div></div>
+          <div class="cb"><ul class="ag" id="agenda"></ul></div>
+          <div class="cf"><span></span><a href="#">Buka Kalender →</a></div>
+        </section>
+      </div>
+
+      <!-- 3. Arus proyek + pipeline -->
+      <div class="row">
+        <section class="card c8">
+          <div class="ch">
+            <div><h2>Arus proyek</h2><p>Proyek masuk dan selesai per bulan, 12 bulan terakhir</p></div>
+            <div class="legend">
+              <span><i class="line" style="background:var(--ink-3)"></i>Masuk</span>
+              <span><i class="line" style="background:var(--primary)"></i>Selesai</span>
+            </div>
+          </div>
+          <div class="cb">
+            <div class="kpi" style="gap:28px;margin-bottom:6px">
+              <div class="meta"><b class="num" style="font-size:20px">72</b> masuk</div>
+              <div class="meta"><b class="num" style="font-size:20px">52</b> selesai</div>
+              <div class="meta"><b class="num" style="font-size:20px;color:var(--danger-text)">+20</b> menumpuk</div>
+            </div>
+            <svg class="chart" id="flow" viewBox="0 0 760 230" role="img" aria-label="Proyek masuk dan selesai per bulan"></svg>
+          </div>
+          <div class="cf"><span>Garis masuk di atas garis selesai berarti antrean bertambah.</span><a href="#">Buka Projects →</a></div>
+        </section>
+
+        <section class="card c4">
+          <div class="ch"><div><h2>Proyek per status</h2><p id="pipesub">139 proyek klien aktif</p></div></div>
+          <div class="cb">
+            <div class="pipe" id="pipe"></div>
+            <ul class="plist" id="plist"></ul>
+            <div class="facts">
+              <div class="fact"><b class="num">142 hr</b><span>umur rata-rata proyek berjalan</span></div>
+              <div class="fact"><b class="num">11 hr</b><span>rata-rata menunggu klien</span></div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- 4. Tim + tren kepatuhan -->
+      <div class="row">
+        <section class="card c7">
+          <div class="ch">
+            <div><h2>Beban kerja tim</h2><p>Proyek berjalan per PIC, dan tugas harian yang masih terbuka</p></div>
+            <div class="legend">
+              <span><i style="background:var(--b3)"></i>Sesuai jadwal</span>
+              <span><i style="background:var(--danger)"></i>Lewat tenggat</span>
+            </div>
+          </div>
+          <div class="cb"><div class="wl" id="wl"></div></div>
+          <div class="cf"><span>Diurutkan dari beban terbesar.</span><a href="#">Lihat Tugas Harian →</a></div>
+        </section>
+
+        <section class="card c5">
+          <div class="ch">
+            <div><h2>Lapor tepat waktu</h2><p>Persentase kewajiban dilapor sebelum tenggat, 12 masa</p></div>
+            <div class="end">Target 90%</div>
+          </div>
+          <div class="cb"><svg class="chart" id="ontime" viewBox="0 0 440 230" role="img" aria-label="Persentase lapor tepat waktu per masa"></svg></div>
+          <div class="cf"><span>Masa terendah: <b style="color:var(--ink-2)">Februari 2026 (72%)</b></span></div>
+        </section>
+      </div>
+
+      <!-- 5. Nilai -->
+      <div class="row">
+        <section class="card c7">
+          <div class="ch">
+            <div><h2>Posisi PPN klien</h2><p>Total kurang bayar dan lebih bayar per masa, Rp juta</p></div>
+            <div class="legend">
+              <span><i style="background:var(--danger)"></i>Kurang bayar</span>
+              <span><i style="background:var(--b3)"></i>Lebih bayar</span>
+            </div>
+          </div>
+          <div class="cb"><svg class="chart" id="ppn" viewBox="0 0 640 240" role="img" aria-label="Kurang dan lebih bayar PPN per masa"></svg></div>
+          <div class="cf"><span>Masa Oktober: <b style="color:var(--danger-text)">Rp 48 jt</b> kurang bayar dari 21 klien.</span><a href="#">Laporan Pajak →</a></div>
+        </section>
+
+        <section class="card c5">
+          <div class="ch"><div><h2>Klien terbesar</h2><p>Peredaran bruto 2026 dari faktur keluaran</p></div><div class="end">Rp miliar</div></div>
+          <div class="cb"><div class="tc" id="tc"></div></div>
+          <div class="cf"><span>Nama di bawah klien = penanggung jawab.</span><a href="#">Clients →</a></div>
+        </section>
+      </div>
+
+      <!-- 6. Aktivitas -->
+      <div class="row">
+        <section class="card c12">
+          <div class="ch"><div><h2>Aktivitas terbaru</h2><p>Hari ini · diperbarui otomatis</p></div><a class="lnk" href="#" style="font-size:12px">Log lengkap →</a></div>
+          <div class="cb"><ul class="feed" id="feed"></ul></div>
+        </section>
+      </div>
+
+    </div>
+  </main>
+</div>
+</div>
+
+<p class="note">
+  Urutan mengikuti tiga pertanyaan: <b>apa yang harus diurus hari ini</b> (kartu atas, agenda), <b>bagaimana kondisi kantor</b> (kepatuhan, arus proyek, tim), dan <b>apa yang berubah</b> (aktivitas).
+  Warna hanya tiga nada: biru = berjalan normal, abu-abu = belum/konteks, merah = masalah. Status proyek memakai ramp biru berurutan.
+  "Saya" menyaring kartu atas, agenda, dan beban kerja ke proyek dan tugas milik pengguna.
+</p>
+
+
+<script>
+(() => {
+  const css = (v) => getComputedStyle(document.getElementById('pm')).getPropertyValue(v).trim();
+  // The tooltip lives inside the themed app so it picks up the light/dark tokens.
+  const tip = Object.assign(document.createElement('div'), { className: 'tipbox', role: 'tooltip' });
+  document.getElementById('pm').appendChild(tip);
+  const showTip = (e, html) => { tip.innerHTML = html; tip.style.opacity = 1; const x = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8); tip.style.left = x + 'px'; tip.style.top = (e.clientY - tip.offsetHeight - 12) + 'px'; };
+  const hideTip = () => { tip.style.opacity = 0; };
+  const bindTips = (root) => root.querySelectorAll('[data-tip]').forEach(n => { n.addEventListener('mousemove', e => showTip(e, n.dataset.tip)); n.addEventListener('mouseleave', hideTip); });
+  const fmt = (n) => n.toLocaleString('id-ID');
+  const MONTHS = ['Des', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov'];
+  const MASA = ['Nov', 'Des', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt'];
+
+  const DATA = {
+    office: {
+      brief: 'Tiga hal perlu perhatian: <span class="bad">PPh 21 lewat tenggat</span> untuk 1 klien, <b>28 klien</b> belum lapor PPN sebelum tanggal 20, dan <b>139 dokumen</b> klien menunggu review.',
+      actions: [
+        { alert: true, ico: 'warn', lab: 'Tenggat pajak terlewat', big: '1', unit: 'klien', sub: 'PPh 21 &amp; Unifikasi · tenggat <b>10 Nov</b>', mini: [[1, 'var(--danger)'], [61, 'var(--b3)']] },
+        { ico: 'clock', lab: 'Tenggat pajak berikutnya', big: '28', unit: 'klien belum lapor', sub: 'PPN · <b>20 Nov</b> · 9 hari lagi', mini: [[52, 'var(--b3)'], [28, 'var(--line-strong)']] },
+        { alert: true, ico: 'flag', lab: 'Proyek lewat tenggat', big: '93', unit: 'proyek', sub: '<b>12</b> jatuh tempo minggu ini', mini: [[93, 'var(--danger)'], [46, 'var(--b3)']] },
+        { ico: 'doc', lab: 'Dokumen menunggu review', big: '139', unit: 'dokumen', sub: 'tertua menunggu <b>23 hari</b>', mini: [[49, 'var(--b1)'], [90, 'var(--b4)']] },
+      ],
+      agenda: [
+        { day: 'Hari ini · Rabu 11', today: true, ev: [['var(--danger)', 'PPh 21 &amp; Unifikasi lewat tenggat', '1 klien · CV Abaah Anugerah Cahaya Abadi', 'Pajak']] },
+        { day: 'Kamis 12', ev: [['var(--b3)', 'Review SPT Badan', '10.00 · PT Sinar Abadi Logistik', 'Jadwal'], ['var(--ink-4)', 'Laporan Keuangan 2025', 'tenggat proyek · PT Kinara Sadayatra', 'Proyek']] },
+        { day: 'Senin 16', ev: [['var(--ink-4)', 'Permohonan PKP Badan', 'tenggat proyek · PT Abbasy Mining', 'Proyek']] },
+        { day: 'Jumat 20', ev: [['var(--b3)', 'Batas lapor PPN', '28 klien belum lapor', 'Pajak']] },
+        { day: 'Senin 23', ev: [['var(--b3)', 'Kunjungan klien', '14.00 · CV Mitra Karya Mandiri', 'Jadwal']] },
+      ],
+      workload: [['LF', 'Lutfiannur Fahrizal', 14, 9, 6], ['SS', 'Syahrurramadhan', 12, 6, 4], ['IA', 'Iqal Azhari', 9, 2, 5], ['RM', 'Rina Marlina', 8, 1, 3], ['DS', 'Dimas Saputra', 6, 0, 2], ['FG', 'Fathan Ghozi', 3, 0, 1], ['–', 'Tanpa PIC', 6, 4, 0]],
+    },
+    me: {
+      brief: 'Untuk Anda: <span class="bad">2 proyek</span> lewat tenggat, <b>5 tugas</b> hari ini (2 selesai), dan <b>8 dokumen</b> dari klien Anda menunggu review.',
+      actions: [
+        { alert: true, ico: 'flag', lab: 'Proyek saya lewat tenggat', big: '2', unit: 'proyek', sub: 'paling lama <b>34 hari</b>', mini: [[2, 'var(--danger)'], [9, 'var(--b3)']] },
+        { ico: 'check', lab: 'Tugas saya hari ini', big: '5', unit: 'tugas', sub: '<b>2</b> selesai · 3 tersisa', mini: [[2, 'var(--b3)'], [3, 'var(--line-strong)']] },
+        { ico: 'doc', lab: 'Dokumen klien saya', big: '8', unit: 'menunggu review', sub: 'tertua menunggu <b>6 hari</b>', mini: [[3, 'var(--b1)'], [5, 'var(--b4)']] },
+        { ico: 'clock', lab: 'Tenggat pajak klien saya', big: '0', unit: 'tertunggak', sub: 'PPN · <b>20 Nov</b> · semua sudah lapor', mini: [[14, 'var(--b3)']] },
+      ],
+      agenda: [
+        { day: 'Hari ini · Rabu 11', today: true, ev: [['var(--b3)', '3 tugas harian tersisa', 'Rekap faktur PT Delta Nusantara, …', 'Tugas']] },
+        { day: 'Kamis 12', ev: [['var(--b3)', 'Review SPT Badan', '10.00 · PT Sinar Abadi Logistik', 'Jadwal']] },
+        { day: 'Selasa 17', ev: [['var(--ink-4)', 'Lapor SPT Tahunan Nihil', 'tenggat proyek · CV Mitra Karya Mandiri', 'Proyek']] },
+      ],
+      workload: [['IA', 'Iqal Azhari', 9, 2, 5]],
+    },
+  };
+
+  // Monthly obligations only (PPh Badan is annual and would skew the masa rate).
+  const types = [
+    ['PPh 21', 'lapor · tenggat 10 Nov', 61, 0, 1, 62],
+    ['PPh Unifikasi', 'lapor · tenggat 10 Nov', 30, 0, 0, 30],
+    ['PPN', 'lapor · tenggat 20 Nov', 52, 28, 0, 80],
+    ['Pembayaran', 'kurang bayar · 30 Nov', 15, 6, 0, 21],
+  ];
+  const pipeline = [['Draft', 65, 'var(--n1)'], ['In Progress', 26, 'var(--b1)'], ['Menunggu Klien', 1, 'var(--b3)'], ['Menunggu Persetujuan', 1, 'var(--b4)'], ['Selesai, belum dibayar', 0, 'var(--b5)'], ['Completed', 46, 'var(--b6)']];
+  const flowIn = [6, 9, 7, 5, 8, 6, 4, 7, 5, 6, 5, 4];
+  const flowOut = [2, 5, 8, 3, 4, 6, 5, 3, 6, 4, 5, 1];
+  const ontime = [78, 81, 85, 72, 88, 90, 86, 83, 91, 87, 79, 75];
+  const ppnKurang = [42, 38, 55, 47, 61, 58, 49, 52, 66, 59, 63, 48];
+  const ppnLebih = [12, 9, 15, 22, 8, 11, 14, 10, 7, 13, 9, 16];
+  const clients = [['PT Daya Taka Kreasi Bersama', 'Iqal Azhari', 1.9], ['PT Sinar Abadi Logistik', 'Rina Marlina', 1.42], ['PT Delta Nusantara Medika', 'Dimas Saputra', 1.18], ['PT Bumi Tirta Lestari', 'Rina Marlina', 0.96], ['CV Mitra Karya Mandiri', 'Lutfiannur Fahrizal', 0.71], ['PT Abbasy Mining Development', 'Syahrurramadhan', 0.64]];
+  const feed = [['RM', '<b>Rina</b> menandai PPN masa Oktober <b>PT Sinar Abadi</b> sudah lapor', '2 mnt'], ['DS', '<b>Dimas</b> menyetujui 3 dokumen <b>Laporan Keuangan 2025</b>', '8 mnt'], ['LF', '<b>Lutfiannur</b> memindahkan <b>Permohonan PKP Badan</b> ke Menunggu Klien', '21 mnt'], ['IA', '<b>Iqal</b> mengunggah 14 faktur keluaran <b>PT Daya Taka</b>', '45 mnt'], ['SS', '<b>Syahrurramadhan</b> membuat proyek <b>Lapor SPT Tahunan 2025</b>', '1 jam'], ['RM', '<b>Rina</b> menyelesaikan tugas <b>Rekap bukti potong</b>', '1 jam'], ['FG', '<b>Fathan</b> menambah klien <b>CV Berkah Sekawan Abadi</b>', '2 jam'], ['DS', '<b>Dimas</b> menolak dokumen <b>NPWP pengurus</b> (buram)', '3 jam']];
+
+  const ICONS = {"warn": "<svg class=\"i\" viewBox=\"0 0 24 24\"><path d=\"M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z\"/></svg>", "clock": "<svg class=\"i\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg>", "flag": "<svg class=\"i\" viewBox=\"0 0 24 24\"><path d=\"M4 21V4m0 0h12l-2 4 2 4H4\"/></svg>", "doc": "<svg class=\"i\" viewBox=\"0 0 24 24\"><path d=\"M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z\"/><path d=\"M14 3v6h6M12 18v-6m-3 3 3-3 3 3\"/></svg>", "check": "<svg class=\"i\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"m8 12 3 3 5-6\"/></svg>"};
+  let scope = 'office';
+
+  function renderScoped() {
+    const d = DATA[scope];
+    document.getElementById('brief').innerHTML = d.brief;
+    document.getElementById('actions').innerHTML = d.actions.map(a => {
+      const total = a.mini.reduce((s, m) => s + m[0], 0) || 1;
+      return `<a href="#" class="card c3 act ${a.alert ? 'alert' : ''}">
+        <div class="lab"><span class="ico">${ICONS[a.ico]}</span>${a.lab}</div>
+        <span class="go">→</span>
+        <div class="big"><b class="num">${a.big}</b><span>${a.unit}</span></div>
+        <div class="sub">${a.sub}</div>
+        <div class="mini">${a.mini.map(m => `<i style="width:${m[0] / total * 100}%;background:${m[1]}"></i>`).join('')}</div>
+      </a>`;
+    }).join('');
+    document.getElementById('agenda').innerHTML = d.agenda.map(g => `<li class="day ${g.today ? 'today' : ''}">${g.day}</li>` + g.ev.map(e => `<li class="ev"><span class="dot" style="background:${e[0]}"></span><div><div class="tt">${e[1]}</div><div class="ss">${e[2]}</div></div><span class="badge n">${e[3]}</span></li>`).join('')).join('');
+    const max = Math.max(...d.workload.map(w => w[2]));
+    document.getElementById('wl').innerHTML = `<div class="r head"><span></span><span>PIC</span><span>Proyek berjalan</span><span style="text-align:right">Lewat</span><span style="text-align:right">Tugas</span></div>` +
+      d.workload.map(w => {
+        const ok = w[2] - w[3];
+        return `<div class="r"><span class="avt ${w[0] === '–' ? 'none' : ''}">${w[0]}</span><span class="nm" style="${w[0] === '–' ? 'color:var(--danger-text);font-style:italic' : ''}">${w[1]}</span>
+          <span class="track" style="width:${w[2] / max * 100}%">${ok ? `<i style="flex:${ok};background:var(--b3)" data-tip="<b>${w[1]}</b><br>${ok} sesuai jadwal"></i>` : ''}${w[3] ? `<i style="flex:${w[3]};background:var(--danger)" data-tip="<b>${w[1]}</b><br>${w[3]} lewat tenggat"></i>` : ''}</span>
+          <span class="n ${w[3] ? 'bad' : 'mute'}">${w[3] || '–'}</span><span class="n mute">${w[4] || '–'}</span></div>`;
+      }).join('');
+    bindTips(document.getElementById('wl'));
+  }
+
+  function renderStatic() {
+    document.getElementById('types').innerHTML = types.map(t => {
+      const [nm, sub, done, pending, late, total] = t;
+      const seg = (n, c, lab) => n ? `<i style="width:${n / total * 100}%;background:${c}" data-tip="<b>${nm}</b><br>${lab}: ${n} klien"></i>` : '';
+      const pct = Math.round(done / total * 100);
+      return `<div class="ty"><div class="nm">${nm}<small>${sub}</small></div>
+        <div class="bar100">${seg(done, 'var(--b3)', 'Sudah lapor')}${seg(pending, 'var(--line-strong)', 'Belum lapor')}${seg(late, 'var(--danger)', 'Lewat tenggat')}</div>
+        <div class="val">${pct}%<small class="${late ? 'bad' : ''}">${late ? late + ' lewat tenggat' : done + ' / ' + total}</small></div></div>`;
+    }).join('');
+    bindTips(document.getElementById('types'));
+
+    const total = pipeline.reduce((s, p) => s + p[1], 0);
+    document.getElementById('pipe').innerHTML = pipeline.filter(p => p[1]).map(p => `<i style="width:${p[1] / total * 100}%;background:${p[2]}" data-tip="<b>${p[0]}</b><br>${p[1]} proyek"></i>`).join('');
+    document.getElementById('plist').innerHTML = pipeline.map(p => `<li><i style="background:${p[2]}"></i><span>${p[0]}</span><b>${p[1]}</b><small>${Math.round(p[1] / total * 100)}%</small></li>`).join('');
+    bindTips(document.getElementById('pipe'));
+
+    const cmax = clients[0][2];
+    document.getElementById('tc').innerHTML = clients.map((c, i) => `<div class="r"><span class="rk">${i + 1}</span><div class="nm">${c[0]}<small>${c[1]}</small><div class="bar"><i style="width:${c[2] / cmax * 100}%"></i></div></div><span class="v">${c[2].toLocaleString('id-ID', { minimumFractionDigits: 2 })}</span></div>`).join('');
+    document.getElementById('feed').innerHTML = feed.map(f => `<li><span class="avt">${f[0]}</span><span class="d">${f[1]}</span><span class="w">${f[2]}</span></li>`).join('');
+  }
+
+  // ---------- SVG charts ----------
+  const svgNS = 'http://www.w3.org/2000/svg';
+  function lineChart(id, series, labels, opt) {
+    const svg = document.getElementById(id); const [W, H] = svg.getAttribute('viewBox').split(' ').slice(2).map(Number);
+    const L = 30, R = 46, T = 14, B = 24, iw = W - L - R, ih = H - T - B;
+    const max = opt.max ?? Math.ceil(Math.max(...series.flatMap(s => s.data)) / 5) * 5, min = opt.min ?? 0;
+    const x = i => L + i * iw / (labels.length - 1), y = v => T + ih - (v - min) / (max - min) * ih;
+    let s = '';
+    const ticks = opt.ticks ?? [min, (min + max) / 2, max];
+    ticks.forEach(t => { s += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${t}${opt.unit || ''}</text>`; });
+    if (opt.target != null) s += `<line x1="${L}" x2="${W - R}" y1="${y(opt.target)}" y2="${y(opt.target)}" stroke="${css('--ink-3')}" stroke-dasharray="4 4" stroke-width="1.2"/><text x="${W - R + 6}" y="${y(opt.target) + 4}" style="font-weight:800">${opt.target}%</text>`;
+    labels.forEach((l, i) => { s += `<text x="${x(i)}" y="${H - 6}" text-anchor="middle" ${i === labels.length - 1 ? 'style="fill:' + css('--ink') + ';font-weight:800"' : ''}>${l}</text>`; });
+    series.forEach(se => {
+      const pts = se.data.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+      if (se.area) s += `<polygon points="${x(0)},${y(min)} ${pts} ${x(se.data.length - 1)},${y(min)}" fill="${se.color}" opacity=".08"/>`;
+      s += `<polyline points="${pts}" fill="none" stroke="${se.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" ${se.dash ? 'stroke-dasharray="5 4"' : ''}/>`;
+      const li = se.data.length - 1;
+      s += `<circle cx="${x(li)}" cy="${y(se.data[li])}" r="4" fill="${se.color}" stroke="${css('--surface')}" stroke-width="2"/>`;
+      s += `<text x="${x(li) + 9}" y="${y(se.data[li]) + 4}" style="fill:${css('--ink')};font-weight:800">${se.data[li]}${opt.unit || ''}</text>`;
+      if (se.marks) se.marks(se.data).forEach(i => { s += `<circle cx="${x(i)}" cy="${y(se.data[i])}" r="4" fill="${se.color}" stroke="${css('--surface')}" stroke-width="2"/>`; });
+    });
+    s += `<line id="${id}-x" x1="0" x2="0" y1="${T}" y2="${T + ih}" stroke="${css('--ink-4')}" stroke-width="1" opacity="0"/>`;
+    labels.forEach((l, i) => {
+      const rows = series.map(se => `<div class='r'><span><i style='background:${se.color}'></i>${se.name}</span><b>${se.data[i]}${opt.unit || ''}</b></div>`).join('');
+      s += `<rect x="${x(i) - iw / labels.length / 2}" y="${T}" width="${iw / labels.length}" height="${ih}" fill="transparent" data-i="${i}" data-tip="<b>${opt.title(i)}</b>${rows}"/>`;
+    });
+    svg.innerHTML = s;
+    const cross = svg.querySelector(`#${id}-x`);
+    svg.querySelectorAll('rect[data-tip]').forEach(r => {
+      r.addEventListener('mousemove', e => { cross.setAttribute('x1', x(+r.dataset.i)); cross.setAttribute('x2', x(+r.dataset.i)); cross.setAttribute('opacity', 1); showTip(e, r.dataset.tip); });
+      r.addEventListener('mouseleave', () => { cross.setAttribute('opacity', 0); hideTip(); });
+    });
+  }
+
+  function divergingChart(id) {
+    const svg = document.getElementById(id); const [W, H] = svg.getAttribute('viewBox').split(' ').slice(2).map(Number);
+    const L = 34, R = 6, T = 10, B = 24, iw = W - L - R, ih = H - T - B, max = 70, min = -30;
+    const y = v => T + (max - v) / (max - min) * ih, bw = iw / 12;
+    let s = '';
+    [60, 30, 0, -30].forEach(t => { s += `<line class="${t === 0 ? 'base' : 'grid'}" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${t > 0 ? '+' : ''}${t}</text>`; });
+    MASA.forEach((m, i) => {
+      const cx = L + i * bw + bw / 2, w = Math.min(22, bw - 10);
+      const up = ppnKurang[i], dn = ppnLebih[i];
+      s += `<path d="M${cx - w / 2},${y(0) - 1} V${y(up) + 4} q0,-4 4,-4 h${w - 8} q4,0 4,4 V${y(0) - 1} Z" fill="${css('--danger')}"/>`;
+      s += `<path d="M${cx - w / 2},${y(0) + 1} V${y(-dn) - 4} q0,4 4,4 h${w - 8} q4,0 4,-4 V${y(0) + 1} Z" fill="${css('--b3')}"/>`;
+      s += `<text x="${cx}" y="${H - 6}" text-anchor="middle" ${i === 11 ? 'style="fill:' + css('--ink') + ';font-weight:800"' : ''}>${m}</text>`;
+      s += `<rect x="${cx - bw / 2}" y="${T}" width="${bw}" height="${ih}" fill="transparent" data-tip="<b>Masa ${m}</b><div class='r'><span><i style='background:${css('--danger')}'></i>Kurang bayar</span><b>Rp ${up} jt</b></div><div class='r'><span><i style='background:${css('--b3')}'></i>Lebih bayar</span><b>Rp ${dn} jt</b></div>"/>`;
+    });
+    svg.innerHTML = s; bindTips(svg);
+  }
+
+  function spine() {
+    const svg = document.getElementById('spine'); const W = 760, L = 10, R = 10, iw = W - L - R, x = d => L + (d - 1) / 29 * iw;
+    const today = 11;
+    let s = `<line x1="${L}" x2="${W - R}" y1="26" y2="26" stroke="${css('--line-strong')}" stroke-width="4" stroke-linecap="round"/>`;
+    s += `<line x1="${L}" x2="${x(today)}" y1="26" y2="26" stroke="${css('--b3')}" stroke-width="4" stroke-linecap="round"/>`;
+    // Labels next to "today" anchor away from it so the two never collide.
+    [[10, 'PPh 21 & Unifikasi', 'lewat · 1 klien', true, 'end'], [20, 'PPN', '28 klien belum lapor', false, 'middle'], [30, 'Bayar', '6 belum bayar', false, 'end']].forEach(([d, lab, sub, late, anchor]) => {
+      const c = late ? css('--danger') : css('--ink-3'), tx = anchor === 'end' && d !== 30 ? x(d) + 6 : x(d);
+      s += `<circle cx="${x(d)}" cy="26" r="7" fill="${css('--surface')}" stroke="${c}" stroke-width="2.5"/>`;
+      s += `<text x="${tx}" y="10" text-anchor="${anchor}" style="fill:${late ? css('--danger-text') : css('--ink')};font-weight:800">${d} Nov · ${lab}</text>`;
+      s += `<text x="${tx}" y="52" text-anchor="${anchor}" style="${late ? 'fill:' + css('--danger-text') + ';font-weight:700' : ''}">${sub}</text>`;
+    });
+    s += `<line x1="${x(today)}" x2="${x(today)}" y1="16" y2="36" stroke="${css('--primary')}" stroke-width="2.5"/><text x="${x(today) + 8}" y="10" style="fill:${css('--primary-700')};font-weight:800">hari ini, 11 Nov</text>`;
+    svg.innerHTML = s;
+  }
+
+  function charts() {
+    lineChart('flow', [
+      { name: 'Masuk', data: flowIn, color: css('--ink-3'), dash: true },
+      { name: 'Selesai', data: flowOut, color: css('--primary'), area: true },
+    ], MONTHS, { max: 10, ticks: [0, 5, 10], title: i => MONTHS[i] + (i === 0 ? ' 2025' : ' 2026') });
+    lineChart('ontime', [
+      { name: 'Tepat waktu', data: ontime, color: css('--primary'), area: true, marks: d => d.map((v, i) => v < 75 ? i : -1).filter(i => i >= 0) },
+    ], MASA, { min: 60, max: 100, ticks: [60, 80, 100], unit: '%', target: 90, title: i => 'Masa ' + MASA[i] });
+    divergingChart('ppn');
+    spine();
+  }
+
+  document.querySelectorAll('.scope button').forEach(b => b.addEventListener('click', () => {
+    scope = b.dataset.scope;
+    document.querySelectorAll('.scope button').forEach(o => o.setAttribute('aria-pressed', o === b));
+    renderScoped();
+  }));
+  document.querySelectorAll('.chrome [data-theme]').forEach(b => b.addEventListener('click', () => {
+    document.getElementById('pm').classList.toggle('dark', b.dataset.theme === 'dark');
+    document.querySelectorAll('.chrome [data-theme]').forEach(o => o.setAttribute('aria-pressed', o === b));
+    charts();
+  }));
+
+  renderScoped(); renderStatic();
+  (document.fonts?.ready ?? Promise.resolve()).then(charts);
+})();
+</script>
+</body>
+</html>

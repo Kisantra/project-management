@@ -13,8 +13,15 @@ class EditClientGroup extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Actions\ViewAction::make(),
-            Actions\DeleteAction::make(),
+            Actions\ViewAction::make()
+                ->label('Lihat grup')
+                ->color('gray'),
+            Actions\DeleteAction::make()
+                ->label('Hapus grup')
+                ->modalHeading('Hapus grup?')
+                ->modalDescription(fn () => ($n = $this->record->clients()->count()) > 0
+                    ? "{$n} client di grup ini tidak akan punya grup lagi. Data client tidak dihapus."
+                    : 'Grup ini belum punya client.'),
         ];
     }
 

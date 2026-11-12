@@ -49,13 +49,14 @@ class InvoiceObserver
     }
 
     /**
-     * Calculate and update tax report status using the new tax_calculation_summaries structure
+     * Recalculate the stored PPN summary. TaxCalculationSummary::recalculate() is the
+     * only place with the PPN rules (PpnBreakdown); this observer used to carry an
+     * older copy that overwrote it after every invoice change.
      */
     private function calculateAndUpdateStatus($taxReport): void
     {
         try {
-            // Get or create PPN summary
-            $ppnSummary = $taxReport->taxCalculationSummaries()
+            $taxReport->taxCalculationSummaries()
                 ->firstOrCreate(
                     ['tax_type' => 'ppn'],
                     [
@@ -72,82 +73,8 @@ class InvoiceObserver
                         'status_final' => 'Nihil',
                         'report_status' => 'Belum Lapor',
                     ]
-                );
-
-            // Calculate PPN from invoices (excluding revisions)
-            $totalPpnMasuk = $taxReport->originalInvoices()
-                ->where('type', 'Faktur Masuk')
-                ->sum('ppn');
-            
-            // Calculate PPN from Faktur Keluaran (excluding certain prefixes and revisions)
-            $excludedPrefixes = ['02', '03', '07', '08'];
-            $totalPpnKeluar = $taxReport->originalInvoices()
-                ->where('type', 'Faktur Keluaran')
-                ->where(function($query) use ($excludedPrefixes) {
-                    foreach ($excludedPrefixes as $prefix) {
-                        $query->where('invoice_number', 'not like', $prefix . '%');
-                    }
-                })
-                ->sum('ppn');
-            
-            // Calculate difference (Keluar - Masuk)
-            $selisihPpn = $totalPpnKeluar - $totalPpnMasuk;
-            
-            // Get approved compensations received
-            $kompensasiDiterima = $taxReport->approvedCompensationsReceived()
-                ->where('tax_type', 'ppn')
-                ->sum('amount_compensated');
-            
-            // Get approved compensations given
-            $kompensasiTerpakai = $taxReport->approvedCompensationsGiven()
-                ->where('tax_type', 'ppn')
-                ->sum('amount_compensated');
-            
-            // Preserve existing manual kompensasi value
-            $manualKompensasi = $ppnSummary->manual_kompensasi ?? 0;
-            
-            // Calculate final balance after compensation (including manual kompensasi)
-            $saldoFinal = $selisihPpn - $kompensasiDiterima - $manualKompensasi;
-            
-            // Determine status before compensation
-            $status = $this->determineStatus($selisihPpn);
-            
-            // Determine status after compensation
-            $statusFinal = $this->determineStatus($saldoFinal);
-            
-            // Calculate available compensation (if overpayment)
-            $kompensasiTersedia = $statusFinal === 'Lebih Bayar' ? abs($saldoFinal) : 0;
-            
-            // Update PPN summary (preserve manual_kompensasi and manual_kompensasi_notes)
-            $ppnSummary->update([
-                'pajak_masuk' => $totalPpnMasuk,
-                'pajak_keluar' => $totalPpnKeluar,
-                'selisih' => $selisihPpn,
-                'status' => $status,
-                'kompensasi_diterima' => $kompensasiDiterima,
-                'kompensasi_tersedia' => $kompensasiTersedia,
-                'kompensasi_terpakai' => $kompensasiTerpakai,
-                'manual_kompensasi' => $manualKompensasi, // Preserve existing value
-                // manual_kompensasi_notes is intentionally not updated here to preserve it
-                'saldo_final' => $saldoFinal,
-                'status_final' => $statusFinal,
-                'calculated_at' => now(),
-                'calculated_by' => auth()->id(),
-            ]);
-            
-            // Optional: Log the calculation for debugging
-            \Log::info("Tax Report PPN Summary Updated", [
-                'tax_report_id' => $taxReport->id,
-                'total_ppn_masuk' => $totalPpnMasuk,
-                'total_ppn_keluar' => $totalPpnKeluar,
-                'selisih_ppn' => $selisihPpn,
-                'kompensasi_diterima' => $kompensasiDiterima,
-                'manual_kompensasi' => $manualKompensasi,
-                'saldo_final' => $saldoFinal,
-                'status' => $status,
-                'status_final' => $statusFinal
-            ]);
-            
+                )
+                ->recalculate();
         } catch (\Exception $e) {
             // Log error but don't break the invoice operation
             \Log::error('Failed to update tax report summary for invoice change', [

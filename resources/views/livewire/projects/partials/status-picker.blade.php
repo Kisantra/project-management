@@ -28,7 +28,7 @@
                             @click="open = false"
                             class="cu-status-option {{ $isCurrent ? 'is-current' : '' }}">
                         <span class="cu-status-option-icon">
-                            @include('livewire.projects.partials.status-shape', ['shape' => $meta['shape'] ?? 'empty', 'color' => $meta['color'], 'size' => 18])
+                            @include('livewire.projects.partials.status-shape', ['shape' => $meta['shape'] ?? 'empty', 'color' => $meta['color'], 'tone' => $meta['tone'] ?? null, 'size' => 18])
                         </span>
                         <span class="cu-status-option-label">{{ $meta['label'] }}</span>
                         @if ($isCurrent)

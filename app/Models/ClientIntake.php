@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ClientIntake extends Model
 {
+    /** Waiting longer than this many days marks an intake as overdue (red) in the list. */
+    public const OVERDUE_DAYS = 3;
+
     protected $fillable = [
         'cm_lead_id',
         'name',
@@ -97,6 +100,33 @@ class ClientIntake extends Model
     public function isWithdrawn(): bool
     {
         return $this->withdrawn_at !== null;
+    }
+
+    /** Whole days since the intake arrived. */
+    public function waitingDays(): int
+    {
+        return (int) abs($this->created_at->copy()->startOfDay()->diffInDays(now()->startOfDay()));
+    }
+
+    public function isOverdue(): bool
+    {
+        return $this->isPending() && $this->waitingDays() > self::OVERDUE_DAYS;
+    }
+
+    /** Pending intakes that arrived more than OVERDUE_DAYS days ago. */
+    public function scopeOverdue(Builder $query): Builder
+    {
+        return $query->pending()->where('created_at', '<', now()->startOfDay()->subDays(self::OVERDUE_DAYS));
+    }
+
+    /** sent | failed | queued: whether Client Management heard that the deal was processed. */
+    public function handoffState(): string
+    {
+        return match (true) {
+            $this->handoff_sent_at !== null => 'sent',
+            filled($this->handoff_error) => 'failed',
+            default => 'queued',
+        };
     }
 
     /** Nilai yang dikirim CM untuk satu kunci payload, mis. 'npwp' atau 'contact.phone'. */

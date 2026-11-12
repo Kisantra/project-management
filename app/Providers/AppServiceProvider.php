@@ -26,6 +26,8 @@ use App\Models\Invoice;
 use App\Observers\InvoiceObserver;
 use Illuminate\Support\Facades\Vite;
 use Livewire\Livewire;
+use Illuminate\Support\Facades\Gate;
+use App\Support\Access\PathPermission;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -57,6 +59,11 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Model::unguard();
+
+        // Super-admin passes every gate and policy check (was registered by
+        // the old access plugin).
+        Gate::before(fn ($user) => PathPermission::isSuperAdmin($user) ? true : null);
+
         Invoice::observe(InvoiceObserver::class);
         TaxReport::observe(TaxReportObserver::class);
         DailyTask::observe(DailyTaskObserver::class);
@@ -73,6 +80,8 @@ class AppServiceProvider extends ServiceProvider
         // ]);
         FilamentAsset::register([
             Js::make('filament-notification-sounds', __DIR__ . '/../../resources/js/filament-notification-sounds.js'),
+            // Alpine data for the <x-kis.*> components (DESIGN.md).
+            Js::make('kis-ui', __DIR__ . '/../../resources/js/kis-ui.js'),
         ]);
 
         // BODY_END is also rendered on the login pages. This modal downloads,

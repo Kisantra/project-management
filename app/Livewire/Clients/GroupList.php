@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Clients;
 
+use App\Filament\Resources\ClientGroupResource;
+use App\Filament\Resources\ClientResource;
 use App\Models\Client;
 use App\Models\ClientGroup;
 use Filament\Notifications\Notification;
@@ -9,8 +11,18 @@ use Illuminate\Support\Collection;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
+/**
+ * Client groups list (docs/mockups/client-groups-redesign.html): one card per
+ * group with up to MEMBER_PREVIEW companies, a status rail, search that also
+ * matches member names, and the "Tambah client" modal.
+ */
 class GroupList extends Component
 {
+    /** Companies listed on a card before "+N lainnya". */
+    public const MEMBER_PREVIEW = 4;
+
+    public const STATUSES = ['' => 'Semua', 'active' => 'Aktif', 'inactive' => 'Nonaktif'];
+
     #[Url(as: 'q')]
     public string $search = '';
 
@@ -21,6 +33,11 @@ class GroupList extends Component
     public ?int $addGroupId = null;
     public array $newClientIds = [];
     public string $clientSearch = '';
+
+    public function setStatus(string $status): void
+    {
+        $this->statusFilter = array_key_exists($status, self::STATUSES) ? $status : '';
+    }
 
     public function clearFilters(): void
     {
@@ -92,11 +109,45 @@ class GroupList extends Component
                 $q->where(fn ($w) => $w
                     ->where('name', 'like', $term)
                     ->orWhere('contact_name', 'like', $term)
-                    ->orWhere('contact_email', 'like', $term));
+                    ->orWhere('contact_email', 'like', $term)
+                    ->orWhereHas('clients', fn ($c) => $c->where('name', 'like', $term)));
             })
             ->when($this->statusFilter !== '', fn ($q) => $q->where('status', $this->statusFilter))
             ->orderBy('name')
             ->get();
+    }
+
+    /** Groups per status for the rail (ignores the search, like the other lists). */
+    public function getStatusCountsProperty(): array
+    {
+        $counts = ClientGroup::query()->selectRaw('status, COUNT(*) as n')->groupBy('status')->pluck('n', 'status');
+
+        return [
+            '' => (int) $counts->sum(),
+            'active' => (int) ($counts['active'] ?? 0),
+            'inactive' => (int) ($counts['inactive'] ?? 0),
+        ];
+    }
+
+    /** Clients that belong to no group yet: the "Buat grup baru" card points at them. */
+    public function getUngroupedCountProperty(): int
+    {
+        return Client::whereNull('group_id')->count();
+    }
+
+    public function viewUrl(ClientGroup $group): string
+    {
+        return ClientGroupResource::getUrl('view', ['record' => $group]);
+    }
+
+    public function editUrl(ClientGroup $group): string
+    {
+        return ClientGroupResource::getUrl('edit', ['record' => $group]);
+    }
+
+    public function clientUrl(Client $client): string
+    {
+        return ClientResource::getUrl('view', ['record' => $client]);
     }
 
     public function render()

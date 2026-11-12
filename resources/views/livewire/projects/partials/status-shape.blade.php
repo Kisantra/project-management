@@ -3,8 +3,13 @@
     /** @var string $color */
     /** @var int|null $size */
     /** @var bool|null $inverse */
+    /** @var string|null $tone  design-system tone; draws in currentColor so dark mode can adjust it */
     $size = $size ?? 18;
     $inverse = $inverse ?? false;
+    $tone = $tone ?? null;
+    if ($tone) {
+        $color = 'currentColor';
+    }
 
     // For solid shapes (check / x): swap fill and inner-stroke when inverse.
     // For outline shapes: just use white as the line color when inverse.
@@ -12,7 +17,7 @@
     $solidFill = $inverse ? '#ffffff' : $color;  // filled circle bg
     $innerInk = $inverse ? $color : '#ffffff';   // inner glyph (check / x)
 @endphp
-<svg width="{{ $size }}" height="{{ $size }}" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="{{ $size }}" height="{{ $size }}" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" @if ($tone) data-kis-tone="{{ $tone }}" class="kis-tone-ink" @endif aria-hidden="true">
     @switch($shape)
         @case('empty')
             <circle cx="10" cy="10" r="7.5" stroke="{{ $line }}" stroke-width="2" fill="none"/>

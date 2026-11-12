@@ -1,100 +1,146 @@
-<div class="space-y-5">
-    {{-- ── Toolbar: cari + filter status + jumlah ── --}}
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="relative w-full sm:max-w-xs">
-            <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m21 21-4.3-4.3"/>
-            </svg>
-            <input type="search" wire:model.live.debounce.300ms="search"
-                   placeholder="Cari grup, kontak, email..."
-                   class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500">
-        </div>
+{{--
+    Client groups (docs/mockups/client-groups-redesign.html): search + status rail,
+    then one card per group and a "Buat grup baru" card. CSS: .kis-groups / .kis-gcard
+    in resources/css/filament/admin/theme.css.
+--}}
+@php
+    use App\Filament\Resources\ClientGroupResource;
+    use App\Livewire\Clients\GroupList;
+    use App\Support\Ui\ClientAvatar;
 
-        <div class="flex items-center gap-3">
-            <select wire:model.live="statusFilter"
-                    class="rounded-lg border border-gray-200 bg-white py-2 pl-3 pr-8 text-sm text-gray-700 shadow-sm transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
-                <option value="">Semua status</option>
-                <option value="active">Aktif</option>
-                <option value="inactive">Nonaktif</option>
-            </select>
+    $counts = $this->statusCounts;
+@endphp
 
-            <span class="shrink-0 text-xs font-medium tabular-nums text-gray-500 dark:text-gray-400">
-                {{ $groups->count() }} grup
-            </span>
+<div class="kis-groups">
+    {{-- Toolbar --}}
+    <div class="kis-groups__tool">
+        <label class="kis-groups__search">
+            <x-heroicon-m-magnifying-glass class="h-4 w-4 shrink-0" />
+            <input type="search" wire:model.live.debounce.300ms="search" placeholder="Cari grup, kontak, atau nama klien" aria-label="Cari grup">
+        </label>
+        <div class="kis-rail__wrap kis-groups__rail" role="group" aria-label="Status grup">
+            @foreach (GroupList::STATUSES as $value => $label)
+                <button type="button" wire:click="setStatus('{{ $value }}')" @class(['kis-rail__chip', 'is-on' => $statusFilter === $value]) aria-pressed="{{ $statusFilter === $value ? 'true' : 'false' }}">
+                    {{ $label }} <em>{{ $counts[$value] }}</em>
+                </button>
+            @endforeach
         </div>
     </div>
 
-    {{-- ── Daftar panel grup (kartu side-by-side) ── --}}
-    @forelse($groups as $group)
-        <x-group-panel
-            :group="$group"
-            :manageUrl="\App\Filament\Resources\ClientGroupResource::getUrl('view', ['record' => $group])"
-            :showAddClient="true" />
-    @empty
-        <div class="flex flex-col items-center justify-center rounded-2xl bg-white px-6 py-16 text-center shadow-lg shadow-gray-900/[0.07] ring-1 ring-gray-950/5 dark:bg-gray-900 dark:shadow-none dark:ring-white/10">
-            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500">
-                <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/>
-                </svg>
-            </div>
-            @if($hasFilters)
-                <p class="mt-4 text-sm font-semibold text-gray-900 dark:text-white">Tidak ada grup yang cocok</p>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Coba ubah kata kunci atau filter status.</p>
-                <button type="button" wire:click="clearFilters"
-                        class="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
-                    Reset filter
-                </button>
-            @else
-                <p class="mt-4 text-sm font-semibold text-gray-900 dark:text-white">Belum ada grup client</p>
-                <p class="mt-1 max-w-xs text-xs leading-relaxed text-gray-500 dark:text-gray-400">Buat grup untuk mengelompokkan client yang terafiliasi dalam satu grup usaha.</p>
-            @endif
-        </div>
-    @endforelse
+    <div class="kis-groups__grid" wire:loading.class="opacity-60" wire:target="search, setStatus">
+        @foreach ($groups as $group)
+            @php
+                $members = $group->clients;
+                $total = $members->count();
+                $active = $members->where('status', 'Active')->count();
+                $logo = ClientAvatar::url($group->logo);
+                $contact = collect([$group->contact_name ? 'Kontak ' . $group->contact_name : null, $group->contact_email ?: $group->contact_phone])->filter()->implode(' · ');
+            @endphp
+            <article class="kis-gcard" wire:key="group-{{ $group->id }}">
+                <header class="kis-gcard__head">
+                    <span class="kis-gtile" aria-hidden="true">
+                        <span>{{ ClientAvatar::initials($group->name) }}</span>
+                        @if ($logo)<img src="{{ $logo }}" alt="" onerror="this.remove()">@endif
+                    </span>
+                    <div class="kis-gcard__id">
+                        <div class="kis-gcard__name">
+                            <a href="{{ $this->viewUrl($group) }}">{{ $group->name }}</a>
+                            <x-kis.badge :tone="$group->status === 'active' ? 'blue' : 'neutral'" dot size="sm">{{ $group->status === 'active' ? 'Aktif' : 'Nonaktif' }}</x-kis.badge>
+                        </div>
+                        <p class="kis-gcard__meta">{{ $contact ?: 'Tanpa kontak' }}</p>
+                    </div>
+                    <a href="{{ $this->editUrl($group) }}" class="kis-gcard__icon" title="Ubah grup" aria-label="Ubah grup {{ $group->name }}">
+                        <x-heroicon-m-pencil-square class="h-4 w-4" />
+                    </a>
+                </header>
 
-    {{-- ── Modal: Tambah Client ke grup ── --}}
-    <x-filament::modal id="add-client-to-group" width="lg" icon="heroicon-o-user-plus">
-        <x-slot name="heading">
-            Tambah Client ke {{ $this->addGroup?->name ?? 'Grup' }}
-        </x-slot>
-        <x-slot name="description">
-            Pilih client yang belum tergabung dalam grup mana pun.
-        </x-slot>
+                <div class="kis-gcard__label">Perusahaan · {{ $total }}</div>
+                @if ($total === 0)
+                    <p class="kis-gcard__empty">Belum ada perusahaan di grup ini.</p>
+                @else
+                    <ul class="kis-gcard__list">
+                        @foreach ($members->take(GroupList::MEMBER_PREVIEW) as $member)
+                            <li wire:key="group-{{ $group->id }}-member-{{ $member->id }}">
+                                <a href="{{ $this->clientUrl($member) }}" class="kis-gcard__member">
+                                    <span class="kis-gtile is-sm" aria-hidden="true">{{ ClientAvatar::initials($member->name) }}</span>
+                                    <span class="kis-gcard__who">
+                                        <b>{{ $member->name }}</b>
+                                        @if ($member->client_type)
+                                            <small>{{ $member->client_type }}{{ $member->client_subtype ? ' · ' . $member->client_subtype : '' }}</small>
+                                        @endif
+                                    </span>
+                                    <span @class(['kis-gcard__st', 'is-on' => $member->status === 'Active'])>{{ $member->status === 'Active' ? 'Aktif' : 'Nonaktif' }}</span>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                    @if ($total > GroupList::MEMBER_PREVIEW)
+                        <a href="{{ $this->viewUrl($group) }}" class="kis-gcard__more">+{{ $total - GroupList::MEMBER_PREVIEW }} perusahaan lainnya →</a>
+                    @endif
+                @endif
+
+                <footer class="kis-gcard__foot">
+                    <div class="kis-gcard__meter">
+                        <span>{{ $active }} dari {{ $total }} aktif</span>
+                        <i aria-hidden="true"><b style="width: {{ $total ? round($active / $total * 100) : 0 }}%"></b></i>
+                    </div>
+                    <button type="button" wire:click="openAddClient({{ $group->id }})" class="kis-btn kis-btn--sm kis-btn--outline">
+                        <x-heroicon-m-plus class="h-4 w-4 text-gray-500 dark:text-gray-400" /> Tambah client
+                    </button>
+                    <a href="{{ $this->viewUrl($group) }}" class="kis-btn kis-btn--sm kis-btn--outline">Buka →</a>
+                </footer>
+            </article>
+        @endforeach
+
+        @if ($hasFilters && $groups->isEmpty())
+            <div class="kis-gnew is-static">
+                <b>Tidak ada grup yang cocok</b>
+                <span>Coba kata kunci lain atau ganti filter status.</span>
+                <button type="button" wire:click="clearFilters" class="kis-btn kis-btn--sm kis-btn--outline">Reset filter</button>
+            </div>
+        @elseif (! $hasFilters)
+            <a href="{{ ClientGroupResource::getUrl('create') }}" class="kis-gnew">
+                <span class="kis-gtile is-muted" aria-hidden="true"><x-heroicon-m-plus class="h-5 w-5" /></span>
+                <b>Buat grup baru</b>
+                <span>Kelompokkan klien yang satu grup usaha.<br><strong>{{ number_format($this->ungroupedCount, 0, ',', '.') }} klien</strong> belum punya grup.</span>
+                <span class="kis-btn kis-btn--sm kis-btn--primary">Tambah grup</span>
+            </a>
+        @endif
+    </div>
+
+    {{-- Modal: add clients to a group --}}
+    <x-filament::modal id="add-client-to-group" width="lg" icon="heroicon-o-user-plus" footer-actions-alignment="end">
+        <x-slot name="heading">Tambah client ke {{ $this->addGroup?->name ?? 'grup' }}</x-slot>
+        <x-slot name="description">Pilih client yang belum tergabung dalam grup mana pun.</x-slot>
 
         <div class="space-y-3">
-            <div class="relative">
-                <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m21 21-4.3-4.3"/>
-                </svg>
-                <input type="search" wire:model.live.debounce.300ms="clientSearch"
-                       placeholder="Cari nama atau NPWP..."
-                       class="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500">
-            </div>
+            <label class="kis-groups__search is-wide">
+                <x-heroicon-m-magnifying-glass class="h-4 w-4 shrink-0" />
+                <input type="search" wire:model.live.debounce.300ms="clientSearch" placeholder="Cari nama atau NPWP" aria-label="Cari client">
+            </label>
 
-            <div class="max-h-72 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-700">
-                @forelse($this->availableClients as $ac)
-                    <label class="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-gray-50 dark:hover:bg-gray-800/60">
+            <div class="kis-groups__pick">
+                @forelse ($this->availableClients as $ac)
+                    <label wire:key="pick-{{ $ac->id }}">
                         <input type="checkbox" value="{{ $ac->id }}" wire:model.live="newClientIds"
-                               class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800">
-                        <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-medium text-gray-900 dark:text-gray-100">{{ $ac->name }}</span>
-                            <span class="block truncate text-xs text-gray-500 dark:text-gray-400">{{ $ac->client_type }}{{ $ac->NPWP ? ' · ' . $ac->NPWP : '' }}</span>
+                               class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-white/20 dark:bg-white/5 dark:checked:bg-primary-500">
+                        <span class="kis-gtile is-sm" aria-hidden="true">{{ ClientAvatar::initials($ac->name) }}</span>
+                        <span class="kis-gcard__who">
+                            <b>{{ $ac->name }}</b>
+                            <small>{{ collect([$ac->client_type, $ac->NPWP])->filter()->implode(' · ') ?: 'Tanpa NPWP' }}</small>
                         </span>
                     </label>
                 @empty
-                    <p class="px-3 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                        {{ $clientSearch !== '' ? 'Tidak ada client yang cocok.' : 'Semua client sudah tergabung dalam grup.' }}
-                    </p>
+                    <p class="kis-groups__pick-empty">{{ $clientSearch !== '' ? 'Tidak ada client yang cocok.' : 'Semua client sudah tergabung dalam grup.' }}</p>
                 @endforelse
             </div>
         </div>
 
-        <div class="mt-5 flex items-center justify-end gap-2">
-            <x-filament::button color="gray" x-on:click="$dispatch('close-modal', { id: 'add-client-to-group' })">
-                Batal
-            </x-filament::button>
+        <x-slot name="footerActions">
+            <x-filament::button color="gray" x-on:click="$dispatch('close-modal', { id: 'add-client-to-group' })">Batal</x-filament::button>
             <x-filament::button wire:click="saveAddClient" wire:loading.attr="disabled" :disabled="empty($newClientIds)">
                 Tambahkan{{ count($newClientIds) ? ' (' . count($newClientIds) . ')' : '' }}
             </x-filament::button>
-        </div>
+        </x-slot>
     </x-filament::modal>
 </div>

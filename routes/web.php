@@ -32,3 +32,8 @@ Route::get('/download/pph-example', function () {
 // Route::get('/storage/download-all', [App\Http\Controllers\StorageDownloadController::class, 'downloadAll'])
 //     ->name('storage.download-all')
 //     ->middleware(['auth', 'verified']);
+
+// The Project Dashboard and Dashboard Pajak pages were merged into the main
+// dashboard (2026-11). Keep old bookmarks working.
+Route::redirect('/project-dashboard', '/');
+Route::redirect('/dashboard-tax-report', '/');

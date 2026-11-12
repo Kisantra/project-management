@@ -1,6 +1,8 @@
 // resources/js/filament-notification-sounds.js
 
-class FilamentNotificationSounds {
+// Assigned once: wire:navigate re-runs body scripts, and a second top-level
+// `class` declaration throws "has already been declared".
+window.FilamentNotificationSounds ??= class FilamentNotificationSounds {
     constructor() {
         this.enabled = this.getSoundPreference();
         this.volume = this.getVolumePreference();
@@ -340,7 +342,7 @@ class FilamentNotificationSounds {
         this.saveVolumePreference();
         console.log('Volume set to:', this.volume); // Debug log
     }
-}
+};
 
 // // Initialize when DOM is ready
 // document.addEventListener('DOMContentLoaded', () => {

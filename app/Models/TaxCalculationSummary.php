@@ -434,23 +434,12 @@ class TaxCalculationSummary extends Model
      */
     protected function calculatePpn($taxReport): array
     {
-        // Faktur Masuk: All incoming invoices count
-        $pajakMasuk = $taxReport->originalInvoices()
-            ->where('type', 'Faktur Masuk')
-            ->sum('ppn');
-        
-        // Faktur Keluaran: Exclude special prefixes (02, 03, 07, 08)
-        // Use where clauses to check if invoice_number does NOT start with excluded prefixes
-        $pajakKeluar = $taxReport->originalInvoices()
-            ->where('type', 'Faktur Keluaran')
-            ->where(function($query) {
-                // Exclude invoices that start with any of the excluded prefixes
-                foreach ($this->getExcludedInvoicePrefixes() as $prefix) {
-                    $query->where('invoice_number', 'not like', $prefix . '%');
-                }
-            })
-            ->sum('ppn');
-        
+        // Same rules as the PPN screens (excluded codes, business-related
+        // Faktur Masuk, latest revision): see PpnBreakdown.
+        $breakdown = \App\Services\TaxReport\PpnBreakdown::for($taxReport);
+        $pajakMasuk = $breakdown->ppnMasuk();
+        $pajakKeluar = $breakdown->ppnKeluar();
+
         $selisih = $pajakKeluar - $pajakMasuk;
         
         // Hitung kompensasi yang diterima (approved)

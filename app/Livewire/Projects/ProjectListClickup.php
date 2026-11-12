@@ -108,14 +108,14 @@ class ProjectListClickup extends Component implements HasActions, HasForms
     // Status manager panel
     public bool $showStatusManager = false;
     public string $newStatusLabel = '';
-    public string $newStatusColor = '#2563eb';
+    public string $newStatusTone = 'blue';
     public string $newStatusShape = 'empty';
     public string $newStatusCategory = 'active';
 
     // Inline edit state
     public ?int $editingStatusId = null;
     public string $editLabel = '';
-    public string $editColor = '#2563eb';
+    public string $editTone = 'blue';
     public string $editShape = 'empty';
     public string $editCategory = 'active';
 
@@ -362,17 +362,18 @@ class ProjectListClickup extends Component implements HasActions, HasForms
         'none'       => 'None',
     ];
 
+    // Colours are the Tone::swatch() values (constants cannot call it): red, blue, neutral, outline.
     public const PRIORITIES = [
-        'urgent' => ['label' => 'Urgent', 'color' => '#b91c1c', 'bg' => '#fee2e2'],
-        'normal' => ['label' => 'Normal', 'color' => '#0e7490', 'bg' => '#cffafe'],
-        'low' => ['label' => 'Low', 'color' => '#64748b', 'bg' => '#f1f5f9'],
+        'urgent' => ['label' => 'Urgent', 'tone' => 'red', 'color' => '#af3628', 'bg' => '#fff4f2'],
+        'normal' => ['label' => 'Normal', 'tone' => 'blue', 'color' => '#10657f', 'bg' => '#dff4fe'],
+        'low' => ['label' => 'Low', 'tone' => 'neutral', 'color' => '#485156', 'bg' => '#ebf2f4'],
     ];
 
     public const STEP_STATUSES = [
-        'pending' => ['label' => 'Pending', 'color' => '#94a3b8', 'bg' => '#f1f5f9'],
-        'in_progress' => ['label' => 'In Progress', 'color' => '#3b82f6', 'bg' => '#dbeafe'],
-        'waiting_for_documents' => ['label' => 'Waiting Docs', 'color' => '#eab308', 'bg' => '#fef9c3'],
-        'completed' => ['label' => 'Completed', 'color' => '#22c55e', 'bg' => '#dcfce7'],
+        'pending' => ['label' => 'Pending', 'tone' => 'neutral', 'color' => '#485156', 'bg' => '#ebf2f4'],
+        'in_progress' => ['label' => 'In Progress', 'tone' => 'blue', 'color' => '#10657f', 'bg' => '#dff4fe'],
+        'waiting_for_documents' => ['label' => 'Waiting Docs', 'tone' => 'outline', 'color' => '#10657f', 'bg' => 'transparent'],
+        'completed' => ['label' => 'Completed', 'tone' => 'blue', 'color' => '#10657f', 'bg' => '#dff4fe'],
     ];
 
     public const TYPES = [
@@ -387,6 +388,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
         'overdue' => 'Overdue',
         'today' => 'Today',
         'this_week' => 'This Week',
+        'next_7_days' => 'Next 7 Days',
         'this_month' => 'This Month',
         'no_due_date' => 'No Due Date',
     ];
@@ -517,7 +519,8 @@ class ProjectListClickup extends Component implements HasActions, HasForms
      * The status map used throughout the view.
      * Loaded from the project_statuses table — supports user-created statuses.
      *
-     * Returns: [ key => ['label', 'color', 'bg', 'shape', 'category', 'sort_order', 'is_system'] ]
+     * Returns: [ key => ['label', 'tone', 'color', 'bg', 'shape', 'category', 'sort_order', 'is_system'] ]
+     * color/bg come from the status tone (Tone::swatch), not the stored colour.
      * Ordered by category then sort_order.
      */
     public function getStatusMapProperty(): array
@@ -531,8 +534,9 @@ class ProjectListClickup extends Component implements HasActions, HasForms
                 ->mapWithKeys(fn ($s) => [
                     $s->key => [
                         'label'      => $s->label,
-                        'color'      => $s->color,
-                        'bg'         => $s->bg_color,
+                        'tone'       => \App\Support\Ui\Tone::forProjectStatus($s),
+                        'color'      => $s->tone_swatch['color'],
+                        'bg'         => $s->tone_swatch['bg'],
                         'shape'      => $s->shape,
                         'category'   => $s->category,
                         'sort_order' => $s->sort_order,
@@ -838,11 +842,11 @@ class ProjectListClickup extends Component implements HasActions, HasForms
     }
 
     /**
-     * Counts for the SOP pill row, respecting every other active filter.
+     * Counts for the SOP filter rail, respecting every other active filter.
      *
      * Returns ['total' => int, 'none' => int, 'sops' => [['id','name','count'], ...]]
-     * SOPs with zero matches are dropped, except the one currently selected
-     * so the user can always click it again to deselect.
+     * SOPs keep the order admins set on the SOP page. SOPs with zero matches
+     * are dropped, except selected ones so they can always be deselected.
      */
     public function getSopFacetsProperty(): array
     {
@@ -852,11 +856,9 @@ class ProjectListClickup extends Component implements HasActions, HasForms
             ->groupBy('sop_id')
             ->pluck('c', 'sop_id');
 
-        $sops = \Illuminate\Support\Facades\Cache::remember(
-            'project_list_sop_options',
-            now()->addSeconds(60),
-            fn () => \App\Models\Sop::query()->orderBy('name')->get(['id', 'name']),
-        );
+        // Not cached: reordering on the SOP page writes with a bulk update
+        // (no model events), and the list is only a handful of rows.
+        $sops = \App\Models\Sop::query()->ordered()->get(['id', 'name']);
 
         $items = $sops
             ->map(fn ($sop) => [
@@ -865,7 +867,6 @@ class ProjectListClickup extends Component implements HasActions, HasForms
                 'count' => (int) ($counts[$sop->id] ?? 0),
             ])
             ->filter(fn ($row) => $row['count'] > 0 || in_array($row['id'], $this->sopSelection(), true))
-            ->sortBy([['count', 'desc'], ['name', 'asc']])
             ->values()
             ->all();
 
@@ -923,6 +924,11 @@ class ProjectListClickup extends Component implements HasActions, HasForms
             'this_week' => $query->whereBetween('due_date', [
                 now()->startOfWeek()->toDateString(),
                 now()->endOfWeek()->toDateString(),
+            ]),
+            // Same window as the dashboard's "jatuh tempo 7 hari" card.
+            'next_7_days' => $query->whereBetween('due_date', [
+                now()->toDateString(),
+                now()->addDays(7)->toDateString(),
             ]),
             'this_month' => $query->whereBetween('due_date', [
                 now()->startOfMonth()->toDateString(),
@@ -1035,6 +1041,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
             $cols[$key] = [
                 'key'      => $key,
                 'label'    => $meta['label'],
+                'tone'     => $meta['tone'] ?? null,
                 'color'    => $meta['color'],
                 'shape'    => $meta['shape'] ?? 'empty',
                 'count'    => $items->count(),
@@ -1047,7 +1054,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
             $cols['__unknown'] = [
                 'key'      => null,
                 'label'    => 'Lainnya',
-                'color'    => '#94a3b8',
+                'color'    => '#8b9497',
                 'shape'    => 'empty',
                 'count'    => $unknown->count(),
                 'projects' => $unknown,
@@ -1065,6 +1072,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
             $cols[$key] = [
                 'key'      => $key,
                 'label'    => $meta['label'],
+                'tone'     => $meta['tone'],
                 'color'    => $meta['color'],
                 'count'    => $items->count(),
                 'projects' => $items,
@@ -1082,7 +1090,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
         $cols['_none'] = [
             'key'      => null,
             'label'    => 'Belum ada PIC',
-            'color'    => '#94a3b8',
+            'color'    => '#8b9497',
             'count'    => $unassigned->count(),
             'projects' => $unassigned,
         ];
@@ -1095,7 +1103,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
                 $cols['p_' . $pic->id] = [
                     'key'      => $pic->id,
                     'label'    => $pic->name,
-                    'color'    => '#6366f1',
+                    'color'    => '#10657f',
                     'count'    => $items->count(),
                     'projects' => $items,
                 ];
@@ -1114,7 +1122,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
             $cols['_none'] = [
                 'key'      => null,
                 'label'    => 'Tanpa klien',
-                'color'    => '#94a3b8',
+                'color'    => '#8b9497',
                 'count'    => $unassigned->count(),
                 'projects' => $unassigned,
             ];
@@ -1147,7 +1155,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
         $cols['_none'] = [
             'key'      => null,
             'label'    => 'Tanpa Departemen',
-            'color'    => '#94a3b8',
+            'color'    => '#8b9497',
             'count'    => $unassigned->count(),
             'projects' => $unassigned,
         ];
@@ -1160,7 +1168,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
                 $cols['d_' . $dept->id] = [
                     'key'      => $dept->id,
                     'label'    => $dept->name,
-                    'color'    => '#6366f1',
+                    'color'    => '#10657f',
                     'count'    => $items->count(),
                     'projects' => $items,
                 ];
@@ -1179,7 +1187,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
         $cols['_none'] = [
             'key'      => null,
             'label'    => 'Tanpa SOP',
-            'color'    => '#94a3b8',
+            'color'    => '#8b9497',
             'count'    => $unassigned->count(),
             'projects' => $unassigned,
         ];
@@ -1192,7 +1200,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
                 $cols['s_' . $sop->id] = [
                     'key'      => $sop->id,
                     'label'    => $sop->name,
-                    'color'    => '#6366f1',
+                    'color'    => '#10657f',
                     'count'    => $items->count(),
                     'projects' => $items,
                 ];
@@ -1326,7 +1334,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
         // Default badge color = primary accent (matches --cu-accent in blade).
         // Status/priority pakai warna spesifik mereka; sisanya (client, pic, dept, dst.)
         // di-fallback ke primary supaya konsisten dengan brand.
-        $primary = ['color' => '#6366f1', 'bg' => '#eef2ff'];
+        $primary = ['tone' => 'blue', 'color' => '#10657f', 'bg' => '#dff4fe'];
 
         return match ($this->groupBy) {
             'status'   => $this->statusMap[$key] ?? $primary,
@@ -1382,12 +1390,12 @@ class ProjectListClickup extends Component implements HasActions, HasForms
     {
         $this->showStatusManager = false;
         $this->newStatusLabel = '';
-        $this->newStatusColor = '#2563eb';
+        $this->newStatusTone = 'blue';
         $this->newStatusShape = 'empty';
         $this->newStatusCategory = 'active';
         $this->editingStatusId = null;
         $this->editLabel = '';
-        $this->editColor = '#2563eb';
+        $this->editTone = 'blue';
         $this->editShape = 'empty';
         $this->editCategory = 'active';
         $this->resetErrorBag();
@@ -1406,7 +1414,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
 
         $this->editingStatusId = $id;
         $this->editLabel      = $status->label;
-        $this->editColor      = $status->color;
+        $this->editTone       = \App\Support\Ui\Tone::forProjectStatus($status);
         $this->editShape      = $status->shape;
         $this->editCategory   = $status->category;
         $this->resetErrorBag();
@@ -1416,7 +1424,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
     {
         $this->editingStatusId = null;
         $this->editLabel = '';
-        $this->editColor = '#2563eb';
+        $this->editTone = 'blue';
         $this->editShape = 'empty';
         $this->editCategory = 'active';
         $this->resetErrorBag();
@@ -1435,14 +1443,15 @@ class ProjectListClickup extends Component implements HasActions, HasForms
 
         $this->validate([
             'editLabel'    => 'required|string|min:2|max:60',
-            'editColor'    => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'editTone'     => ['required', Rule::in(\App\Support\Ui\Tone::ALL)],
             'editShape'    => ['required', Rule::in(ProjectStatus::SHAPES)],
             'editCategory' => ['required', Rule::in(array_keys(ProjectStatus::CATEGORIES))],
         ]);
 
+        // `color` stays as it is: the dashboard charts still read it.
         $status->update([
             'label'    => $this->editLabel,
-            'color'    => $this->editColor,
+            'tone'     => $this->editTone,
             'shape'    => $this->editShape,
             'category' => $this->editCategory,
         ]);
@@ -1464,7 +1473,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
 
         $this->validate([
             'newStatusLabel'    => 'required|string|min:2|max:60',
-            'newStatusColor'    => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'newStatusTone'     => ['required', Rule::in(\App\Support\Ui\Tone::ALL)],
             'newStatusShape'    => ['required', Rule::in(ProjectStatus::SHAPES)],
             'newStatusCategory' => ['required', Rule::in(array_keys(ProjectStatus::CATEGORIES))],
         ]);
@@ -1481,7 +1490,8 @@ class ProjectListClickup extends Component implements HasActions, HasForms
         ProjectStatus::create([
             'key'        => $key,
             'label'      => $this->newStatusLabel,
-            'color'      => $this->newStatusColor,
+            'color'      => \App\Support\Ui\Tone::swatch($this->newStatusTone)['color'],
+            'tone'       => $this->newStatusTone,
             'shape'      => $this->newStatusShape,
             'category'   => $this->newStatusCategory,
             'sort_order' => $maxOrder + 1,
@@ -1489,7 +1499,7 @@ class ProjectListClickup extends Component implements HasActions, HasForms
         ]);
 
         $this->newStatusLabel = '';
-        $this->newStatusColor = '#2563eb';
+        $this->newStatusTone = 'blue';
         $this->newStatusShape = 'empty';
         $this->newStatusCategory = 'active';
         $this->resetErrorBag();

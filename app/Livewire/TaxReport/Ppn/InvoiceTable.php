@@ -107,24 +107,7 @@ class InvoiceTable extends Component implements HasForms, HasTable
                         return $computed[$record->id];
                     })
                     ->alignCenter()
-                    ->extraCellAttributes(['class' => 'font-mono text-gray-500 text-xs']),
-
-                Tables\Columns\ImageColumn::make('user_avatar')
-                    ->label('Dibuat Oleh')
-                    ->circular()
-                    ->state(function ($record) {
-                        $user = $record->createdBy;
-                        if ($user && method_exists($user, 'getAvatarUrl')) {
-                            return $user->getAvatarUrl();
-                        }
-                        return null;
-                    })
-                    ->defaultImageUrl(asset('images/default-avatar.png'))
-                    ->size(40)
-                    ->tooltip(function ($record): string {
-                        $user = $record->createdBy;
-                        return $user ? $user->name : 'No System';
-                    }),
+                    ->extraCellAttributes(['class' => 'tabular-nums text-gray-500 text-xs']),
 
                 Tables\Columns\TextColumn::make('invoice_number')
                     ->label('Nomor Faktur')
@@ -143,18 +126,28 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('company_name')
-                    ->label('Nama Perusahaan')
-                    ->badge()
-                    ->color('gray')
+                    ->label('Lawan transaksi')
+                    ->weight('semibold')
+                    ->limit(28)
+                    ->tooltip(fn ($record) => mb_strlen((string) $record->company_name) > 28 ? $record->company_name : null)
+                    ->description(fn ($record) => implode(' · ', array_filter([
+                        \App\Livewire\Clients\ClientListClickup::formatNpwp($record->npwp),
+                        $record->type === 'Faktur Masuk' && ! $record->is_business_related ? 'Tidak terkait usaha' : null,
+                    ])) ?: null)
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\BadgeColumn::make('type')
-                    ->label('Jenis Faktur')
-                    ->colors([
-                        'success' => 'Faktur Keluaran',
-                        'warning' => 'Faktur Masuk',
-                    ])
+                Tables\Columns\TextColumn::make('type')
+                    ->label('Jenis')
+                    ->badge()
+                    ->color('gray')
+                    // The group heading already says it when grouped by type.
+                    ->visible(fn () => $component->getTableGrouping()?->getId() !== 'type')
+                    ->formatStateUsing(fn (?string $state) => match ($state) {
+                        'Faktur Keluaran' => 'Keluaran',
+                        'Faktur Masuk' => 'Masukan',
+                        default => $state,
+                    })
                     ->tooltip(function ($record) {
                         if (!$record || $record->type !== 'Faktur Masuk') {
                             return null;
@@ -166,34 +159,28 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     }),
 
                 Tables\Columns\TextColumn::make('ppn_percentage')
-                    ->label('Tarif PPN')
+                    ->label('Tarif')
                     ->suffix('%')
-                    ->badge()
-                    ->color(fn (?string $state): string => match ($state) {
-                        '11' => 'success',
-                        '12' => 'warning',
-                        null => 'gray',
-                        default => 'gray',
-                    })
                     ->getStateUsing(fn ($record) => $record->ppn_percentage ?? '11')
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('dpp_nilai_lainnya')
                     ->label('DPP Nilai Lainnya')
-                    ->money('Rp.')
+                    ->formatStateUsing(fn ($state) => self::rupiah($state))
+                    ->alignEnd()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->visible(fn ($record) => ($record->ppn_percentage ?? '11') === '12')
                     ->tooltip('DPP Nilai Lainnya - untuk tarif 12%'),
 
                 Tables\Columns\TextColumn::make('dpp')
                     ->label('DPP')
-                    ->money('Rp.')
+                    ->formatStateUsing(fn ($state) => self::rupiah($state))
+                    ->alignEnd()
                     ->sortable()
                     ->summarize(
                         Sum::make()
-                            ->money('Rp.')
-                            ->label('Peredaran Bruto')
+                            ->formatStateUsing(fn ($state) => self::rupiah($state))
+                            ->label('Total DPP')
                             ->query(fn (QueryBuilder $query) => $query->where(function ($q) {
                                 // Include original invoices that don't have any revisions
                                 $q->where('is_revision', false)
@@ -224,11 +211,12 @@ class InvoiceTable extends Component implements HasForms, HasTable
 
                 Tables\Columns\TextColumn::make('ppn')
                     ->label('PPN')
-                    ->money('Rp.')
+                    ->formatStateUsing(fn ($state) => self::rupiah($state))
+                    ->alignEnd()
                     ->sortable()
                     ->summarize(
                         Sum::make()
-                            ->money('Rp.')
+                            ->formatStateUsing(fn ($state) => self::rupiah($state))
                             ->label('Total PPN')
                             ->query(fn (QueryBuilder $query) => $query->where(function ($q) {
                                 // Include original invoices that don't have any revisions
@@ -253,11 +241,34 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     ),
 
                 Tables\Columns\TextColumn::make('invoice_date')
-                    ->label('Tanggal Dibuat')
+                    ->label('Tanggal')
                     ->dateTime('d M Y')
                     ->sortable(),
+
+                Tables\Columns\ImageColumn::make('user_avatar')
+                    ->label('Oleh')
+                    ->circular()
+                    ->state(function ($record) {
+                        $user = $record->createdBy;
+                        if ($user && method_exists($user, 'getAvatarUrl')) {
+                            return $user->getAvatarUrl();
+                        }
+                        return null;
+                    })
+                    ->defaultImageUrl(asset('images/default-avatar.png'))
+                    ->size(26)
+                    ->tooltip(function ($record): string {
+                        $user = $record->createdBy;
+                        return $user ? $user->name : 'No System';
+                    }),
             ])
-            ->groups(['type'])
+            ->groups([
+                Tables\Grouping\Group::make('type')
+                    ->label('Jenis faktur')
+                    ->titlePrefixedWithLabel(false)
+                    ->getTitleFromRecordUsing(fn ($record) => $record->type === 'Faktur Masuk' ? 'Faktur masukan' : 'Faktur keluaran'),
+            ])
+            ->defaultGroup('type')
             ->defaultSort('created_at', 'desc')
             ->filters([
                 Tables\Filters\SelectFilter::make('type')
@@ -299,9 +310,9 @@ class InvoiceTable extends Component implements HasForms, HasTable
             ])
             ->headerActions([
                 Tables\Actions\Action::make('export_all')
-                    ->label('Ekspor Semua')
+                    ->label('Ekspor')
                     ->icon('heroicon-o-arrow-down-tray')
-                    ->color('success')
+                    ->color('gray')
                     ->form([
                         Forms\Components\Radio::make('format')
                             ->label('Pilih Format Ekspor')
@@ -336,31 +347,8 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     ->modalSubmitActionLabel('Ekspor')
                     ->modalWidth('md'),
 
-                Tables\Actions\Action::make('create_invoice')
-                    ->label('Faktur Baru')
-                    ->icon('heroicon-o-sparkles')
-                    ->color('primary')
-                    ->modalHeading('Tambah Faktur Pajak')
-                    ->modalDescription('Upload 1–10 berkas faktur. AI akan mengekstrak data setiap dokumen secara otomatis.')
-                    ->modalWidth('5xl')
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Tutup')
-                    ->modalContent(fn () => view(
-                        'livewire.tax-report.ppn.bulk-invoice-ai-import-modal',
-                        ['taxReportId' => $this->taxReportId]
-                    ))
-                    ->tooltip(function () {
-                        if (!$this->taxReport->client || !$this->taxReport->client->ppn_contract) {
-                            return 'Klien tidak memiliki kontrak PPN aktif. Aktifkan kontrak PPN terlebih dahulu.';
-                        }
-                        return 'Tambah 1–10 faktur sekaligus — AI mengekstrak data otomatis';
-                    })
-                    ->disabled(function () {
-                        return !($this->taxReport->client && $this->taxReport->client->ppn_contract);
-                    }),
-
                 Tables\Actions\Action::make('import_json')
-                    ->label('Import JSON')
+                    ->label('Impor JSON')
                     ->icon('heroicon-o-code-bracket')
                     ->color('gray')
                     ->modalHeading('Import Faktur dari JSON')
@@ -382,13 +370,14 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     }),
 
                 Tables\Actions\CreateAction::make()
-                    ->label('Input Manual')
+                    ->label('Input manual')
                     ->icon('heroicon-o-pencil-square')
                     ->color('gray')
                     ->successNotificationTitle('Faktur berhasil disimpan')
                     ->modalHeading('Input Faktur Manual')
                     ->modalWidth('7xl')
                     ->form($this->getInvoiceFormSchema())
+                    ->after(fn () => $this->invoicesChanged())
                     ->mutateFormDataUsing(function (array $data): array {
                         $data['tax_report_id'] = $this->taxReportId;
                         $data['created_by']    = auth()->id();
@@ -403,6 +392,29 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     ->disabled(function () {
                         return !($this->taxReport->client && $this->taxReport->client->ppn_contract);
                     }),
+                Tables\Actions\Action::make('create_invoice')
+                    ->label('Faktur baru')
+                    ->icon('heroicon-o-sparkles')
+                    ->color('primary')
+                    ->modalHeading('Tambah Faktur Pajak')
+                    ->modalDescription('Upload 1–10 berkas faktur. AI akan mengekstrak data setiap dokumen secara otomatis.')
+                    ->modalWidth('5xl')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Tutup')
+                    ->modalContent(fn () => view(
+                        'livewire.tax-report.ppn.bulk-invoice-ai-import-modal',
+                        ['taxReportId' => $this->taxReportId]
+                    ))
+                    ->tooltip(function () {
+                        if (!$this->taxReport->client || !$this->taxReport->client->ppn_contract) {
+                            return 'Klien tidak memiliki kontrak PPN aktif. Aktifkan kontrak PPN terlebih dahulu.';
+                        }
+                        return 'Tambah 1–10 faktur sekaligus — AI mengekstrak data otomatis';
+                    })
+                    ->disabled(function () {
+                        return !($this->taxReport->client && $this->taxReport->client->ppn_contract);
+                    }),
+
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
@@ -412,14 +424,15 @@ class InvoiceTable extends Component implements HasForms, HasTable
                         ->form($this->getInvoiceFormSchema()),
 
                     Tables\Actions\EditAction::make()
-                        ->label('Edit')
+                        ->label('Ubah')
                         ->modalWidth('7xl')
-                        ->form($this->getInvoiceFormSchema()),
+                        ->form($this->getInvoiceFormSchema())
+                        ->after(fn () => $this->invoicesChanged()),
 
                     Tables\Actions\Action::make('create_revision')
                         ->label('Buat Revisi')
                         ->icon('heroicon-o-arrow-path')
-                        ->color('warning')
+                        ->color('gray')
                         ->visible(fn ($record) => $record && !$record->is_revision)
                         ->form(function ($record) {
                             return $this->getInvoiceFormSchema(true, $record);
@@ -456,6 +469,7 @@ class InvoiceTable extends Component implements HasForms, HasTable
                             $revision->fill($data);
                             $revision->tax_report_id = $this->taxReportId;
                             $revision->save();
+                            $this->invoicesChanged();
                             
                             Notification::make()
                                 ->title('Revisi Berhasil Dibuat')
@@ -471,7 +485,7 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     Tables\Actions\Action::make('view_revisions')
                         ->label('Lihat Revisi')
                         ->icon('heroicon-o-document-duplicate')
-                        ->color('info')
+                        ->color('gray')
                         ->visible(fn ($record) => $record && !$record->is_revision && $record->hasRevisions())
                         ->modalContent(function ($record) {
                             $revisions = $record->revisions()->orderBy('revision_number')->get();
@@ -511,7 +525,7 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     Tables\Actions\Action::make('upload_bukti_setor')
                         ->label('Upload Bukti Setor')
                         ->icon('heroicon-o-cloud-arrow-up')
-                        ->color('info')
+                        ->color('gray')
                         ->visible(fn ($record) => $record && empty($record->bukti_setor))
                         ->form(function ($record) {
                             return [
@@ -557,7 +571,7 @@ class InvoiceTable extends Component implements HasForms, HasTable
                         Tables\Actions\Action::make('upload_surat_penagihan')
                         ->label('Upload Surat Penagihan')
                         ->icon('heroicon-o-document-text')
-                        ->color('warning')
+                        ->color('gray')
                         ->visible(fn ($record) => $record && empty($record->surat_penagihan))
                         ->form(function ($record) {
                             return [
@@ -603,7 +617,7 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     Tables\Actions\Action::make('view_bukti_setor')
                         ->label('Lihat Bukti Setor')
                         ->icon('heroicon-o-eye')
-                        ->color('success')
+                        ->color('gray')
                         ->visible(fn ($record) => $record && !empty($record->bukti_setor))
                         ->url(fn ($record) => asset('storage/' . $record->bukti_setor))
                         ->openUrlInNewTab()
@@ -612,7 +626,7 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     Tables\Actions\Action::make('view_surat_penagihan')
                         ->label('Lihat Surat Penagihan')
                         ->icon('heroicon-o-document-text')
-                        ->color('warning')
+                        ->color('gray')
                         ->visible(fn ($record) => $record && !empty($record->surat_penagihan))
                         ->url(fn ($record) => asset('storage/' . $record->surat_penagihan))
                         ->openUrlInNewTab()
@@ -621,7 +635,7 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     Tables\Actions\Action::make('download')
                         ->label('Unduh Berkas')
                         ->icon('heroicon-o-arrow-down-tray')
-                        ->color('success')
+                        ->color('gray')
                         ->url(fn ($record) => $record && $record->file_path ? asset('storage/' . $record->file_path) : null)
                         ->openUrlInNewTab()
                         ->visible(fn ($record) => $record && $record->file_path)
@@ -630,7 +644,8 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     Tables\Actions\DeleteAction::make()
                         ->label('Hapus')
                         ->modalHeading('Hapus Faktur')
-                        ->modalDescription('Apakah Anda yakin ingin menghapus faktur ini? Tindakan ini tidak dapat dibatalkan.'),
+                        ->modalDescription('Apakah Anda yakin ingin menghapus faktur ini? Tindakan ini tidak dapat dibatalkan.')
+                        ->after(fn () => $this->invoicesChanged()),
                 ]),
             ])
             ->bulkActions([
@@ -638,7 +653,7 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     Tables\Actions\BulkAction::make('export_selected')
                         ->label('Ekspor Terpilih')
                         ->icon('heroicon-o-arrow-down-tray')
-                        ->color('success')
+                        ->color('gray')
                         ->form([
                             Forms\Components\Radio::make('format')
                                 ->label('Pilih Format Ekspor')
@@ -681,7 +696,8 @@ class InvoiceTable extends Component implements HasForms, HasTable
                     Tables\Actions\DeleteBulkAction::make()
                         ->label('Hapus')
                         ->modalHeading('Hapus Faktur Terpilih')
-                        ->modalDescription('Apakah Anda yakin ingin menghapus faktur yang terpilih? Tindakan ini tidak dapat dibatalkan.'),
+                        ->modalDescription('Apakah Anda yakin ingin menghapus faktur yang terpilih? Tindakan ini tidak dapat dibatalkan.')
+                        ->after(fn () => $this->invoicesChanged()),
                 ]),
             ])
             ->emptyStateHeading('Belum Ada Faktur Pajak')
@@ -870,6 +886,22 @@ class InvoiceTable extends Component implements HasForms, HasTable
     public function onFakturBulkSaved(): void
     {
         $this->unmountTableAction();
+        $this->invoicesChanged();
+    }
+
+    /** Invoices changed: the PPN totals, the strip and the month colours re-read the summary. */
+    public function invoicesChanged(): void
+    {
+        $this->dispatch('tax-report-changed', taxReportId: $this->taxReportId);
+    }
+
+    /** Rupiah with Indonesian grouping; cents only when there are any. */
+    public static function rupiah(mixed $amount): string
+    {
+        $amount = (float) $amount;
+        $decimals = fmod($amount, 1.0) == 0.0 ? 0 : 2;
+
+        return 'Rp ' . number_format($amount, $decimals, ',', '.');
     }
 
     public function render()

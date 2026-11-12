@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clients · Usulan redesign (11 Nov 2026)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: var(--background, #fff); color: var(--foreground, #111); }
+  .chrome { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding: 2px 2px 12px; font-size: 13px; }
+  .chrome .seg { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border, #ddd); border-radius: 9px; background: var(--muted, #f4f4f5); }
+  .chrome .seg button { font: inherit; padding: 5px 11px; border: 0; border-radius: 7px; background: transparent; color: var(--muted-foreground, #555); cursor: pointer; }
+  .chrome .seg button[aria-pressed="true"] { background: var(--background, #fff); color: var(--foreground, #111); box-shadow: 0 1px 2px rgba(0,0,0,.08); font-weight: 600; }
+  .frame { border: 1px solid var(--border, #ddd); border-radius: 12px; overflow-x: auto; overflow-y: hidden; }
+  .note { margin: 14px 2px 0; font-size: 12.5px; color: var(--muted-foreground, #666); line-height: 1.55; }
+
+  /* Kisantra tokens (DESIGN.md), same as the dashboard mockup */
+  .pm {
+    --ground: #f1f7f9; --surface: #ffffff; --subtle: #f1f7f9; --subtle-2: #ebf2f4;
+    --ink: #0d1417; --ink-2: #363f43; --ink-3: #626a6f; --ink-4: #8b9497;
+    --line: #dee5e7; --line-soft: #ebf2f4; --line-strong: #ccd4d7;
+    --primary: #157a9c; --primary-700: #10657f; --primary-soft: #dff4fe; --primary-50: #eef9fd;
+    --danger: #cf4232; --danger-text: #af3628; --danger-soft: #fff4f2;
+    --b1: #4ab4d2; --b3: #157a9c; --b5: #005065; --n1: #8b9497;
+    --new: #7a5af8;
+    font-family: "Manrope", system-ui, sans-serif; font-size: 14px; line-height: 1.45; color: var(--ink); background: var(--ground);
+    -webkit-font-smoothing: antialiased; display: grid; grid-template-columns: 236px 1fr; min-width: 1180px;
+  }
+  .pm.dark {
+    --ground: #0d1417; --surface: #151c20; --subtle: #1b2327; --subtle-2: #222b30;
+    --ink: #ffffff; --ink-2: #ccd4d7; --ink-3: #8b9497; --ink-4: #626a6f;
+    --line: rgba(255,255,255,.09); --line-soft: rgba(255,255,255,.05); --line-strong: rgba(255,255,255,.16);
+    --primary: #4ab4d2; --primary-700: #89d2ea; --primary-soft: rgba(23,144,181,.18); --primary-50: rgba(23,144,181,.1);
+    --danger: #ef806f; --danger-text: #feac9e; --danger-soft: rgba(207,66,50,.16);
+    --b1: #157a9c; --b3: #4ab4d2; --b5: #89d2ea;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .pm svg.i { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  .side { padding: 14px 10px 14px 12px; }
+  .app { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; }
+  .app .logo { width: 36px; height: 36px; border-radius: 10px; background: #1790b5; display: grid; place-items: center; color: #fff; font-weight: 800; }
+  .app b { display: block; font-size: 14px; font-weight: 800; }
+  .app small { font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+  .grp { font-size: 11.5px; font-weight: 700; color: var(--ink-3); padding: 14px 10px 5px; }
+  .it { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+  .it.on { background: var(--primary-soft); color: var(--primary-700); font-weight: 700; }
+  .it .cnt { margin-left: auto; font-size: 11.5px; color: var(--ink-3); font-weight: 700; }
+  .it.on .cnt { color: #fff; background: var(--primary); border-radius: 99px; padding: 0 7px; line-height: 19px; }
+
+  .panel { margin: 10px 10px 10px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; min-width: 0; }
+  .top { height: 60px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 0 28px; }
+  .top .search { width: 220px; height: 36px; border-radius: 11px; border: 1px solid var(--line); display: flex; align-items: center; padding: 0 12px; color: var(--ink-4); font-size: 13px; }
+  .top .av { width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: var(--surface); display: grid; place-items: center; font-weight: 800; font-size: 13px; }
+  .page { padding: 28px 32px 40px; }
+
+  .hd { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
+  .crumb { font-size: 12.5px; font-weight: 700; color: var(--ink-3); }
+  h1 { margin: 2px 0 4px; font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
+  .lead { margin: 0; font-size: 14px; color: var(--ink-2); }
+  .lead b { color: var(--ink); }
+  .btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px; border-radius: 11px; font: inherit; font-size: 13.5px; font-weight: 700; border: 0; cursor: pointer; }
+  .btn.p { background: var(--primary); color: #fff; }
+  .pm.dark .btn.p { color: #0d1417; }
+  .btn.o { background: var(--surface); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-strong); }
+  .btn.sm { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 9px; }
+  .btn.o.sm { color: var(--primary-700); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-700) 38%, transparent); }
+
+  /* summary strip = quick filters */
+  .strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 16px; }
+  .sum { background: var(--surface); padding: 14px 16px; cursor: pointer; transition: background .15s; position: relative; }
+  .sum:hover { background: var(--subtle); }
+  .sum.on { background: var(--primary-50); box-shadow: inset 0 -2px 0 var(--primary); }
+  .sum .l { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 700; color: var(--ink-2); }
+  .sum .v { margin-top: 6px; display: flex; align-items: baseline; gap: 8px; }
+  .sum .v b { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+  .sum .v span { font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+  .split { margin-top: 10px; height: 6px; border-radius: 99px; display: flex; gap: 2px; overflow: hidden; background: var(--subtle-2); }
+  .split i { display: block; height: 100%; }
+  .chips { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .newtag { font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--new); background: color-mix(in srgb, var(--new) 12%, transparent); padding: 2px 6px; border-radius: 6px; }
+
+  /* toolbar */
+  .tools { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .find { flex: 1; max-width: 460px; height: 38px; border-radius: 11px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-strong); display: flex; align-items: center; gap: 8px; padding: 0 12px; color: var(--ink-4); font-size: 13.5px; }
+  .find kbd { margin-left: auto; font: inherit; font-size: 11px; font-weight: 700; color: var(--ink-3); background: var(--subtle-2); border-radius: 6px; padding: 1px 6px; }
+  .ctl { height: 38px; border-radius: 11px; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--line-strong); font-size: 13px; font-weight: 700; color: var(--ink); }
+  .ctl small { font-weight: 600; color: var(--ink-3); }
+  .ctl .count { display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px; background: var(--primary); color: #fff; font-size: 11px; font-weight: 800; }
+  .ctl.on { box-shadow: inset 0 0 0 1.5px var(--primary); color: var(--primary-700); }
+  .sp { flex: 1; }
+  .active-f { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: var(--ink-3); margin-bottom: 14px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 6px 0 10px; border-radius: 9px; background: var(--primary-soft); color: var(--primary-700); font-size: 12.5px; font-weight: 700; }
+  .chip i { font-style: normal; width: 16px; height: 16px; display: grid; place-items: center; border-radius: 5px; }
+  .active-f a { margin-left: 4px; color: var(--ink-2); }
+
+  /* badges */
+  .badge { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 7px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .badge.sm { height: 20px; padding: 0 6px; font-size: 10.5px; }
+  .badge.blue { background: var(--primary-soft); color: var(--primary-700); }
+  .badge.n { background: var(--subtle-2); color: var(--ink-2); }
+  .badge.o { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-700) 40%, transparent); color: var(--primary-700); }
+  .badge.dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge.o.dot::before { background: transparent; box-shadow: inset 0 0 0 1.6px currentColor; width: 7px; height: 7px; }
+
+  /* table */
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th { text-align: left; font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); padding: 11px 12px; border-bottom: 1px solid var(--line); background: var(--subtle); }
+  th:first-child, td:first-child { padding-left: 20px; }
+  th:last-child, td:last-child { padding-right: 18px; }
+  th .new { margin-left: 6px; }
+  td { padding: 11px 12px; border-bottom: 1px solid var(--line-soft); font-size: 13px; vertical-align: middle; }
+  tr.row:hover td { background: var(--subtle); }
+  tr.gh td { background: var(--surface); padding-top: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+  .gh .gl { display: flex; align-items: center; gap: 10px; }
+  .gh .gl b { font-size: 13.5px; font-weight: 800; }
+  .gh .gl span { font-size: 12px; font-weight: 700; color: var(--ink-3); }
+  .gh .gl .mini { margin-left: auto; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+  .who { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .tile { width: 36px; height: 36px; border-radius: 10px; flex: none; display: grid; place-items: center; font-size: 12px; font-weight: 800; background: var(--primary-soft); color: var(--primary-700); }
+  .tile.logo { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink-3); }
+  .nm { min-width: 0; }
+  .nm b { display: block; font-size: 13.5px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nm small { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--ink-3); font-weight: 600; white-space: nowrap; overflow: hidden; }
+  .nm small .origin { color: var(--primary-700); font-weight: 700; }
+  .ctr { display: flex; flex-wrap: nowrap; gap: 3px; overflow: hidden; }
+  .muted { color: var(--ink-4); }
+  .pic { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; color: var(--ink-2); }
+  .pic .av { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 10px; font-weight: 800; background: var(--subtle-2); color: var(--ink-2); flex: none; }
+  .pic span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pic.none { color: var(--danger-text); font-style: italic; font-weight: 600; }
+  .act { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+  .kebab { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--ink-3); }
+  .more td { padding: 9px 20px; font-size: 12.5px; font-weight: 700; color: var(--primary-700); background: var(--subtle); }
+  .tfoot { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; font-size: 12.5px; color: var(--ink-3); font-weight: 600; }
+  .tfoot b { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="chrome">
+  <span><b>Usulan redesign Clients</b>: data ilustrasi. Kolom bertanda <span style="color:#7a5af8;font-weight:700">BARU</span> belum ada di halaman sekarang.</span>
+  <span class="seg" role="group" aria-label="Tema">
+    <button type="button" data-theme="light" aria-pressed="true">Terang</button>
+    <button type="button" data-theme="dark" aria-pressed="false">Gelap</button>
+  </span>
+</div>
+
+<div class="frame">
+<div class="pm" id="pm">
+  <aside class="side">
+    <div class="app"><div class="logo">K</div><div><b>Project Management</b><small>Kisantra</small></div></div>
+    <div class="it">Dashboard</div>
+    <div class="grp">Project Management</div>
+    <div class="it">Projects<span class="cnt">93</span></div>
+    <div class="it">Kalender</div>
+    <div class="grp">Tax Management</div>
+    <div class="it">Laporan Pajak</div>
+    <div class="grp">Client Management</div>
+    <div class="it on">Clients<span class="cnt">96</span></div>
+    <div class="it">Komunikasi Klien</div>
+    <div class="it">Grup Client</div>
+    <div class="it">Klien Masuk</div>
+  </aside>
+
+  <main class="panel">
+    <div class="top"><div class="search">Cari…</div><div class="av">IA</div></div>
+    <div class="page">
+
+      <div class="hd">
+        <div>
+          <div class="crumb">Client Management</div>
+          <h1>Clients</h1>
+          <p class="lead"><b class="num">96</b> klien aktif · <span class="num">63</span> nonaktif</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn o" type="button">Export</button>
+          <button class="btn p" type="button">+ Tambah Client Baru</button>
+        </div>
+      </div>
+
+      <!-- Summary strip: each tile is also a quick filter -->
+      <div class="strip" id="strip">
+        <div class="sum on" data-f="all">
+          <div class="l">Semua klien aktif</div>
+          <div class="v"><b class="num">96</b><span>75 Badan · 21 Pribadi</span></div>
+          <div class="split"><i style="width:78%;background:var(--b3)"></i><i style="width:22%;background:var(--n1)"></i></div>
+        </div>
+        <div class="sum" data-f="pkp">
+          <div class="l">PKP</div>
+          <div class="v"><b class="num">42</b><span>PKP · 54 Non-PKP</span></div>
+          <div class="split"><i style="width:44%;background:var(--b3)"></i><i style="width:56%;background:var(--n1)"></i></div>
+        </div>
+        <div class="sum" data-f="contract">
+          <div class="l">Berkontrak pajak <span class="newtag">baru</span></div>
+          <div class="v"><b class="num">25</b><span>dari 96 klien aktif</span></div>
+          <div class="chips"><span class="badge sm n">PPN 25</span><span class="badge sm n">PPh 21 20</span><span class="badge sm n">Unifikasi 18</span><span class="badge sm n">PPh Badan 5</span></div>
+        </div>
+        <div class="sum" data-f="nopic">
+          <div class="l">Tanpa PIC <span class="newtag">baru</span></div>
+          <div class="v"><b class="num" style="color:var(--danger-text)">52</b><span>klien aktif belum punya PIC</span></div>
+          <div class="split"><i style="width:54%;background:var(--danger)"></i><i style="width:46%;background:var(--b3)"></i></div>
+        </div>
+      </div>
+
+      <div class="tools">
+        <div class="find">Cari nama, NPWP, atau email…<kbd>/</kbd></div>
+        <span class="ctl"><small>Kelompokkan</small>Tipe ▾</span>
+        <span class="ctl on">Filter <span class="count">1</span> ▾</span>
+        <span class="sp"></span>
+        <span class="ctl"><small>Urut</small>Nama A–Z ▾</span>
+        <span class="ctl">Kolom ▾</span>
+      </div>
+
+      <div class="active-f">Filter aktif <span class="chip">Status: Active <i>×</i></span></div>
+
+      <div class="card">
+        <table>
+          <colgroup><col style="width:29%"><col style="width:15%"><col style="width:15%"><col style="width:8.5%"><col style="width:8.5%"><col style="width:10%"><col style="width:14%"></colgroup>
+          <thead><tr>
+            <th>Client ↑</th>
+            <th>Kontrak <span class="newtag new">baru</span></th>
+            <th>PIC <span class="newtag new">baru</span></th>
+            <th>Status</th>
+            <th>PKP</th>
+            <th>Grup</th>
+            <th></th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="tfoot"><span><b class="num">96</b> klien · dikelompokkan per tipe</span><span>Klik baris untuk membuka detail klien</span></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+</div>
+
+<p class="note">
+  Strip atas merangkum seluruh klien aktif dan sekaligus jadi filter cepat (klik "Tanpa PIC" untuk menyaring). Kolom Kontrak dan PIC menampilkan data yang selama ini hanya ada di filter/grup.
+  Tipe klien tetap ada sebagai pengelompokan (judul grup) dan filter, jadi kolomnya tidak diulang. Tombol Kredensial dan menu ⋮ tetap.
+</p>
+
+<script>
+(() => {
+  const groups = [
+    ['Badan', 75, '32 PKP · 18 berkontrak', [
+      ['SA', 'PT Sinar Abadi Logistik', '01.234.567.8-901.000', 'Perseroan Terbatas (PT)', null, ['PPN', 'PPh 21', 'Unifikasi'], 'Rina Marlina', 'Active', 'PKP', 'Grup Sinar'],
+      ['DN', 'PT Delta Nusantara Medika', '02.345.678.9-012.000', '', 'Dari Client Management', ['PPN', 'PPh 21'], 'Dimas Saputra', 'Active', 'PKP', ''],
+      ['DT', 'PT Daya Taka Kreasi Bersama', '03.456.789.0-123.000', '', null, ['PPN', 'PPh 21', 'Unifikasi', 'PPh Badan'], 'Iqal Azhari', 'Active', 'PKP', ''],
+      ['MK', 'CV Mitra Karya Mandiri', '04.567.890.1-234.000', '', 'Klien lama · layanan baru', [], null, 'Active', 'Non-PKP', ''],
+      ['BT', 'PT Bumi Tirta Lestari', '05.678.901.2-345.000', 'Perseroan Terbatas (PT)', null, ['PPN'], 'Rina Marlina', 'Active', 'PKP', 'Grup Sinar'],
+    ], 70],
+    ['Pribadi', 21, '0 PKP · 7 berkontrak', [
+      ['AS', 'Anak Seribu Sungai', '6402 0618 1084 0001', '', null, ['PPh 21'], 'Syahrurramadhan', 'Active', 'Non-PKP', 'Mitra Group'],
+      ['DA', 'David Anthony', '6402 0618 1084 0011', '', null, [], null, 'Active', 'Non-PKP', ''],
+      ['NS', 'Notaris Pangihutan Situmorang', '6301 0316 0386 0004', '', null, ['PPh 21', 'Unifikasi'], 'Fathan Ghozi', 'Active', 'Non-PKP', ''],
+    ], 18],
+  ];
+  const key = '<svg class="i" viewBox="0 0 24 24" style="width:13px;height:13px"><circle cx="8" cy="15" r="4"/><path d="M10.85 12.15 19 4M18 5l2 2M15 8l2 2"/></svg>';
+  const initials = n => n.split(' ').map(w => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  document.getElementById('rows').innerHTML = groups.map(([label, n, mini, rows, hidden]) =>
+    `<tr class="gh"><td colspan="7"><div class="gl"><span class="badge n">${label}</span><span class="num">${n} klien</span><span class="mini">${mini}</span></div></td></tr>` +
+    rows.map(r => `<tr class="row">
+      <td><div class="who"><span class="tile">${r[0]}</span><div class="nm"><b>${r[1]}</b><small><span class="num">NPWP ${r[2]}</span>${r[3] ? '<span>· ' + r[3] + '</span>' : ''}${r[4] ? '<span class="origin">· ' + r[4] + '</span>' : ''}</small></div></div></td>
+      <td>${r[5].length ? `<div class="ctr" title="${r[5].join(', ')}">` + r[5].slice(0, 2).map(c => `<span class="badge sm blue">${c}</span>`).join('') + (r[5].length > 2 ? `<span class="badge sm n">+${r[5].length - 2}</span>` : '') + '</div>' : '<span class="muted">Tanpa kontrak</span>'}</td>
+      <td>${r[6] ? `<div class="pic"><span class="av">${initials(r[6])}</span><span>${r[6]}</span></div>` : '<div class="pic none">Belum ada PIC</div>'}</td>
+      <td><span class="badge blue dot">${r[7]}</span></td>
+      <td>${r[8] === 'PKP' ? '<span class="badge o">PKP</span>' : '<span class="badge n">Non-PKP</span>'}</td>
+      <td>${r[9] ? `<span style="font-weight:600;color:var(--ink-2)">${r[9]}</span>` : '<span class="muted">–</span>'}</td>
+      <td><div class="act"><button class="btn o sm" type="button">${key}Kredensial</button><span class="kebab">⋮</span></div></td>
+    </tr>`).join('') +
+    `<tr class="more"><td colspan="7">Tampilkan ${hidden} lainnya ▾</td></tr>`
+  ).join('');
+
+  document.querySelectorAll('#strip .sum').forEach(s => s.addEventListener('click', () => {
+    document.querySelectorAll('#strip .sum').forEach(o => o.classList.toggle('on', o === s));
+  }));
+  document.querySelectorAll('.chrome [data-theme]').forEach(b => b.addEventListener('click', () => {
+    document.getElementById('pm').classList.toggle('dark', b.dataset.theme === 'dark');
+    document.querySelectorAll('.chrome [data-theme]').forEach(o => o.setAttribute('aria-pressed', o === b));
+  }));
+})();
+</script>
+</body>
+</html>

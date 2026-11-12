@@ -1,645 +1,164 @@
-<div class="" x-data="{ activeTab: 'daftar-pajak' }">
-    <div class="px-2 py-4 sm:px-4 lg:px-6">
+{{--
+    PPN workspace. Sub-tab in ?tab= (kisUrlTab). The calculation is a ledger:
+    keluaran − masukan − kompensasi = saldo akhir, from PpnBreakdown.
+--}}
+@php
+    use App\Livewire\TaxReport\Ppn\TaxReportInvoices;
+    use App\Services\TaxReport\ReportOverview;
+    use App\Support\Ui\Tone;
 
-        {{-- Header Section --}}
-        <div class="mb-4">
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 class="text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">Tax Report Detail</h1>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Periode {{ $taxReport->month }} • {{ $taxReport->client->name }}
-                    </p>
-                </div>
+    $l = $this->ledger;
+    $b = $this->breakdown;
+    $rp = fn (float $amount) => ReportOverview::rupiah(abs($amount));
+    $statusLabel = fn (string $status) => ucfirst(mb_strtolower($status));
+@endphp
 
-                {{-- Quick Status Badge --}}
-                <div class="flex items-center gap-3">
-                    @if($statusFinal === 'Kurang Bayar')
-                    <div
-                        class="rounded-xl bg-gradient-to-br from-orange-50 to-orange-100 px-5 py-3 shadow-sm ring-1 ring-orange-200 dark:from-orange-500/10 dark:to-orange-600/10 dark:ring-orange-500/20">
-                        <div class="flex items-center gap-3">
-                            <div
-                                class="flex h-10 w-10 items-center justify-center rounded-full bg-orange-500 shadow-lg">
-                                <x-filament::icon icon="heroicon-m-arrow-trending-up" class="h-5 w-5 text-white" />
-                            </div>
-                            <div>
-                                <span class="block text-xs font-medium text-orange-600 dark:text-orange-400">Status
-                                    Pajak</span>
-                                <span class="block text-sm font-bold text-orange-700 dark:text-orange-300">{{
-                                    $statusFinal }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    @elseif($statusFinal === 'Lebih Bayar')
-                    <div
-                        class="rounded-xl bg-gradient-to-br from-green-50 to-green-100 px-5 py-3 shadow-sm ring-1 ring-green-200 dark:from-green-500/10 dark:to-green-600/10 dark:ring-green-500/20">
-                        <div class="flex items-center gap-3">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-500 shadow-lg">
-                                <x-filament::icon icon="heroicon-m-arrow-trending-down" class="h-5 w-5 text-white" />
-                            </div>
-                            <div>
-                                <span class="block text-xs font-medium text-green-600 dark:text-green-400">Status
-                                    Pajak</span>
-                                <span class="block text-sm font-bold text-green-700 dark:text-green-300">{{ $statusFinal
-                                    }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    @else
-                    <div
-                        class="rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 px-5 py-3 shadow-sm ring-1 ring-gray-200 dark:from-gray-800 dark:to-gray-900 dark:ring-gray-700">
-                        <div class="flex items-center gap-3">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-gray-400 shadow-lg">
-                                <x-filament::icon icon="heroicon-m-check" class="h-5 w-5 text-white" />
-                            </div>
-                            <div>
-                                <span class="block text-xs font-medium text-gray-600 dark:text-gray-400">Status
-                                    Pajak</span>
-                                <span class="block text-sm font-bold text-gray-700 dark:text-gray-300">Nihil</span>
-                            </div>
-                        </div>
-                    </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-
-        {{-- Tab Navigation --}}
-        <div class="mb-4">
-            <div class="border-b border-gray-200 dark:border-gray-800">
-                <nav class="-mb-px flex space-x-4 overflow-x-auto pb-px sm:space-x-8" aria-label="Tabs">
-                    <button @click="activeTab = 'daftar-pajak'"
-                        :class="activeTab === 'daftar-pajak' 
-                            ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400' 
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
-                        class="group inline-flex flex-shrink-0 items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition-colors whitespace-nowrap">
-                        <x-filament::icon icon="heroicon-o-document-text" class="h-5 w-5" />
-                        <span class="hidden sm:inline">Daftar Pajak</span>
-                        <span class="sm:hidden">Pajak</span>
-                        <span :class="activeTab === 'daftar-pajak' 
-                                ? 'bg-blue-100 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400' 
-                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'"
-                            class="ml-2 rounded-full px-2.5 py-0.5 text-xs font-medium">
-                            {{ $fakturMasukCount + $fakturKeluarCount }}
-                        </span>
-                    </button>
-
-                    <button @click="activeTab = 'kalkulasi'"
-                        :class="activeTab === 'kalkulasi' 
-                            ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400' 
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
-                        class="inline-flex flex-shrink-0 items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition-colors whitespace-nowrap">
-                        <x-filament::icon icon="heroicon-o-calculator" class="h-5 w-5" />
-                        <span>Kalkulasi</span>
-                    </button>
-
-                    <button @click="activeTab = 'kompensasi'"
-                        :class="activeTab === 'kompensasi' 
-                            ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400' 
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
-                        class="inline-flex flex-shrink-0 items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition-colors whitespace-nowrap">
-                        <x-filament::icon icon="heroicon-o-arrow-path-rounded-square" class="h-5 w-5" />
-                        <span>Kompensasi</span>
-                        @if($kompensasiTersedia > 0)
-                        <span
-                            class="ml-2 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-600 dark:bg-blue-500/20 dark:text-blue-400">
-                            Tersedia
-                        </span>
-                        @endif
-                    </button>
-
-                    <button @click="activeTab = 'yearly-summary'"
-                        :class="activeTab === 'yearly-summary' 
-                            ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400' 
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
-                        class="inline-flex flex-shrink-0 items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition-colors whitespace-nowrap">
-                        <x-filament::icon icon="heroicon-o-chart-bar-square" class="h-5 w-5" />
-                        <span class="hidden sm:inline">Yearly Summary</span>
-                        <span class="sm:hidden">Yearly</span>
-                    </button>
-
-                    {{-- SPT Tab — indikator: hijau (sudah upload) / "Belum" (belum upload) --}}
-                    <button @click="activeTab = 'spt'"
-                        :class="activeTab === 'spt'
-                            ? 'border-blue-600 text-blue-600 dark:border-blue-400 dark:text-blue-400'
-                            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
-                        class="inline-flex flex-shrink-0 items-center gap-2 border-b-2 px-1 py-4 text-sm font-medium transition-colors whitespace-nowrap">
-                        <x-filament::icon icon="heroicon-o-arrow-up-tray" class="h-5 w-5" />
-                        <span>SPT</span>
-                        @if($this->sptUploaded)
-                            <span class="ml-1 inline-flex h-2 w-2 rounded-full bg-green-500" title="SPT sudah diunggah"></span>
-                        @else
-                            <span class="ml-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-600 dark:bg-orange-500/20 dark:text-orange-400"
-                                title="SPT belum diunggah">Belum</span>
-                        @endif
-                    </button>
-                </nav>
-            </div>
-        </div>
-
-        {{-- Tab Content --}}
-        <div class="space-y-6">
-
-            {{-- Daftar Pajak Tab --}}
-            <div x-show="activeTab === 'daftar-pajak'" x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
-                x-cloak>
-                @livewire('tax-report.ppn.invoice-table', ['taxReportId' => $taxReportId], key('invoice-table-' .$taxReportId))
-            </div>
-
-            {{-- SPT Tab --}}
-            <div x-show="activeTab === 'spt'" x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
-                x-cloak>
-                @livewire('tax-report.spt-upload', ['taxReportId' => $taxReportId, 'type' => 'ppn'], key('spt-ppn-' . $taxReportId))
-            </div>
-
-            {{-- Kalkulasi Tab - Ultra Clean Design with Headers & Tooltips --}}
-            <div x-show="activeTab === 'kalkulasi'" x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
-                x-cloak>
-
-                {{-- Section 1: Ringkasan Utama --}}
-                <div class="mb-6">
-                    <div class="mb-4 flex items-center gap-2">
-                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Ringkasan Utama</h2>
-                        <div class="group relative">
-                            <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            <div
-                                class="invisible group-hover:visible absolute left-0 top-6 z-10 w-64 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                Ringkasan perhitungan PPN untuk periode ini, menampilkan total PPN Masuk, PPN Keluar,
-                                dan status akhir
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-4">
-
-                        {{-- Card 1: PPN Masuk --}}
-                        <div
-                            class="rounded-xl bg-white p-6 shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                            <div class="flex items-start justify-between mb-3">
-                                <span class="text-sm text-gray-600 dark:text-gray-400">1</span>
-                                <div class="group relative">
-                                    <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    <div
-                                        class="invisible group-hover:visible absolute right-0 top-6 z-10 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                        Total PPN yang dibayarkan saat pembelian/input (dapat dikreditkan)
-                                    </div>
-                                </div>
-                            </div>
-                            <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">PPN Masuk</h3>
-                            <p class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                                Rp {{ number_format($ppnMasuk, 0, ',', '.') }}
-                            </p>
-                            <div class="flex items-center gap-2">
-                                <span class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                    {{ $fakturMasukCount }} Faktur
-                                </span>
-                            </div>
-                        </div>
-
-                        {{-- Card 2: PPN Keluar --}}
-                        <div
-                            class="rounded-xl bg-white p-6 shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                            <div class="flex items-start justify-between mb-3">
-                                <span class="text-sm text-gray-600 dark:text-gray-400">2</span>
-                                <div class="group relative">
-                                    <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    <div
-                                        class="invisible group-hover:visible absolute right-0 top-6 z-10 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                        Total PPN yang dipungut dari penjualan/output (wajib disetor)
-                                    </div>
-                                </div>
-                            </div>
-                            <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">PPN Keluar</h3>
-                            <p class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                                Rp {{ number_format($ppnKeluar, 0, ',', '.') }}
-                            </p>
-                            <div class="flex items-center gap-2">
-                                <span class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                                    <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-                                    {{ $fakturKeluarCount }} Faktur
-                                </span>
-                            </div>
-                        </div>
-
-                        {{-- Card 3: Selisih --}}
-                        <div
-                            class="rounded-xl bg-white p-6 shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                            <div class="flex items-start justify-between mb-3">
-                                <span class="text-sm text-gray-600 dark:text-gray-400">3</span>
-                                <div class="group relative">
-                                    <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    <div
-                                        class="invisible group-hover:visible absolute right-0 top-6 z-10 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                        Selisih antara PPN Keluar dan PPN Masuk sebelum kompensasi
-                                    </div>
-                                </div>
-                            </div>
-                            <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Selisih</h3>
-                            <p class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                                Rp {{ number_format(abs($ppnKeluar - $ppnMasuk), 0, ',', '.') }}
-                            </p>
-                            <div class="flex items-center gap-2">
-                                @if($ppnKeluar > $ppnMasuk)
-                                <span
-                                    class="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
-                                    <span class="w-2 h-2 rounded-full bg-orange-500"></span>
-                                    Kurang Bayar
-                                </span>
-                                @elseif($ppnKeluar < $ppnMasuk) <span
-                                    class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                                    <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                                    Lebih Bayar
-                                    </span>
-                                    @else
-                                    <span
-                                        class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                                        <span class="w-2 h-2 rounded-full bg-gray-500"></span>
-                                        Nihil
-                                    </span>
-                                    @endif
-                            </div>
-                        </div>
-
-                        {{-- Card 4: Saldo Akhir --}}
-                        <div
-                            class="rounded-xl bg-white p-6 shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                            <div class="flex items-start justify-between mb-3">
-                                <span class="text-sm text-gray-600 dark:text-gray-400">✓</span>
-                                <div class="group relative">
-                                    <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    <div
-                                        class="invisible group-hover:visible absolute right-0 top-6 z-10 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                        Saldo akhir setelah diperhitungkan dengan kompensasi (jika ada)
-                                    </div>
-                                </div>
-                            </div>
-                            <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">Saldo Akhir</h3>
-                            <p class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                                Rp {{ number_format(abs($saldoFinal), 0, ',', '.') }}
-                            </p>
-                            <div class="flex items-center gap-2">
-                                @if($statusFinal === 'Kurang Bayar')
-                                <span
-                                    class="inline-flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
-                                    <span class="w-2 h-2 rounded-full bg-orange-500"></span>
-                                    Kurang Bayar
-                                </span>
-                                @elseif($statusFinal === 'Lebih Bayar')
-                                <span class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                                    <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                                    Lebih Bayar
-                                </span>
-                                @else
-                                <span class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                                    <span class="w-2 h-2 rounded-full bg-gray-500"></span>
-                                    Nihil
-                                </span>
-                                @endif
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-                {{-- Section 2: Detail Perhitungan --}}
-                <div class="mb-6">
-                    <div class="mb-4 flex items-center gap-2">
-                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Detail Perhitungan</h2>
-                        <div class="group relative">
-                            <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            <div
-                                class="invisible group-hover:visible absolute left-0 top-6 z-10 w-64 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                Rincian lengkap perhitungan PPN, peredaran bruto, dan ringkasan faktur
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
-
-                        {{-- Detail Card 1: Calculation Breakdown --}}
-                        <div
-                            class="rounded-xl bg-white p-6 shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                            <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Perhitungan PPN</h3>
-                                <div class="group relative">
-                                    <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    <div
-                                        class="invisible group-hover:visible absolute right-0 top-6 z-10 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                        Formula: PPN Keluar - PPN Masuk = Selisih
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="space-y-3">
-                                <div class="flex items-center justify-between text-sm">
-                                    <span class="text-gray-600 dark:text-gray-400">PPN Keluar</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">
-                                        Rp {{ number_format($ppnKeluar, 0, ',', '.') }}
-                                    </span>
-                                </div>
-
-                                <div
-                                    class="flex items-center justify-between text-sm border-t border-gray-100 pt-3 dark:border-gray-700">
-                                    <span class="text-gray-600 dark:text-gray-400">PPN Masuk</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">
-                                        Rp {{ number_format($ppnMasuk, 0, ',', '.') }}
-                                    </span>
-                                </div>
-
-                                <div
-                                    class="flex items-center justify-between text-sm border-t border-gray-200 pt-3 font-semibold dark:border-gray-600">
-                                    <span class="text-gray-900 dark:text-white">Selisih</span>
-                                    <span class="text-blue-600 dark:text-blue-400">
-                                        Rp {{ number_format(abs($ppnKeluar - $ppnMasuk), 0, ',', '.') }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Detail Card 2: Peredaran Bruto (DPP only) --}}
-                        <div
-                            class="rounded-xl bg-white p-6 shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                            <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Peredaran Bruto</h3>
-                                <div class="group relative">
-                                    <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    <div
-                                        class="invisible group-hover:visible absolute right-0 top-6 z-10 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                        Total nilai DPP (Dasar Pengenaan Pajak) dari seluruh transaksi
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="space-y-3">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-sm text-gray-600 dark:text-gray-400">Total DPP</span>
-                                        <div class="group/dpp relative">
-                                            <svg class="h-3.5 w-3.5 text-gray-400 cursor-help" fill="currentColor"
-                                                viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd"
-                                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                                    clip-rule="evenodd" />
-                                            </svg>
-                                            <div
-                                                class="invisible group-hover/dpp:visible absolute left-0 top-6 z-10 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                                Dasar Pengenaan Pajak dari Faktur Keluar
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <span class="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                                        Rp {{ number_format($totalDpp, 0, ',', '.') }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Detail Card 3: Faktur Summary --}}
-                        <div
-                            class="rounded-xl bg-white p-6 shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                            <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Ringkasan Faktur</h3>
-                                <div class="group relative">
-                                    <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    <div
-                                        class="invisible group-hover:visible absolute right-0 top-6 z-10 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                        Jumlah total faktur yang dihitung dalam periode ini
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="space-y-3">
-                                <div class="flex items-center justify-between text-sm">
-                                    <span class="text-gray-600 dark:text-gray-400">Faktur Masuk</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">
-                                        {{ $fakturMasukCount }}
-                                        @if($fakturMasukExcludedCount > 0)
-                                        <span class="text-xs text-orange-600">({{ $fakturMasukExcludedCount }}
-                                            dikecualikan)</span>
-                                        @endif
-                                    </span>
-                                </div>
-
-                                <div
-                                    class="flex items-center justify-between text-sm border-t border-gray-100 pt-3 dark:border-gray-700">
-                                    <span class="text-gray-600 dark:text-gray-400">Faktur Keluar</span>
-                                    <span class="font-medium text-gray-900 dark:text-white">
-                                        {{ $fakturKeluarCount }}
-                                        @if($fakturKeluarExcludedCount > 0)
-                                        <span class="text-xs text-orange-600">({{ $fakturKeluarExcludedCount }}
-                                            dikecualikan)</span>
-                                        @endif
-                                    </span>
-                                </div>
-
-                                <div
-                                    class="flex items-center justify-between text-sm border-t border-gray-200 pt-3 font-semibold dark:border-gray-600">
-                                    <span class="text-gray-900 dark:text-white">Total Faktur</span>
-                                    <span class="text-blue-600 dark:text-blue-400">
-                                        {{ $fakturMasukCount + $fakturKeluarCount }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-                {{-- Section 3: Kompensasi (if exists) --}}
-                @if($kompensasiDiterima > 0 || $kompensasiTersedia > 0 || $kompensasiTerpakai > 0)
-                <div class="mb-6">
-                    <div class="mb-4 flex items-center gap-2">
-                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Detail Kompensasi</h2>
-                        <div class="group relative">
-                            <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            <div
-                                class="invisible group-hover:visible absolute left-0 top-6 z-10 w-64 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                Informasi kompensasi lebih bayar yang digunakan atau tersedia untuk periode mendatang
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3">
-                        {{-- Kompensasi Diterima --}}
-                        @if($kompensasiDiterima > 0)
-                        <div
-                            class="rounded-xl bg-white p-6 shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="text-sm font-medium text-gray-900 dark:text-white">Kompensasi Diterima</h4>
-                                <div class="group relative">
-                                    <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    <div
-                                        class="invisible group-hover:visible absolute right-0 top-6 z-10 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                        Kompensasi lebih bayar dari periode sebelumnya yang digunakan
-                                    </div>
-                                </div>
-                            </div>
-                            <p class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                                Rp {{ number_format($kompensasiDiterima, 0, ',', '.') }}
-                            </p>
-                            <span class="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-                                <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                                Dari periode sebelumnya
-                            </span>
-                        </div>
-                        @endif
-
-                        {{-- Kompensasi Tersedia --}}
-                        @if($kompensasiTersedia > 0)
-                        <div
-                            class="rounded-xl bg-white p-6 shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="text-sm font-medium text-gray-900 dark:text-white">Kompensasi Tersedia</h4>
-                                <div class="group relative">
-                                    <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    <div
-                                        class="invisible group-hover:visible absolute right-0 top-6 z-10 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                        Sisa kompensasi yang dapat digunakan untuk periode berikutnya
-                                    </div>
-                                </div>
-                            </div>
-                            <p class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                                Rp {{ number_format($kompensasiTersedia, 0, ',', '.') }}
-                            </p>
-                            <span class="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                                <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                                Dapat digunakan
-                            </span>
-                        </div>
-                        @endif
-
-                        {{-- Kompensasi Terpakai --}}
-                        @if($kompensasiTerpakai > 0)
-                        <div
-                            class="rounded-xl bg-white p-6 shadow-sm border border-gray-200 dark:bg-gray-900 dark:border-gray-700">
-                            <div class="flex items-center justify-between mb-2">
-                                <h4 class="text-sm font-medium text-gray-900 dark:text-white">Kompensasi Terpakai</h4>
-                                <div class="group relative">
-                                    <svg class="h-4 w-4 text-gray-400 cursor-help" fill="currentColor"
-                                        viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd"
-                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                            clip-rule="evenodd" />
-                                    </svg>
-                                    <div
-                                        class="invisible group-hover:visible absolute right-0 top-6 z-10 w-48 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-gray-700">
-                                        Kompensasi yang sudah digunakan di periode berikutnya
-                                    </div>
-                                </div>
-                            </div>
-                            <p class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-                                Rp {{ number_format($kompensasiTerpakai, 0, ',', '.') }}
-                            </p>
-                            <span class="inline-flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                                <span class="w-2 h-2 rounded-full bg-gray-500"></span>
-                                Sudah digunakan
-                            </span>
-                        </div>
-                        @endif
-                    </div>
-                </div>
+<div class="kis-ws" x-data="kisUrlTab({ param: 'tab', value: @js($initialTab), fallback: 'faktur', allowed: @js(TaxReportInvoices::TABS) })">
+    <div class="kis-subtabs">
+        <nav class="kis-subtabs__nav" role="tablist" aria-label="Bagian PPN">
+            <button type="button" role="tab" class="kis-subtab" x-bind:class="tab === 'faktur' && 'is-on'" x-bind:aria-selected="tab === 'faktur'" x-on:click="show('faktur')">
+                Faktur <i>{{ number_format($this->invoiceCount, 0, ',', '.') }}</i>
+            </button>
+            <button type="button" role="tab" class="kis-subtab" x-bind:class="tab === 'perhitungan' && 'is-on'" x-bind:aria-selected="tab === 'perhitungan'" x-on:click="show('perhitungan')">
+                Perhitungan
+            </button>
+            <button type="button" role="tab" class="kis-subtab" x-bind:class="tab === 'kompensasi' && 'is-on'" x-bind:aria-selected="tab === 'kompensasi'" x-on:click="show('kompensasi')">
+                Kompensasi
+                @if ($l['available'] > 0)
+                    <i class="is-blue">Tersedia</i>
                 @endif
+            </button>
+            <button type="button" role="tab" class="kis-subtab" x-bind:class="tab === 'tahunan' && 'is-on'" x-bind:aria-selected="tab === 'tahunan'" x-on:click="show('tahunan')">
+                Ringkasan tahunan
+            </button>
+            <button type="button" role="tab" class="kis-subtab" x-bind:class="tab === 'spt' && 'is-on'" x-bind:aria-selected="tab === 'spt'" x-on:click="show('spt')">
+                SPT
+                @if ($this->sptUploaded)
+                    <em class="is-done">Terunggah</em>
+                @else
+                    <em>Belum</em>
+                @endif
+            </button>
+        </nav>
+        <span class="kis-subtabs__ctx">PPN · {{ $this->periodLabel() }}</span>
+    </div>
 
-                {{-- Info Note --}}
-                <div
-                    class="rounded-xl bg-blue-50 p-4 border border-blue-100 dark:bg-blue-500/5 dark:border-blue-500/20">
-                    <div class="flex gap-3">
-                        <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-blue-600 dark:text-blue-400" fill="currentColor"
-                                viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                        <div class="flex-1">
-                            <h4 class="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">Aturan Perhitungan
-                            </h4>
-                            <p class="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
-                                Faktur dengan kode 02, 03, 07, 08 dikecualikan • Hitung revisi terbaru • Masuk yang
-                                business-related • Peredaran Bruto berdasarkan DPP
-                            </p>
-                        </div>
+    {{-- Faktur --}}
+    <div x-show="tab === 'faktur'" @style(['display: none' => $initialTab !== 'faktur'])>
+        @livewire('tax-report.ppn.invoice-table', ['taxReportId' => $taxReportId], key('invoice-table-' . $taxReportId))
+    </div>
+
+    {{-- Perhitungan --}}
+    <div x-show="tab === 'perhitungan'" @style(['display: none' => $initialTab !== 'perhitungan'])>
+        <div class="kis-split">
+            <section class="kis-card kis-ledger" aria-labelledby="ppn-ledger-title">
+                <div class="kis-card__head">
+                    <div>
+                        <h3 class="kis-card__title" id="ppn-ledger-title">Perhitungan PPN {{ $this->periodLabel() }}</h3>
+                        <p class="kis-card__sub">Dihitung ulang setiap kali faktur atau kompensasi berubah.</p>
                     </div>
                 </div>
+                <dl class="kis-ledger__rows">
+                    <div class="kis-ledger__row">
+                        <dt><span class="kis-ledger__op" aria-hidden="true"></span>PPN keluaran</dt>
+                        <dd class="kis-ledger__note">{{ $b->keluar->count() }} faktur</dd>
+                        <dd class="kis-ledger__amt">{{ $rp($l['keluar']) }}</dd>
+                    </div>
+                    <div class="kis-ledger__row">
+                        <dt><span class="kis-ledger__op" aria-hidden="true">−</span>PPN masukan yang dikreditkan</dt>
+                        <dd class="kis-ledger__note">{{ $b->masuk->count() }} faktur</dd>
+                        <dd class="kis-ledger__amt">{{ $rp($l['masuk']) }}</dd>
+                    </div>
+                    <div class="kis-ledger__row is-sub">
+                        <dt><span class="kis-ledger__op" aria-hidden="true">=</span><b>Selisih</b></dt>
+                        <dd class="kis-ledger__note">{{ $statusLabel($l['selisihStatus']) }}</dd>
+                        <dd class="kis-ledger__amt">{{ $rp($l['selisih']) }}</dd>
+                    </div>
+                    <div class="kis-ledger__row">
+                        <dt><span class="kis-ledger__op" aria-hidden="true">−</span>Kompensasi diterima</dt>
+                        <dd class="kis-ledger__note">dari periode sebelumnya</dd>
+                        <dd class="kis-ledger__amt">{{ $rp($l['received']) }}</dd>
+                    </div>
+                    <div class="kis-ledger__row">
+                        <dt>
+                            <span class="kis-ledger__op" aria-hidden="true">−</span>Kompensasi manual
+                            <button type="button" class="kis-ledger__edit" x-on:click="show('kompensasi'); $nextTick(() => $wire.dispatch('open-manual-kompensasi'))">Ubah</button>
+                        </dt>
+                        <dd class="kis-ledger__note" @if ($l['manualNotes']) title="{{ $l['manualNotes'] }}" @endif>{{ $l['manualNotes'] ? \Illuminate\Support\Str::limit($l['manualNotes'], 40) : 'tanpa catatan' }}</dd>
+                        <dd class="kis-ledger__amt">{{ $rp($l['manual']) }}</dd>
+                    </div>
+                    <div class="kis-ledger__row is-total">
+                        <dt>Saldo akhir</dt>
+                        <dd class="kis-ledger__note"><x-kis.badge :tone="Tone::forPaymentStatus($l['status'])" dot>{{ $statusLabel($l['status']) }}</x-kis.badge></dd>
+                        <dd @class(['kis-ledger__amt', 'is-bad' => $l['status'] === 'Kurang Bayar'])>{{ $rp($l['saldo']) }}</dd>
+                    </div>
+                    @if ($l['status'] === 'Lebih Bayar')
+                        <div class="kis-ledger__row is-after">
+                            <dt><span class="kis-ledger__op" aria-hidden="true">−</span>Dikompensasikan ke periode berikutnya</dt>
+                            <dd class="kis-ledger__note"></dd>
+                            <dd class="kis-ledger__amt">{{ $rp($l['given']) }}</dd>
+                        </div>
+                        <div class="kis-ledger__row is-after">
+                            <dt><span class="kis-ledger__op" aria-hidden="true">=</span><b>Sisa lebih bayar</b></dt>
+                            <dd class="kis-ledger__note">bisa dikompensasikan</dd>
+                            <dd class="kis-ledger__amt">{{ $rp($l['available']) }}</dd>
+                        </div>
+                    @endif
+                </dl>
+            </section>
 
-            </div>
+            <div class="kis-split__side">
+                <section class="kis-card">
+                    <div class="kis-card__head">
+                        <div>
+                            <h3 class="kis-card__title">Peredaran bruto</h3>
+                            <p class="kis-card__sub">Total DPP faktur keluaran yang dihitung</p>
+                        </div>
+                    </div>
+                    <div class="kis-card__body"><span class="kis-figure">{{ $rp($b->dppKeluar()) }}</span></div>
+                </section>
 
-            {{-- Kompensasi Tab --}}
-            <div x-show="activeTab === 'kompensasi'" x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
-                x-cloak>
-                @livewire('tax-report.ppn.tax-report-kompensasi', ['taxReportId' => $taxReportId])
-            </div>
+                <section class="kis-card">
+                    <div class="kis-card__head"><h3 class="kis-card__title">Faktur</h3></div>
+                    <dl class="kis-kv">
+                        <div><dt>Keluaran dihitung</dt><dd>{{ $b->keluar->count() }}</dd></div>
+                        <div><dt>Masukan dikreditkan</dt><dd>{{ $b->masuk->count() }}</dd></div>
+                        <div>
+                            <dt>Dikecualikan <span class="kis-kv__hint">kode 02, 03, 07, 08 dan masukan non-usaha</span></dt>
+                            <dd>{{ $b->excludedKeluar + $b->excludedMasuk }}</dd>
+                        </div>
+                        @if ($this->revisionCount > 0)
+                            <div><dt>Revisi <span class="kis-kv__hint">menggantikan faktur asli</span></dt><dd>{{ $this->revisionCount }}</dd></div>
+                        @endif
+                        <div class="is-total"><dt>Total faktur</dt><dd>{{ $this->invoiceCount }}</dd></div>
+                    </dl>
+                </section>
 
-            {{-- Yearly Summary Tab --}}
-            <div x-show="activeTab === 'yearly-summary'" x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0 translate-y-4" x-transition:enter-end="opacity-100 translate-y-0"
-                x-cloak>
-                @livewire('tax-report.ppn.yearly-summary', ['taxReportId' => $taxReportId, 'clientId' =>
-                $taxReport->client_id])
+                <section class="kis-card">
+                    <div class="kis-card__head"><h3 class="kis-card__title">Aturan perhitungan</h3></div>
+                    <ul class="kis-rules">
+                        <li>Faktur keluaran kode 02, 03, 07, 08 tidak dihitung</li>
+                        <li>Faktur yang direvisi dihitung dengan revisi terbarunya</li>
+                        <li>Faktur masukan dihitung bila terkait usaha</li>
+                        <li>Peredaran bruto dari DPP faktur keluaran</li>
+                    </ul>
+                </section>
             </div>
         </div>
+    </div>
 
+    {{-- Kompensasi --}}
+    <div x-show="tab === 'kompensasi'" @style(['display: none' => $initialTab !== 'kompensasi'])>
+        @livewire('tax-report.ppn.tax-report-kompensasi', ['taxReportId' => $taxReportId], key('kompensasi-' . $taxReportId))
+    </div>
+
+    {{-- Ringkasan tahunan --}}
+    <div x-show="tab === 'tahunan'" @style(['display: none' => $initialTab !== 'tahunan'])>
+        @livewire('tax-report.ppn.yearly-summary', ['taxReportId' => $taxReportId, 'clientId' => $this->taxReport->client_id], key('yearly-' . $taxReportId))
+    </div>
+
+    {{-- SPT --}}
+    <div x-show="tab === 'spt'" @style(['display: none' => $initialTab !== 'spt'])>
+        @livewire('tax-report.spt-upload', ['taxReportId' => $taxReportId, 'type' => 'ppn'], key('spt-ppn-' . $taxReportId))
     </div>
 </div>

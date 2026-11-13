@@ -127,10 +127,50 @@ class InvoiceJsonImportServiceTest extends TestCase
 
     public function test_missing_file_fails_and_suggests_near_miss(): void
     {
-        $row = $this->analyze([$this->row()], ['04002500064522168 (1).pdf'])['rows'][0];
+        $row = $this->analyze([$this->row(['file' => 'faktur-feb.pdf'])], ['faktur-feb (1).pdf'])['rows'][0];
 
         $this->assertSame(InvoiceJsonImportService::STATUS_ERROR, $row['status']);
-        $this->assertStringContainsString('04002500064522168 (1).pdf', $row['errors'][0]);
+        $this->assertStringContainsString('faktur-feb (1).pdf', $row['errors'][0]);
+    }
+
+    public function test_file_renamed_by_ai_app_matches_original_upload(): void
+    {
+        $upload = 'OutputTaxInvoice-02c9c6d5-659f-4f8d-b3df-7dd4091a2b35-0923201339724000-04012600389007759-0026483545091000 (1).pdf';
+
+        $row = $this->analyze(
+            [$this->row([
+                'invoice_number' => '04012600389007759',
+                'file' => 'e40d3366-OutputTaxInvoice-02c9c6d5-659f-4f8d-b3df-7dd4091a2b35-0923201339724000-04012600389007759-0026483545091000_1.pdf',
+            ])],
+            [$upload]
+        )['rows'][0];
+
+        $this->assertSame([], $row['errors']);
+        $this->assertSame($upload, $row['file']);
+    }
+
+    public function test_coretax_file_matches_by_invoice_number(): void
+    {
+        $upload = 'InputTaxInvoice-a048e95a-7418-4a40-95b2-ed4306301735-0028189793725000-04002600406159277-0923201339724000 (1).pdf';
+        $files = [$upload, 'OutputTaxInvoice-02c9c6d5-659f-4f8d-b3df-7dd4091a2b35-0923201339724000-04012600389007759-0026483545091000.pdf'];
+
+        foreach (['salah-nama.pdf', null] as $file) {
+            $row = $this->analyze([$this->row(['invoice_number' => '04002600406159277', 'file' => $file])], $files)['rows'][0];
+
+            $this->assertSame([], $row['errors']);
+            $this->assertSame($upload, $row['file']);
+        }
+    }
+
+    public function test_invoice_number_in_several_file_names_is_not_guessed(): void
+    {
+        $row = $this->analyze(
+            [$this->row(['file' => null])],
+            ['04002500064522168-asli.pdf', '04002500064522168-revisi.pdf']
+        )['rows'][0];
+
+        $this->assertSame(InvoiceJsonImportService::STATUS_ERROR, $row['status']);
+        $this->assertNull($row['file']);
     }
 
     public function test_numeric_invoice_number_is_rejected(): void

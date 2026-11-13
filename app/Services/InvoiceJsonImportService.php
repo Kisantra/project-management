@@ -525,7 +525,9 @@ class InvoiceJsonImportService
         $number = $row['data']['invoice_number'] ?? '';
 
         if ($requested !== null) {
-            $match = $fileIndex[mb_strtolower($requested)] ?? null;
+            $match = $fileIndex[mb_strtolower($requested)]
+                ?? $this->matchRenamedFile($requested, $fileIndex)
+                ?? $this->matchByInvoiceNumber($number, $fileIndex);
 
             if ($match === null) {
                 $row['errors'][] = "File {$requested} tidak ada di unggahan." . $this->suggestFile(pathinfo($requested, PATHINFO_FILENAME), $fileIndex);
@@ -546,9 +548,57 @@ class InvoiceJsonImportService
             }
         }
 
+        $match = $this->matchByInvoiceNumber($number, $fileIndex);
+
+        if ($match !== null) {
+            return $match;
+        }
+
         $row['errors'][] = "File faktur tidak ditemukan. Isi field \"file\", atau beri nama file {$stem}.pdf." . $this->suggestFile($stem, $fileIndex);
 
         return null;
+    }
+
+    /**
+     * AI chat apps can rename attachments before the model sees them, so
+     * "faktur (1).pdf" comes back as "e40d3366-faktur_1.pdf". Matches when the
+     * upload's name, letters and digits only, is the tail of the requested name.
+     */
+    private function matchRenamedFile(string $requested, array $fileIndex): ?string
+    {
+        $key = self::looseName($requested);
+
+        $matches = array_filter($fileIndex, function (string $name) use ($key) {
+            $loose = self::looseName($name);
+
+            return $loose !== '' && str_ends_with($key, $loose);
+        });
+
+        return count($matches) === 1 ? reset($matches) : null;
+    }
+
+    /**
+     * Coretax names downloads after the invoice, e.g.
+     * "OutputTaxInvoice-<uuid>-<npwp>-04012600389007759-<npwp>.pdf". Only full
+     * Faktur Pajak serial numbers are distinctive enough to find in a file name.
+     */
+    private function matchByInvoiceNumber(string $number, array $fileIndex): ?string
+    {
+        if (! preg_match('/^\d{13,}$/', $number)) {
+            return null;
+        }
+
+        $matches = array_filter(
+            $fileIndex,
+            fn (string $name) => preg_match('/(?<!\d)' . $number . '(?!\d)/', pathinfo($name, PATHINFO_FILENAME)) === 1
+        );
+
+        return count($matches) === 1 ? reset($matches) : null;
+    }
+
+    private static function looseName(string $name): string
+    {
+        return (string) preg_replace('/[^a-z0-9]+/', '', mb_strtolower($name));
     }
 
     /**

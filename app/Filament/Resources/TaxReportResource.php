@@ -134,54 +134,13 @@ class TaxReportResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            // CRITICAL: Add eager loading with tax_calculation_summaries AND client contracts
-            ->modifyQueryUsing(function (Builder $query) {
-                return $query
-                    ->with([
-                        'client:id,name,ppn_contract,pph_contract,bupot_contract,pph_badan_contract',
-                        'createdBy:id,name',
-                        'taxCalculationSummaries:id,tax_report_id,tax_type,report_status,reported_at,status_final,saldo_final,bayar_status,bayar_at,bukti_bayar',
-                    ])
-                    ->withSum('invoices', 'ppn')
-                    ->withSum([
-                        'invoices as ppn_masuk_sum' => function ($query) {
-                            $query->where('type', 'Faktur Masuk');
-                        }
-                    ], 'ppn')
-                    ->withSum([
-                        'invoices as ppn_keluar_sum' => function ($query) {
-                            $query->where('type', 'Faktur Keluaran')
-                                ->where(function ($q) {
-                                    $q->where('invoice_number', 'NOT LIKE', '02%')
-                                        ->where('invoice_number', 'NOT LIKE', '03%')
-                                        ->where('invoice_number', 'NOT LIKE', '07%')
-                                        ->where('invoice_number', 'NOT LIKE', '08%');
-                                });
-                        }
-                    ], 'ppn')
-                    ->withSum([
-                        'invoices as peredaran_bruto_sum' => function ($query) {
-                            $query->where('type', 'Faktur Keluaran');
-                        }
-                    ], 'dpp')
-                    ->withSum('incomeTaxs', 'pajak_penghasilan')  // ✅ CHANGED FROM 'pph_21_amount'
-                    ->withSum('bupots', 'bupot_amount')
-                    ->withCount([
-                        'invoices as total_invoices_count',
-                        'invoices as invoices_masuk_count' => function ($query) {
-                            $query->where('type', 'Faktur Masuk');
-                        },
-                        'invoices as invoices_keluar_count' => function ($query) {
-                            $query->where('type', 'Faktur Keluaran');
-                        },
-                        'incomeTaxs as income_taxes_count',
-                        'bupots as bupots_count',
-                        // ✅ UPDATED - use 'bukti_potong' for income_taxes
-                        'incomeTaxs as income_taxes_with_bukti_count' => function ($query) {
-                            $query->whereNotNull('bukti_potong')->where('bukti_potong', '!=', '');
-                        },
-                    ]);
-            })
+            // Only what the list and its row actions read: ListTaxReports::slots(), Saldo PPN,
+            // Status bayar, and the bayar_at/bukti_bayar the payment action fills its form from.
+            // Invoice/PPh/Bupot sums are computed on the detail page, not per row here.
+            ->modifyQueryUsing(fn (Builder $query) => $query->with([
+                'client:id,name,ppn_contract,pph_contract,bupot_contract,pph_badan_contract',
+                'taxCalculationSummaries:id,tax_report_id,tax_type,report_status,reported_at,status_final,saldo_final,bayar_status,bayar_at,bukti_bayar',
+            ]))
             // Custom list (grouped per month, one column per tax type); see ListTaxReports::slots().
             ->content(view('filament.pages.tax-report.components.tax-report-list'))
             // Newest period first; month is stored as an English name, so order it by calendar position.
@@ -350,6 +309,10 @@ class TaxReportResource extends Resource
                     }),
             ])
             ->deferLoading()
+            // No "all" option: one page never loads a whole year of reports. Rendered
+            // by the list view's own footer (tax-report-list.blade.php).
+            ->paginated([25, 50, 100])
+            ->defaultPaginationPageOption(25)
             ->filters([
                 // NEW: Client Contract Filter (Default Active)
                 Tables\Filters\Filter::make('has_contracts')

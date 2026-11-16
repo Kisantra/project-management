@@ -4,11 +4,14 @@ namespace App\Filament\Resources\TaxReportResource\Pages;
 
 use App\Filament\Resources\TaxReportResource;
 use App\Models\TaxReport;
+use App\Services\TaxDeadlineService;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Url;
 
 class ListTaxReports extends ListRecords
 {
@@ -35,11 +38,70 @@ class ListTaxReports extends ListRecords
      */
     public array $period = ['year' => null, 'months' => []];
 
+    /**
+     * The period mirrored in the query string: ?tahun=2026&bulan=9,10, with
+     * bulan=semua for the whole year. Without parameters the page opens on
+     * defaultPeriod(), so the sidebar link always lands there.
+     */
+    #[Url(as: 'tahun')]
+    public ?int $tahun = null;
+
+    #[Url(as: 'bulan')]
+    public ?string $bulan = null;
+
     public function mount(): void
     {
         parent::mount();
 
-        $this->period = ['year' => now()->year, 'months' => []];
+        $this->period = $this->tahun
+            ? ['year' => $this->tahun, 'months' => self::parseMonths($this->bulan)]
+            : self::defaultPeriod();
+
+        $this->normalizePeriod();
+    }
+
+    /**
+     * The period being reported this month, i.e. last month (October while it
+     * is November), as on the dashboard's tax deadline card.
+     */
+    public static function defaultPeriod(): array
+    {
+        $period = app(TaxDeadlineService::class)->periodFor(now());
+
+        return ['year' => $period->year, 'months' => [$period->month]];
+    }
+
+    public function isDefaultPeriod(): bool
+    {
+        $default = self::defaultPeriod();
+
+        return $this->periodYear() === $default['year'] && $this->periodMonths() === $default['months'];
+    }
+
+    /** @return int[] month numbers from the ?bulan= value; "semua" or empty means the whole year */
+    public static function parseMonths(?string $value): array
+    {
+        if (blank($value) || $value === 'semua') {
+            return [];
+        }
+
+        return array_map('intval', explode(',', $value));
+    }
+
+    /**
+     * Filament's deferred table fires wire:init a second time after the first
+     * response, which re-rendered (and re-queried) the whole list. Once the
+     * table is loaded there is nothing to render.
+     */
+    public function loadTable(): void
+    {
+        if ($this->isTableLoaded) {
+            $this->skipRender();
+
+            return;
+        }
+
+        parent::loadTable();
     }
 
     protected function getHeaderActions(): array
@@ -54,9 +116,14 @@ class ListTaxReports extends ListRecords
     public function getSubheading(): ?string
     {
         $year = $this->periodYear();
-        $count = collect($this->monthCounts[$year] ?? [])->sum();
+        $months = $this->periodMonths();
+        $counts = $this->monthCounts[$year] ?? [];
+        $count = $months === []
+            ? array_sum($counts)
+            : collect($months)->sum(fn (int $month) => $counts[$month] ?? 0);
+        $label = ($months === [] || count($months) === 12) ? $year : $this->periodSummary();
 
-        return "{$count} laporan di {$year}";
+        return "{$count} laporan di {$label}";
     }
 
     public function periodYear(): int
@@ -107,11 +174,31 @@ class ListTaxReports extends ListRecords
     /**
      * Per-month totals for the group headers, over every filtered record (not
      * just the current page): ["2026-10" => ['total' => n, 'pending' => n]].
+     * Only the months on the current page get a header, so only those are
+     * loaded, not every report of a whole-year selection.
      */
     #[Computed]
     public function monthSummary(): array
     {
-        $ids = $this->getFilteredTableQuery()->reorder()->select('tax_reports.id');
+        $records = $this->getTableRecords();
+
+        $periods = collect($records instanceof Collection ? $records : $records->items())
+            ->map(fn (TaxReport $report) => [(int) $report->year, $report->month])
+            ->unique()
+            ->values();
+
+        if ($periods->isEmpty()) {
+            return [];
+        }
+
+        $ids = $this->getFilteredTableQuery()
+            ->reorder()
+            ->where(function (Builder $query) use ($periods) {
+                foreach ($periods as [$year, $month]) {
+                    $query->orWhere(fn (Builder $query) => $query->where('tax_reports.year', $year)->where('tax_reports.month', $month));
+                }
+            })
+            ->select('tax_reports.id');
 
         return TaxReport::query()
             ->whereIn('id', $ids)
@@ -199,11 +286,23 @@ class ListTaxReports extends ListRecords
 
     public function updatedPeriod(): void
     {
-        $this->period = ['year' => $this->periodYear(), 'months' => $this->periodMonths()];
+        $this->normalizePeriod();
         unset($this->monthSummary);
-        $this->resetTable();
+        // Not resetTable(): that also resets the filter form, so picking another
+        // month used to drop filters such as "PPN belum lapor".
+        $this->resetPage();
+        $this->flushCachedTableRecords();
     }
 
+    /** Sanitises the period and mirrors it into ?tahun= / ?bulan=. */
+    protected function normalizePeriod(): void
+    {
+        $this->period = ['year' => $this->periodYear(), 'months' => $this->periodMonths()];
+        $this->tahun = $this->period['year'];
+        $this->bulan = $this->period['months'] === [] ? 'semua' : implode(',', $this->period['months']);
+    }
+
+    /** Removes the month restriction: the whole selected year. */
     public function clearPeriod(): void
     {
         $this->period = ['year' => $this->periodYear(), 'months' => []];
@@ -212,7 +311,8 @@ class ListTaxReports extends ListRecords
 
     public function resetAllFilters(): void
     {
-        $this->clearPeriod();
+        $this->period = self::defaultPeriod();
+        $this->updatedPeriod();
         $this->resetTableFiltersForm();
     }
 

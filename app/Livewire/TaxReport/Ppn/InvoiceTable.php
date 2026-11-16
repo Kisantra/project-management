@@ -387,7 +387,7 @@ class InvoiceTable extends Component implements HasForms, HasTable
                         if (!$this->taxReport->client || !$this->taxReport->client->ppn_contract) {
                             return 'Klien tidak memiliki kontrak PPN aktif.';
                         }
-                        return 'Isi data faktur secara manual (gunakan jika AI tidak tersedia)';
+                        return 'Isi data faktur secara manual, tanpa AI. Berkas faktur opsional.';
                     })
                     ->disabled(function () {
                         return !($this->taxReport->client && $this->taxReport->client->ppn_contract);
@@ -434,53 +434,22 @@ class InvoiceTable extends Component implements HasForms, HasTable
                         ->icon('heroicon-o-arrow-path')
                         ->color('gray')
                         ->visible(fn ($record) => $record && !$record->is_revision)
-                        ->form(function ($record) {
-                            return $this->getInvoiceFormSchema(true, $record);
-                        })
-                        ->fillForm(function ($record) {
-                            $nextRevisionNumber = $record->revisions()->max('revision_number') + 1;
-                            $revisionInvoiceNumber = $record->invoice_number . '-REV' . $nextRevisionNumber;
-                            
-                            return [
-                                'is_revision' => true,
-                                'original_invoice_id' => $record->id,
-                                'revision_number' => $nextRevisionNumber,
-                                'revision_reason' => '',
-                                'invoice_number' => $revisionInvoiceNumber,
-                                'invoice_date' => $record->invoice_date instanceof \Carbon\Carbon 
-                                    ? $record->invoice_date->format('Y-m-d') 
-                                    : $record->invoice_date,
-                                'company_name' => $record->company_name,
-                                'npwp' => $record->npwp,
-                                'type' => $record->type,
-                                'client_type' => $record->client_type,
-                                'has_ppn' => $record->has_ppn,
-                                'ppn_percentage' => $record->ppn_percentage ?? '11',
-                                'dpp' => number_format($record->dpp, 2, ',', '.'),
-                                'dpp_nilai_lainnya' => number_format($record->dpp_nilai_lainnya ?? 0, 2, ',', '.'),
-                                'ppn' => number_format($record->ppn, 2, ',', '.'),
-                                'nihil' => $record->nihil,
-                                'notes' => $record->notes,
-                                'created_by' => auth()->id(),
-                            ];
-                        })
-                        ->action(function ($record, array $data) {
-                            $revision = new Invoice();
-                            $revision->fill($data);
-                            $revision->tax_report_id = $this->taxReportId;
-                            $revision->save();
+                        ->form(fn ($record) => $this->getInvoiceFormSchema(true, $record))
+                        ->fillForm(fn (Invoice $record) => $this->getRevisionFormData($record))
+                        ->action(function (Invoice $record, array $data) {
+                            $revision = $this->createInvoiceRevision($record, $data);
                             $this->invoicesChanged();
-                            
+
                             Notification::make()
                                 ->title('Revisi Berhasil Dibuat')
-                                ->body("Revisi #{$data['revision_number']} untuk faktur {$record->invoice_number} berhasil dibuat dengan nomor {$data['invoice_number']}.")
+                                ->body("Revisi #{$revision->revision_number} untuk faktur {$record->invoice_number} berhasil dibuat dengan nomor {$revision->invoice_number}.")
                                 ->success()
                                 ->send();
                         })
                         ->modalHeading(fn ($record) => 'Buat Revisi untuk Faktur: ' . $record->invoice_number)
                         ->modalSubmitActionLabel('Simpan Revisi')
                         ->modalWidth('7xl')
-                        ->tooltip('Buat revisi dari faktur ini dengan form lengkap'),
+                        ->tooltip('Buat revisi manual dari versi terakhir faktur ini'),
 
                     Tables\Actions\Action::make('view_revisions')
                         ->label('Lihat Revisi')
@@ -703,151 +672,6 @@ class InvoiceTable extends Component implements HasForms, HasTable
             ->emptyStateHeading('Belum Ada Faktur Pajak')
             ->emptyStateDescription('Faktur pajak untuk laporan pajak ini akan muncul di sini. Tambahkan faktur masukan dan keluaran untuk melacak PPN.')
             ->emptyStateIcon('heroicon-o-document-duplicate');
-    }
-
-    /**
-     * Process invoice with AI using the AI Service
-     */
-    private function processInvoiceWithAI($filePath, Forms\Get $get, Forms\Set $set)
-    {
-        try {
-            $set('ai_processing_status', 'processing');
-            $set('ai_output', 'Sedang memproses dokumen dengan AI...');
-            
-            // Get client name
-            $clientName = 'unknown-client';
-            $monthName = 'unknown-month';
-            
-            if ($this->taxReport && $this->taxReport->client) {
-                $clientName = $this->taxReport->client->name; // Use actual client name, not slugged
-                $monthName = FileManagementService::convertToIndonesianMonth($this->taxReport->month);
-            }
-            
-            if (is_object($filePath)) {
-                $fullPath = $filePath->getRealPath();
-            } else {
-                $fullPath = storage_path('app/public/' . $filePath);
-            }
-            
-            if (!file_exists($fullPath)) {
-                throw new \Exception('File tidak ditemukan: ' . $filePath);
-            }
-            
-            $aiService = new \App\Services\InvoiceAIService();
-            
-            // Pass actual client name for type detection
-            $result = $aiService->processInvoice($filePath, $clientName, $monthName);
-            
-            $output = $aiService->formatOutput($result);
-            $set('ai_output', $output);
-            
-            if ($result['success'] && !$result['debug']) {
-                $set('ai_extracted_data', json_encode($result['data']));
-                $set('ai_processing_status', 'completed');
-                
-                Notification::make()
-                    ->title('AI Processing Selesai')
-                    ->body('Data faktur berhasil diekstrak. Klik "Terapkan Data AI ke Form" untuk mengisi form secara otomatis.')
-                    ->success()
-                    ->duration(5000)
-                    ->send();
-            } elseif ($result['debug']) {
-                $set('ai_processing_status', 'completed');
-                
-                Notification::make()
-                    ->title('Debug Mode Aktif')
-                    ->body('Menampilkan informasi debug. Periksa response structure.')
-                    ->warning()
-                    ->send();
-            } else {
-                $set('ai_processing_status', 'error');
-                
-                Notification::make()
-                    ->title('Error AI Processing')
-                    ->body('Terjadi kesalahan: ' . $result['error'])
-                    ->danger()
-                    ->send();
-            }
-            
-        } catch (\Exception $e) {
-            $set('ai_processing_status', 'error');
-            $set('ai_output', '❌ **Error:** ' . $e->getMessage());
-            
-            Notification::make()
-                ->title('Error AI Processing')
-                ->body('Terjadi kesalahan: ' . $e->getMessage())
-                ->danger()
-                ->send();
-        }
-    }
-
-
-    /**
-     * Apply AI extracted data to form fields
-     */
-    private function applyAIDataToForm(Forms\Get $get, Forms\Set $set)
-    {
-        $extractedDataJson = $get('ai_extracted_data');
-        
-        if (!$extractedDataJson) {
-            Notification::make()
-                ->title('Tidak Ada Data')
-                ->body('Tidak ada data AI yang tersimpan untuk diterapkan.')
-                ->warning()
-                ->send();
-            return;
-        }
-        
-        $data = json_decode($extractedDataJson, true);
-        
-        if (!$data) {
-            Notification::make()
-                ->title('Data Tidak Valid')
-                ->body('Data AI yang tersimpan tidak valid.')
-                ->warning()
-                ->send();
-            return;
-        }
-        
-        foreach ($data as $field => $value) {
-            if ($field === 'ppn_percentage') {
-                $set($field, $value);
-            } elseif ($field === 'invoice_number') {
-                $set($field, $value);
-                if ($value && strlen($value) >= 2) {
-                    $clientTypeData = ClientTypeService::getClientTypeFromInvoiceNumber($value);
-                    $set('client_type', $clientTypeData['type']);
-                    $set('has_ppn', $clientTypeData['has_ppn']);
-                }
-            } elseif (in_array($field, ['dpp', 'dpp_nilai_lainnya', 'ppn'])) {
-                continue;
-            } else {
-                $set($field, $value);
-            }
-        }
-        
-        $ppnPercentage = $data['ppn_percentage'] ?? '11';
-        
-        if ($ppnPercentage === '12') {
-            if (isset($data['dpp'])) {
-                $set('dpp_nilai_lainnya', TaxCalculationService::formatCurrency($data['dpp']));
-                $this->calculateFromDppNilaiLainnya($get, $set, $data['dpp']);
-            }
-        } else {
-            if (isset($data['dpp'])) {
-                $set('dpp', TaxCalculationService::formatCurrency($data['dpp']));
-                $this->calculatePPNFromDpp($get, $set, $data['dpp']);
-            }
-            $set('dpp_nilai_lainnya', '0.00');
-        }
-        
-        $set('ai_extracted_data', '');
-        
-        Notification::make()
-            ->title('Data Diterapkan')
-            ->body('Data AI berhasil diterapkan ke form.')
-            ->success()
-            ->send();
     }
 
     /**

@@ -11,9 +11,31 @@
     $previousPeriod = null;
     $th = 'px-3 py-2.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-gray-500 dark:text-gray-400';
     $iconLink = 'grid h-8 w-8 place-items-center rounded-[9px] text-gray-500 transition hover:bg-gray-100 hover:text-gray-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-600 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white';
+
+    // Pagination footer (replaces Filament's English one): first, last and the pages around the current one.
+    $paginated = $records instanceof \Illuminate\Pagination\LengthAwarePaginator;
+    $pageName = $paginated ? $records->getPageName() : 'page';
+    $currentPage = $paginated ? $records->currentPage() : 1;
+    $lastPage = $paginated ? $records->lastPage() : 1;
+    $pageLinks = collect([1, $currentPage - 1, $currentPage, $currentPage + 1, $lastPage])
+        ->filter(fn ($page) => $page >= 1 && $page <= $lastPage)
+        ->unique()
+        ->sort()
+        ->values();
+    $perPageOptions = array_values(array_filter($this->getTable()->getPaginationPageOptions(), 'is_int'));
+    $perPage = (int) $this->getTableRecordsPerPage();
+    $rail = 'inline-flex items-center gap-0.5 rounded-[11px] bg-gray-100 p-1 dark:bg-white/5';
+    $segment = 'grid h-7 min-w-[1.75rem] place-items-center rounded-[8px] px-2 text-[13px] font-bold tabular-nums transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary-600';
+    $segmentOn = 'bg-white text-primary-700 shadow-sm dark:bg-gray-800 dark:text-primary-300';
+    $segmentOff = 'text-gray-600 hover:bg-white/60 hover:text-gray-950 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white';
+    $scrollUp = "\$el.closest('.tax-report-list')?.scrollIntoView({ block: 'start', behavior: 'smooth' })";
 @endphp
 
-<div class="tax-report-list">
+<div
+    class="tax-report-list scroll-mt-24 transition-opacity"
+    wire:loading.delay.class="pointer-events-none opacity-60"
+    wire:target="gotoPage,previousPage,nextPage,tableRecordsPerPage,period,tableSearch,tableFilters,sortTable,clearPeriod,resetAllFilters,resetTableFiltersForm"
+>
     @if ($records->isEmpty())
         <div class="rounded-[14px] border border-gray-200 bg-white px-6 py-14 text-center dark:border-white/10 dark:bg-gray-900">
             <x-filament::icon icon="heroicon-o-document-text" class="mx-auto h-8 w-8 text-gray-400" />
@@ -176,6 +198,63 @@
                 <span class="inline-flex items-center gap-1.5"><x-kis.badge tone="red" size="sm">Belum</x-kis.badge> Belum lapor</span>
                 <span class="inline-flex items-center gap-1.5"><span class="text-gray-300 dark:text-gray-600">–</span> Tidak ada kontrak</span>
             </div>
+
+            @if ($paginated)
+                <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-gray-200 px-5 py-3 dark:border-white/10">
+                    <p class="text-[13px] font-semibold text-gray-600 dark:text-gray-300">
+                        Menampilkan
+                        <span class="font-extrabold tabular-nums text-gray-950 dark:text-white">{{ number_format($records->firstItem() ?? 0, 0, ',', '.') }}–{{ number_format($records->lastItem() ?? 0, 0, ',', '.') }}</span>
+                        dari
+                        <span class="font-extrabold tabular-nums text-gray-950 dark:text-white">{{ number_format($records->total(), 0, ',', '.') }}</span>
+                        laporan
+                    </p>
+
+                    <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+                        @if (count($perPageOptions) > 1 && $records->total() > min($perPageOptions))
+                            <div class="flex items-center gap-2">
+                                <span id="tax-report-per-page" class="text-[13px] font-semibold text-gray-600 dark:text-gray-300">Per halaman</span>
+                                <div class="{{ $rail }}" role="radiogroup" aria-labelledby="tax-report-per-page">
+                                    @foreach ($perPageOptions as $option)
+                                        <button type="button" role="radio" aria-checked="{{ $option === $perPage ? 'true' : 'false' }}"
+                                            wire:click="$set('tableRecordsPerPage', {{ $option }})"
+                                            @class([$segment, $segmentOn => $option === $perPage, $segmentOff => $option !== $perPage])>{{ $option }}</button>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
+                        @if ($lastPage > 1)
+                            <nav class="{{ $rail }}" aria-label="Halaman laporan">
+                                <button type="button" @disabled($records->onFirstPage())
+                                    wire:click="previousPage('{{ $pageName }}')" x-on:click="{{ $scrollUp }}"
+                                    class="{{ $segment }} {{ $segmentOff }} disabled:pointer-events-none disabled:opacity-40" title="Halaman sebelumnya">
+                                    <x-filament::icon icon="heroicon-m-chevron-left" class="h-4 w-4" />
+                                    <span class="sr-only">Halaman sebelumnya</span>
+                                </button>
+
+                                @foreach ($pageLinks as $index => $page)
+                                    @if ($index > 0 && $page - $pageLinks[$index - 1] > 1)
+                                        <span class="grid h-7 w-5 place-items-center text-[13px] font-bold text-gray-400" aria-hidden="true">…</span>
+                                    @endif
+                                    <button type="button" wire:key="{{ $this->getId() }}.pagination.{{ $page }}"
+                                        wire:click="gotoPage({{ $page }}, '{{ $pageName }}')" x-on:click="{{ $scrollUp }}"
+                                        @if ($page === $currentPage) aria-current="page" @endif
+                                        @class([$segment, $segmentOn => $page === $currentPage, $segmentOff => $page !== $currentPage])>
+                                        <span class="sr-only">Halaman</span> {{ $page }}
+                                    </button>
+                                @endforeach
+
+                                <button type="button" @disabled(! $records->hasMorePages())
+                                    wire:click="nextPage('{{ $pageName }}')" x-on:click="{{ $scrollUp }}"
+                                    class="{{ $segment }} {{ $segmentOff }} disabled:pointer-events-none disabled:opacity-40" title="Halaman berikutnya">
+                                    <x-filament::icon icon="heroicon-m-chevron-right" class="h-4 w-4" />
+                                    <span class="sr-only">Halaman berikutnya</span>
+                                </button>
+                            </nav>
+                        @endif
+                    </div>
+                </div>
+            @endif
         </div>
     @endif
 </div>

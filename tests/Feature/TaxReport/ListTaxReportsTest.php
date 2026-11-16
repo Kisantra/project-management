@@ -166,6 +166,76 @@ class ListTaxReportsTest extends TestCase
         $this->assertNull($page->instance()->periodSummary());
     }
 
+    public function test_default_period_is_the_month_being_reported(): void
+    {
+        $this->travelTo('2031-11-13 09:00');
+        $page = Livewire::test(ListTaxReports::class);
+
+        $this->assertSame(['year' => 2031, 'months' => [10]], $page->get('period'));
+        $page->assertSet('tahun', 2031)->assertSet('bulan', '10');
+        $this->assertTrue($page->instance()->isDefaultPeriod());
+
+        // In January the period being reported is December of the previous year.
+        $this->travelTo('2032-01-10 09:00');
+        $this->assertSame(['year' => 2031, 'months' => [12]], Livewire::test(ListTaxReports::class)->get('period'));
+    }
+
+    public function test_period_comes_from_and_goes_to_the_query_string(): void
+    {
+        $page = Livewire::withQueryParams(['tahun' => self::YEAR, 'bulan' => '1,3'])->test(ListTaxReports::class);
+        $this->assertSame(['year' => self::YEAR, 'months' => [1, 3]], $page->get('period'));
+
+        $page->set('period', ['year' => self::YEAR, 'months' => []])
+            ->assertSet('tahun', self::YEAR)
+            ->assertSet('bulan', 'semua');
+
+        $wholeYear = Livewire::withQueryParams(['tahun' => self::YEAR, 'bulan' => 'semua'])->test(ListTaxReports::class);
+        $this->assertSame(['year' => self::YEAR, 'months' => []], $wholeYear->get('period'));
+    }
+
+    public function test_changing_the_period_keeps_the_filters(): void
+    {
+        Livewire::test(ListTaxReports::class)
+            ->set('tableFilters.ppn_report_status.value', 'Belum Lapor')
+            ->set('period', ['year' => self::YEAR, 'months' => [3]])
+            ->assertSet('tableFilters.ppn_report_status.value', 'Belum Lapor');
+    }
+
+    public function test_reset_returns_to_the_default_period(): void
+    {
+        $this->travelTo('2031-11-13 09:00');
+
+        $page = Livewire::test(ListTaxReports::class)
+            ->set('period', ['year' => self::YEAR, 'months' => []])
+            ->call('resetAllFilters');
+
+        $this->assertSame(['year' => 2031, 'months' => [10]], $page->get('period'));
+        $page->assertSet('bulan', '10');
+    }
+
+    public function test_group_summary_only_covers_months_on_the_current_page(): void
+    {
+        foreach (range(1, 25) as $i) {
+            $this->report('December');
+        }
+        $this->report('March');
+
+        $page = Livewire::test(ListTaxReports::class)
+            ->set('period', ['year' => self::YEAR, 'months' => []])
+            ->loadTable();
+
+        $this->assertSame([self::YEAR . '-12'], array_keys($page->instance()->monthSummary), 'page 1 holds December only');
+        $this->assertSame(25, $page->instance()->monthSummary[self::YEAR . '-12']['total']);
+    }
+
+    public function test_pagination_has_no_all_option(): void
+    {
+        $table = Livewire::test(ListTaxReports::class)->instance()->getTable();
+
+        $this->assertSame([25, 50, 100], $table->getPaginationPageOptions());
+        $this->assertSame(25, $table->getDefaultPaginationPageOption());
+    }
+
     public function test_labels_are_no_longer_pluralised(): void
     {
         $this->assertSame('Laporan Pajak', TaxReportResource::getPluralModelLabel());

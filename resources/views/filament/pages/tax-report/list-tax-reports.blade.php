@@ -23,8 +23,8 @@
     $periodChip = $this->periodSummary();
     $filterCount = ($fKontrak ? 1 : 0) + (count($fJenis) ? 1 : 0) + (count($fKlien) ? 1 : 0) + ($fPpn ? 1 : 0) + (count($fBayar) ? 1 : 0);
     $hasActive = $periodChip || $filterCount > 0;
-    // Default filters are shown as chips too; "Kembalikan bawaan" only once something differs.
-    $atDefaults = ! $periodChip && $fKontrak && $fKlien === ['Active'] && ! $fJenis && ! $fPpn && ! $fBayar;
+    // Default filters (incl. the default period) are shown as chips too; "Kembalikan bawaan" only once something differs.
+    $atDefaults = $this->isDefaultPeriod() && $fKontrak && $fKlien === ['Active'] && ! $fJenis && ! $fPpn && ! $fBayar;
 
     $control = 'inline-flex h-[2.375rem] items-center gap-2 rounded-[11px] bg-white px-3 text-[13px] font-bold text-gray-950 ring-1 ring-inset ring-gray-300 transition hover:ring-gray-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/10';
     $check = 'h-4 w-4 rounded-[5px] border-gray-300 text-primary-600 focus:ring-primary-600 dark:border-white/20 dark:bg-white/5';
@@ -54,12 +54,9 @@
             border-top: 0 !important;
         }
 
+        /* Pagination is rendered inside the list card (tax-report-list), in Indonesian. */
         .tax-reports-table .fi-ta-pagination {
-            margin-top: 0.75rem;
-            padding: 0.5rem 0 0 !important;
-            border: 0 !important;
-            background: transparent !important;
-            box-shadow: none !important;
+            display: none !important;
         }
     </style>
 

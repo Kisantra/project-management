@@ -1,9 +1,5 @@
 {{-- Latest activity, two columns. --}}
 <x-kis.card title="Aktivitas terbaru" :subtitle="$mine ? 'Aktivitas Anda' : 'Seluruh tim'">
-    <x-slot name="aside">
-        <a href="{{ route('filament.admin.resources.user-activities.index') }}" class="kis-card__link">Log lengkap →</a>
-    </x-slot>
-
     @if (empty($data))
         <p class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">Belum ada aktivitas.</p>
     @else

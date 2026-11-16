@@ -9,15 +9,19 @@ use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\FileUpload;
 use Filament\Support\RawJs;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use App\Models\Invoice;
 use App\Services\ClientTypeService;
 use App\Services\TaxCalculationService;
 use App\Services\FileManagementService;
 use Asmit\FilamentUpload\Forms\Components\AdvancedFileUpload;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 trait InvoiceFormTrait
 {
     /**
-     * Get the complete invoice form schema
+     * Get the complete invoice form schema. Manual entry only: AI extraction
+     * lives in "Faktur baru" (BulkInvoiceAIImport) and "Impor JSON".
      */
     public function getInvoiceFormSchema(bool $isRevision = false, $originalRecord = null): array
     {
@@ -37,174 +41,79 @@ trait InvoiceFormTrait
             ]);
         }
 
-        $wizardSteps = [];
+        $wizardSteps = $isRevision ? [$this->getRevisionInfoStep()] : [];
 
-        // Add AI Assistant step for new invoices (not revisions)
-        if (!$isRevision) {
-            $wizardSteps[] = $this->getAIAssistantStep();
-        }
-
-        // Add revision info step for revisions
-        if ($isRevision) {
-            $wizardSteps[] = $this->getRevisionInfoStep();
-        }
-
-        // Add common steps
         $wizardSteps = array_merge($wizardSteps, [
             $this->getBasicInfoStep($isRevision),
             $this->getFinancialDetailsStep(),
-            $this->getDocumentsStep(),
+            $this->getDocumentsStep($isRevision),
         ]);
 
+        // No persistStepInQueryString(): the step stuck in the URL made the next
+        // modal (another invoice, or a revision with one step more) open midway.
         $schema[] = Forms\Components\Wizard::make($wizardSteps)
             ->skippable()
-            ->persistStepInQueryString('invoice-wizard-step')
             ->columnSpanFull();
 
         return $schema;
     }
 
     /**
-     * Get AI Assistant step
+     * Prefill for "Buat Revisi": the newest version of the invoice (its latest
+     * revision, else the original). Amounts use the format the money mask and
+     * TaxCalculationService::cleanMonetaryInput() read (1,234,567.89); the old
+     * Indonesian format (1.234.567,89) was re-masked to 1.23.
      */
-    private function getAIAssistantStep(): Forms\Components\Wizard\Step
+    protected function getRevisionFormData(Invoice $original): array
     {
-        return Forms\Components\Wizard\Step::make('Upload & AI Processing')
-            ->icon('heroicon-o-sparkles')
-            ->description('Upload berkas faktur dan ekstraksi data otomatis menggunakan AI')
-            ->schema([
-                Section::make('Upload Berkas & Ekstraksi Data AI')
-                    ->description('Upload dokumen faktur untuk penyimpanan dan ekstraksi data otomatis')
-                    ->icon('heroicon-o-cloud-arrow-up')
-                    ->schema([
-                        Grid::make(2)->schema([
-                            // MAIN FILE UPLOAD (Dipindahkan dari step terakhir)
-                            AdvancedFileUpload::make('file_path')
-                                ->label('Upload Berkas Faktur')
-                                ->required()
-                                ->openable()
-                                ->downloadable()
-                                ->required()
-                                ->disk('public')
-                                ->pdfPreviewHeight(600) // Customize preview height
-                                ->pdfDisplayPage(1) // Set default page
-                                ->pdfToolbar(true) // Enable toolbar
-                                ->pdfZoomLevel(110) // Set zoom level
-                                ->pdfFitType(PdfViewFit::FIT) // Set fit type
-                                ->pdfNavPanes(true) // Enable navigation panes
-                                ->directory(fn (Forms\Get $get) => method_exists($this, 'generateDirectoryPath') ? $this->generateDirectoryPath($get) : 'invoices')
-                                ->getUploadedFileNameForStorageUsing(fn (TemporaryUploadedFile $file, Forms\Get $get): string => 
-                                    method_exists($this, 'generateFileName') 
-                                        ? $this->generateFileName($get, $file->getClientOriginalName())
-                                        : $file->getClientOriginalName()
-                                )
-                                ->maxSize(10240) // 10MB
-                                ->helperText('Upload berkas faktur (PDF/gambar) - akan otomatis diproses AI')
-                                ->live()
-                                ->afterStateUpdated(function ($state, Forms\Get $get, Forms\Set $set) {
-                                    if ($state) {
-                                        // Auto-trigger AI processing when file is uploaded
-                                        $set('ai_processing_status', 'processing');
-                                        $set('ai_output', 'Sedang memproses dokumen dengan AI...');
-                                        
-                                        // Trigger AI processing
-                                        if (method_exists($this, 'processInvoiceWithAI')) {
-                                            $this->processInvoiceWithAI($state, $get, $set);
-                                        }
-                                    }
-                                })
-                                ->columnSpan(2),
+        $source = $original->latestRevision() ?? $original;
+        $next = (int) $original->revisions()->max('revision_number') + 1;
 
-                            // AI PROCESSING STATUS & OUTPUT (Using existing custom view)
-                            Forms\Components\Placeholder::make('ai_processing_display')
-                                ->label('Status AI Processing')
-                                ->content(function (Forms\Get $get) {
-                                    $status = $get('ai_processing_status') ?? 'idle';
-                                    $output = $get('ai_output');
-                                    $extractedDataJson = $get('ai_extracted_data');
-                                    
-                                    $data = null;
-                                    $error = null;
-                                    
-                                    if ($extractedDataJson) {
-                                        $data = json_decode($extractedDataJson, true);
-                                    }
-                                    
-                                    if ($status === 'error' && $output) {
-                                        if (strpos($output, '❌ **Error:**') !== false) {
-                                            $error = str_replace(['❌ **Error:**', '*'], '', $output);
-                                        } else {
-                                            $error = $output;
-                                        }
-                                    }
-                                    
-                                    // Use your existing custom view
-                                    return view('components.tax-reports.ai-result-display', [
-                                        'status' => $status,
-                                        'data' => $data,
-                                        'error' => $error,
-                                        'output' => $output
-                                    ]);
-                                })
-                                ->columnSpan(2),
-                        ]),
+        return [
+            'is_revision' => true,
+            'original_invoice_id' => $original->id,
+            'revision_number' => $next,
+            'revision_reason' => '',
+            'invoice_number' => "{$original->invoice_number}-REV{$next}",
+            'invoice_date' => $source->invoice_date ? Carbon::parse($source->invoice_date)->format('Y-m-d') : null,
+            'company_name' => $source->company_name,
+            'npwp' => $source->npwp,
+            'type' => $source->type,
+            'client_type' => $source->client_type,
+            'has_ppn' => (bool) $source->has_ppn,
+            'is_business_related' => (int) $source->is_business_related,
+            'ppn_percentage' => $source->ppn_percentage ?: '11',
+            'dpp' => TaxCalculationService::formatCurrency((float) $source->dpp),
+            'dpp_nilai_lainnya' => TaxCalculationService::formatCurrency((float) $source->dpp_nilai_lainnya),
+            'ppn' => TaxCalculationService::formatCurrency((float) $source->ppn),
+            'notes' => $source->notes,
+            'created_by' => auth()->id(),
+        ];
+    }
 
-                        // HIDDEN FIELDS untuk AI processing
-                        Forms\Components\Hidden::make('ai_processing_status')
-                            ->default('idle')
-                            ->dehydrated(false),
-                            
-                        Forms\Components\Hidden::make('ai_output')
-                            ->default('')
-                            ->dehydrated(false),
-                            
-                        Forms\Components\Hidden::make('ai_extracted_data')
-                            ->default('')
-                            ->dehydrated(false),
+    /**
+     * Saves the revision form as a new revision of $original. The link, the
+     * report and the number are set here rather than taken from hidden form
+     * fields; the number is taken under a lock so two revisions saved at the
+     * same time cannot both become #2.
+     */
+    protected function createInvoiceRevision(Invoice $original, array $data): Invoice
+    {
+        return DB::transaction(function () use ($original, $data) {
+            $source = $original->latestRevision() ?? $original;
+            $number = (int) $original->revisions()->lockForUpdate()->max('revision_number') + 1;
 
-                        // ACTION BUTTONS untuk AI
-                        Forms\Components\Actions::make([
-                            Forms\Components\Actions\Action::make('apply_ai_data')
-                                ->label('Terapkan Data AI ke Form')
-                                ->icon('heroicon-o-bolt')
-                                ->color('success')
-                                ->size('lg')
-                                ->visible(fn (Forms\Get $get) => $get('ai_processing_status') === 'completed' && $get('ai_extracted_data'))
-                                ->action(function (Forms\Get $get, Forms\Set $set) {
-                                    if (method_exists($this, 'applyAIDataToForm')) {
-                                        $this->applyAIDataToForm($get, $set);
-                                    }
-                                    
-                                    \Filament\Notifications\Notification::make()
-                                        ->title('Data Berhasil Diterapkan')
-                                        ->body('Data hasil ekstraksi AI telah diterapkan ke form. Silakan lanjutkan ke step berikutnya.')
-                                        ->success()
-                                        ->send();
-                                })
-                                ->button()
-                                ->extraAttributes(['class' => 'w-full justify-center']),
-                                
-                            Forms\Components\Actions\Action::make('reprocess_ai')
-                                ->label('Proses Ulang dengan AI')
-                                ->icon('heroicon-o-arrow-path')
-                                ->color('warning')
-                                ->size('lg')
-                                ->visible(fn (Forms\Get $get) => $get('file_path') && $get('ai_processing_status') !== 'processing')
-                                ->action(function (Forms\Get $get, Forms\Set $set) {
-                                    $filePath = $get('file_path');
-                                    if ($filePath && method_exists($this, 'processInvoiceWithAI')) {
-                                        $set('ai_processing_status', 'processing');
-                                        $set('ai_output', 'Sedang memproses ulang dokumen dengan AI...');
-                                        $this->processInvoiceWithAI($filePath, $get, $set);
-                                    }
-                                })
-                                ->button()
-                                ->extraAttributes(['class' => 'w-full justify-center']),
-                        ])
-                        ->columnSpanFull()
-                        ->alignCenter(),
-                    ]),
+            return Invoice::create([
+                ...$data,
+                'tax_report_id' => $original->tax_report_id,
+                'original_invoice_id' => $original->id,
+                'is_revision' => true,
+                'revision_number' => $number,
+                // Not on the form; a revision keeps it from the version it replaces.
+                'nihil' => (bool) $source->nihil,
+                'created_by' => auth()->id(),
             ]);
+        });
     }
 
     /**
@@ -212,116 +121,50 @@ trait InvoiceFormTrait
      */
     private function getRevisionInfoStep(): Forms\Components\Wizard\Step
     {
-        return Forms\Components\Wizard\Step::make('Upload Berkas & Info Revisi')
+        return Forms\Components\Wizard\Step::make('Informasi Revisi')
             ->icon('heroicon-o-arrow-path')
-            ->description('Upload berkas faktur revisi dan informasi revisi')
+            ->description('Faktur yang direvisi dan alasannya')
             ->schema([
-                Section::make('Upload Berkas Faktur Revisi')
-                    ->description('Upload berkas faktur revisi (wajib)')
-                    ->icon('heroicon-o-cloud-arrow-up')
-                    ->schema([
-                        Grid::make(2)->schema([
-                            // File upload untuk revisi
-                            AdvancedFileUpload::make('file_path')
-                                ->label('Upload Berkas Faktur Revisi')
-                                ->required()
-                                ->openable()
-                                ->downloadable()
-                                ->pdfPreviewHeight(600) 
-                                ->pdfDisplayPage(1)
-                                ->pdfToolbar(true)
-                                ->pdfZoomLevel(100)
-                                ->pdfFitType(PdfViewFit::FIT)
-                                ->disk('public')
-                                ->directory(fn (Forms\Get $get) => method_exists($this, 'generateDirectoryPath') ? $this->generateDirectoryPath($get) : 'invoices')
-                                ->getUploadedFileNameForStorageUsing(fn (TemporaryUploadedFile $file, Forms\Get $get): string => 
-                                    method_exists($this, 'generateFileName') 
-                                        ? $this->generateFileName($get, $file->getClientOriginalName())
-                                        : $file->getClientOriginalName()
-                                )
-                                ->maxSize(10240)
-                                ->helperText('Upload berkas faktur revisi (PDF/gambar) - akan otomatis diproses AI')
-                                ->live()
-                                ->afterStateUpdated(function ($state, Forms\Get $get, Forms\Set $set) {
-                                    if ($state) {
-                                        $set('ai_processing_status', 'processing');
-                                        $set('ai_output', 'Sedang memproses dokumen revisi dengan AI...');
-                                        
-                                        if (method_exists($this, 'processInvoiceWithAI')) {
-                                            $this->processInvoiceWithAI($state, $get, $set);
-                                        }
-                                    }
-                                })
-                                ->columnSpan(1),
-
-                            // AI Processing untuk revisi
-                            Forms\Components\Placeholder::make('ai_processing_display')
-                                ->label('Status AI Processing')
-                                ->content(function (Forms\Get $get) {
-                                    $status = $get('ai_processing_status') ?? 'idle';
-                                    $output = $get('ai_output');
-                                    $extractedDataJson = $get('ai_extracted_data');
-                                    
-                                    $data = null;
-                                    $error = null;
-                                    
-                                    if ($extractedDataJson) {
-                                        $data = json_decode($extractedDataJson, true);
-                                    }
-                                    
-                                    if ($status === 'error' && $output) {
-                                        if (strpos($output, '❌ **Error:**') !== false) {
-                                            $error = str_replace(['❌ **Error:**', '*'], '', $output);
-                                        } else {
-                                            $error = $output;
-                                        }
-                                    }
-                                    
-                                    return view('components.tax-reports.ai-result-display', [
-                                        'status' => $status,
-                                        'data' => $data,
-                                        'error' => $error,
-                                        'output' => $output
-                                    ]);
-                                })
-                                ->columnSpan(1),
-                        ]),
-
-                        // Hidden fields dan action buttons sama seperti di step AI normal
-                        Forms\Components\Hidden::make('ai_processing_status')->default('idle')->dehydrated(false),
-                        Forms\Components\Hidden::make('ai_output')->default('')->dehydrated(false),
-                        Forms\Components\Hidden::make('ai_extracted_data')->default('')->dehydrated(false),
-
-                        Forms\Components\Actions::make([
-                            Forms\Components\Actions\Action::make('apply_ai_data')
-                                ->label('Terapkan Data AI ke Form Revisi')
-                                ->icon('heroicon-o-bolt')
-                                ->color('success')
-                                ->size('lg')
-                                ->visible(fn (Forms\Get $get) => $get('ai_processing_status') === 'completed' && $get('ai_extracted_data'))
-                                ->action(function (Forms\Get $get, Forms\Set $set) {
-                                    if (method_exists($this, 'applyAIDataToForm')) {
-                                        $this->applyAIDataToForm($get, $set);
-                                    }
-                                    
-                                    \Filament\Notifications\Notification::make()
-                                        ->title('Data Revisi Berhasil Diterapkan')
-                                        ->body('Data hasil ekstraksi AI dari berkas revisi telah diterapkan ke form.')
-                                        ->success()
-                                        ->send();
-                                })
-                                ->button()
-                                ->extraAttributes(['class' => 'w-full justify-center']),
-                        ])->columnSpanFull()->alignCenter(),
-                    ]),
-
-                // Section info faktur asli dan alasan revisi tetap sama
                 Section::make('Detail Revisi')
-                    ->description('Informasi tentang revisi yang akan dibuat')
-                    ->icon('heroicon-o-document-text')
+                    ->description('Data di langkah berikutnya sudah diisi dari versi terakhir faktur ini. Ubah bagian yang direvisi saja.')
+                    ->icon('heroicon-o-arrow-path')
                     ->schema([
-                        // ... (kode yang sudah ada untuk original_invoice_info dan revision_reason)
-                    ]),
+                        Forms\Components\Placeholder::make('original_invoice_info')
+                            ->label('Faktur yang direvisi')
+                            ->content(function (Forms\Get $get) {
+                                $original = Invoice::find($get('original_invoice_id'));
+
+                                if (! $original) {
+                                    return 'Tidak ditemukan';
+                                }
+
+                                $source = $original->latestRevision() ?? $original;
+                                $parts = array_filter([
+                                    $original->invoice_number,
+                                    $original->company_name,
+                                    $source->invoice_date ? Carbon::parse($source->invoice_date)->locale('id')->translatedFormat('j M Y') : null,
+                                    'DPP Rp ' . number_format((float) $source->dpp, 0, ',', '.'),
+                                    'PPN Rp ' . number_format((float) $source->ppn, 0, ',', '.'),
+                                ]);
+                                $from = $source->is($original) ? '' : " (diisi dari Revisi #{$source->revision_number})";
+
+                                return implode(' · ', $parts) . $from;
+                            })
+                            ->columnSpanFull(),
+
+                        Forms\Components\Placeholder::make('revision_number_info')
+                            ->label('Nomor revisi')
+                            ->content(fn (Forms\Get $get) => 'Revisi #' . $get('revision_number')),
+
+                        Forms\Components\Textarea::make('revision_reason')
+                            ->label('Alasan Revisi')
+                            ->required()
+                            ->rows(3)
+                            ->maxLength(1000)
+                            ->placeholder('Mis. koreksi nilai DPP, salah NPWP lawan transaksi, perubahan jumlah barang')
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2),
             ]);
     }
 
@@ -339,7 +182,9 @@ trait InvoiceFormTrait
                         Forms\Components\TextInput::make('invoice_number')
                             ->label('Nomor Faktur')
                             ->required()
-                            ->unique(ignoreRecord: true)
+                            // A revision form is mounted on the original invoice; ignoring that record
+                            // would let the revision reuse its number and fail on the unique index.
+                            ->unique(ignoreRecord: ! $isRevision)
                             ->maxLength(255)
                             ->placeholder('Masukkan nomor faktur sesuai dokumen')
                             ->helperText($isRevision ? 'Nomor faktur revisi (dapat diedit)' : 'Salin nomor faktur persis sesuai dokumen')
@@ -365,12 +210,16 @@ trait InvoiceFormTrait
                             ->options(ClientTypeService::getClientTypeOptions())
                             ->required()
                             ->native(false)
+                            ->live()
+                            ->afterStateUpdated(fn (Forms\Set $set, ?string $state) => $set('has_ppn', $state ? ClientTypeService::hasPPN($state) : true))
                             ->helperText($isRevision ? 'Dapat diubah sesuai kebutuhan revisi' : 'Otomatis terdeteksi dari 2 digit awal nomor faktur')
                             ->columnSpan(8),
                             
                         Forms\Components\Toggle::make('has_ppn')
                             ->label('Subject PPN')
                             ->disabled()
+                            // Disabled fields are not saved by default, so this was always stored as 1.
+                            ->dehydrated()
                             ->helperText('Otomatis terdeteksi berdasarkan tipe client')
                             ->columnSpan(4),
                     
@@ -528,15 +377,36 @@ trait InvoiceFormTrait
     /**
      * Get documents step
      */
-    private function getDocumentsStep(): Forms\Components\Wizard\Step
+    private function getDocumentsStep(bool $isRevision = false): Forms\Components\Wizard\Step
     {
-        return Forms\Components\Wizard\Step::make('Dokumen Tambahan & Catatan')
+        return Forms\Components\Wizard\Step::make('Berkas & Catatan')
             ->icon('heroicon-o-paper-clip')
             ->schema([
-                Section::make('Dokumen Pendukung & Catatan')
-                    ->description('Upload dokumen tambahan dan berikan catatan')
+                Section::make('Berkas & Catatan')
+                    ->description('Semua berkas opsional dan bisa ditambahkan nanti lewat Ubah.')
                     ->schema([
-                        // HANYA BUKTI SETOR (file_path sudah dipindah ke step pertama atau revisi)
+                        // Stored under the invoice's type and number when the form is saved, so
+                        // the name is right even though it is uploaded after those fields.
+                        AdvancedFileUpload::make('file_path')
+                            ->label($isRevision ? 'Berkas Faktur Revisi (Opsional)' : 'Berkas Faktur (Opsional)')
+                            ->openable()
+                            ->downloadable()
+                            ->disk('public')
+                            ->pdfPreviewHeight(600)
+                            ->pdfDisplayPage(1)
+                            ->pdfToolbar(true)
+                            ->pdfZoomLevel(100)
+                            ->pdfFitType(PdfViewFit::FIT)
+                            ->directory(fn (Forms\Get $get) => method_exists($this, 'generateDirectoryPath') ? $this->generateDirectoryPath($get) : 'invoices')
+                            ->getUploadedFileNameForStorageUsing(fn (TemporaryUploadedFile $file, Forms\Get $get): string =>
+                                method_exists($this, 'generateFileName')
+                                    ? $this->generateFileName($get, $file->getClientOriginalName())
+                                    : $file->getClientOriginalName()
+                            )
+                            ->maxSize(10240) // 10MB
+                            ->helperText('PDF atau gambar, maks. 10 MB.')
+                            ->columnSpanFull(),
+
                         FileUpload::make('bukti_setor')
                             ->label('Bukti Setor (Opsional)')
                             ->openable()

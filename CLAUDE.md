@@ -58,13 +58,13 @@ Panel routing is enforced by [RedirectToProperPanelMiddleware.php](app/Http/Midd
 ```
 app/
 ├── Filament/              # Filament resources, pages, widgets (admin + client panels)
-│   ├── Client/Pages/      # Client panel pages (only DashboardClient.php currently)
+│   ├── Client/Pages/      # Client portal pages, one per section (Ringkasan, Proyek, Dokumen, Laporan Pajak, Profil)
 │   ├── Pages/             # Admin custom pages (Dashboard, TaxChat, DailyTask, etc.)
 │   ├── Resources/         # Admin CRUD resources (Client, Project, TaxReport, …)
 │   ├── Exports/ Imports/  # Excel exporters/importers
 │   └── Widgets/           # Global admin widgets
 ├── Livewire/              # Livewire components used inside Filament views
-│   ├── Client/Panel/      # Tabs rendered in client panel (/klien)
+│   ├── Client/Panel/      # Section components of the client portal (/klien); company via ClientContext
 │   ├── Client/Management/ # Tabs rendered inside admin client detail view
 │   ├── DailyTask/  Dashboard/  Projects/  TaxReport/  Widget/  …
 ├── Models/                # Eloquent models (see "Domain models" below)
@@ -109,6 +109,10 @@ routes/
 
 ### Livewire ↔ Blade naming
 The folder split between `Client/Panel/` (client-facing) and `Client/Management/` (admin tabs inside the client detail page) is load-bearing — don't merge them. Livewire reference is kebab-case of the namespace, e.g. `App\Livewire\Client\Panel\OverviewTab` → `@livewire('client.panel.overview-tab')`. View path mirrors the namespace under `resources/views/livewire/`. Full mapping in [FOLDER_STRUCTURE.md](FOLDER_STRUCTURE.md).
+
+### Client portal (`/klien`)
+- One Filament page per section in `app/Filament/Client/Pages` (subclass `PortalPage`), each mounting one `client.panel.*` component. Staff plugins (user activity, PWA settings hub) are deliberately not on this panel, and staff render hooks in `AppServiceProvider` are scoped to the admin panel.
+- The selected company comes from `App\Support\ClientPortal\ClientContext` (session, checked against `user_clients`). Components use the `UsesCurrentClient` trait (locked `selectedClientId`); never accept a client id from the browser, and scope every id-taking method (download, preview, delete) by `selectedClientId`.
 
 ### Activity logging
 Two parallel systems coexist:

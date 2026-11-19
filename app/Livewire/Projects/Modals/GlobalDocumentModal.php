@@ -88,6 +88,9 @@ class GlobalDocumentModal extends Component implements HasForms
     public function boot(): void
     {
         abort_unless(auth()->check(), 403);
+
+        // Every action here takes a raw document id and is meant for staff.
+        abort_if(auth()->user()->hasRole('client'), 403);
     }
 
     public function mount(): void

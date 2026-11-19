@@ -4,7 +4,9 @@ namespace App\Livewire\Client\Panel\TaxReport;
 
 use App\Models\IncomeTax;
 use App\Models\TaxReport;
-use App\Models\UserClient;
+use App\Support\ClientPortal\ClientContext;
+use App\Support\TaxPeriod;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\Attributes\On;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +15,9 @@ use Illuminate\Support\Facades\Cache;
 class TaxReportPph extends Component
 {
     // Properties for tax report data
+    #[Locked]
     public $taxReportId;
+    #[Locked]
     public $taxReport;
     public $hasAccess = false;
     
@@ -32,6 +36,7 @@ class TaxReportPph extends Component
     
     public $totalPph = 0;
     public $totalBuktiPotong = 0;
+    public $totalDpp = 0;
     
     // Report status
     public $reportStatus = 'Belum Lapor';
@@ -70,10 +75,7 @@ class TaxReportPph extends Component
             return;
         }
         
-        // Check if user has access to this client
-        $this->hasAccess = UserClient::where('user_id', auth()->id())
-            ->where('client_id', $taxReport->client_id)
-            ->exists();
+        $this->hasAccess = app(ClientContext::class)->owns($taxReport->client_id);
     }
     
     /**
@@ -89,7 +91,7 @@ class TaxReportPph extends Component
                         ->select('id', 'tax_report_id', 'tax_type', 'report_status', 'reported_at');
                 }
             ])
-            ->select('id', 'client_id', 'month', 'created_at')
+            ->select('id', 'client_id', 'month', 'year', 'created_at')
             ->find($this->taxReportId);
             
             // Get report status
@@ -111,7 +113,7 @@ class TaxReportPph extends Component
         }
         
         // Use cache to avoid repeated calculations (5 minutes cache)
-        $cacheKey = "client_pph_calculations_{$this->taxReportId}";
+        $cacheKey = "client_pph_calculations_v2_{$this->taxReportId}";
 
         $query = function () {
             return DB::table('income_taxes')
@@ -134,6 +136,7 @@ class TaxReportPph extends Component
 
                     // Totals
                     DB::raw('SUM(pajak_penghasilan) as total_pph'),
+                    DB::raw('SUM(dasar_pengenaan_pajak) as total_dpp'),
                     DB::raw('COUNT(*) as total_bukti_potong')
                 ])
                 ->first();
@@ -159,6 +162,7 @@ class TaxReportPph extends Component
         $this->pph42Bruto = $calculations->pph42_bruto ?? 0;
         
         $this->totalPph = $calculations->total_pph ?? 0;
+        $this->totalDpp = $calculations->total_dpp ?? 0;
         $this->totalBuktiPotong = $calculations->total_bukti_potong ?? 0;
     }
     
@@ -173,7 +177,7 @@ class TaxReportPph extends Component
         
         if ($this->hasAccess) {
             // Clear cache for new data
-            Cache::forget("client_pph_calculations_{$this->taxReportId}");
+            Cache::forget("client_pph_calculations_v2_{$this->taxReportId}");
             $this->loadTaxReportData();
             $this->calculatePph();
         }
@@ -187,8 +191,8 @@ class TaxReportPph extends Component
         if (!$this->taxReport) {
             return '-';
         }
-        
-        return \Carbon\Carbon::parse($this->taxReport->month . '-01')->format('F Y');
+
+        return TaxPeriod::label($this->taxReport->month, $this->taxReport->year ?: $this->taxReport->created_at?->year);
     }
     
     /**
@@ -196,7 +200,7 @@ class TaxReportPph extends Component
      */
     public function getClientNameProperty()
     {
-        return $this->taxReport->client->name ?? 'Unknown Client';
+        return $this->taxReport->client->name ?? '-';
     }
 
     /**

@@ -2,79 +2,38 @@
 
 namespace App\Livewire\Client\Panel;
 
-use Livewire\Component;
-use Livewire\Attributes\On;
-use App\Models\Client;
+use App\Livewire\Client\Panel\Concerns\UsesCurrentClient;
 use App\Models\Project;
-use App\Models\UserClient;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Component;
 
 class ProyekTab extends Component
 {
-    public ?int $selectedClientId = null;
+    use UsesCurrentClient;
+
     public $selectedProjectId;
 
     public function mount()
     {
-        // Restore from session if the sidebar switcher has been used
-        $sessionClientId = session('client_panel_selected_client_id');
-        $clientIds = UserClient::where('user_id', auth()->id())->pluck('client_id');
-
-        if ($sessionClientId && $clientIds->contains((int) $sessionClientId)) {
-            $this->selectedClientId = (int) $sessionClientId;
-        } elseif ($clientIds->isNotEmpty()) {
-            $this->selectedClientId = $clientIds->first();
-        }
-
-        // Auto-select first project of the selected client
-        $firstProject = $this->getProjectsProperty()->first();
-        if ($firstProject) {
-            $this->selectedProjectId = $firstProject->id;
-        }
-    }
-
-    /**
-     * Called by the global ClientSwitcher when the user picks a different client.
-     */
-    #[On('client-switched')]
-    public function onClientSwitched(int $clientId): void
-    {
-        $this->selectedClientId = $clientId;
-        $this->selectedProjectId = null;
-
-        $firstProject = $this->getProjectsProperty()->first();
-        if ($firstProject) {
-            $this->selectedProjectId = $firstProject->id;
-        }
+        // Open the newest project first.
+        $this->selectedProjectId = $this->projects->first()?->id;
     }
 
     public function getProjectsProperty(): Collection
     {
-        if (!$this->selectedClientId) {
-            return collect([]);
+        if (! $this->selectedClientId) {
+            return collect();
         }
 
-        // Verify the client belongs to this user
-        $clientIds = UserClient::where('user_id', auth()->id())->pluck('client_id');
-        if (!$clientIds->contains($this->selectedClientId)) {
-            return collect([]);
-        }
-
-        return Project::where('client_id', $this->selectedClientId)
-            ->with([
-                'client',
-                'pic',
-                'userProjects.user',
-                'steps',
-                'statusRecord',
-            ])
+        return Project::query()
+            ->where('client_id', $this->selectedClientId)
+            ->with(['client:id,name', 'pic:id,name', 'statusRecord'])
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($project) {
-                // Ensure deliverable_files is always an array
+            ->each(function (Project $project) {
                 $project->deliverable_files = $project->deliverable_files ?? [];
-                return $project;
             });
     }
 
@@ -93,27 +52,11 @@ class ProyekTab extends Component
             ->count();
     }
 
-    public function selectProject($projectId)
-    {
-        $this->selectedProjectId = $projectId;
-    }
-
     public function downloadDeliverable($projectId, $fileIndex)
     {
-        $project = Project::findOrFail($projectId);
-
-        // Authorization check
-        $hasAccess = UserClient::where('user_id', auth()->id())
-            ->where('client_id', $project->client_id)
-            ->exists();
-
-        if (!$hasAccess) {
-            $this->dispatch('notify', [
-                'type' => 'error',
-                'message' => 'Anda tidak memiliki akses ke proyek ini'
-            ]);
-            return;
-        }
+        $project = Project::query()
+            ->where('client_id', $this->selectedClientId)
+            ->findOrFail($projectId);
 
         $deliverableFiles = is_array($project->deliverable_files) ? $project->deliverable_files : [];
 
@@ -122,14 +65,15 @@ class ProyekTab extends Component
             $filePath = is_string($fileData) ? $fileData : ($fileData['path'] ?? null);
 
             if ($filePath && Storage::disk('public')->exists($filePath)) {
-                return Storage::disk('public')->download($filePath);
+                return Storage::disk('public')->download($filePath, is_array($fileData) ? ($fileData['name'] ?? null) : null);
             }
         }
 
-        $this->dispatch('notify', [
-            'type' => 'error',
-            'message' => 'File tidak ditemukan'
-        ]);
+        Notification::make()
+            ->title('File tidak ditemukan')
+            ->body('Berkas hasil proyek ini tidak ada di server. Hubungi tim Kisantra.')
+            ->warning()
+            ->send();
     }
 
     public function render()

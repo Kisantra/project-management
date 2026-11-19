@@ -37,3 +37,6 @@ Route::get('/download/pph-example', function () {
 // dashboard (2026-11). Keep old bookmarks working.
 Route::redirect('/project-dashboard', '/');
 Route::redirect('/dashboard-tax-report', '/');
+
+// The client portal's single tabbed page became one page per section (2026-11).
+Route::redirect('/klien/dashboard-client', '/klien/ringkasan');

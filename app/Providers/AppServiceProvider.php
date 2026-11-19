@@ -40,7 +40,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->scoped(\App\Support\ClientPortal\ClientContext::class);
     }
 
     /**
@@ -87,16 +87,20 @@ class AppServiceProvider extends ServiceProvider
         // BODY_END is also rendered on the login pages. This modal downloads,
         // removes and approves documents by raw ID, so it must never be handed
         // to a guest (see the boot() guard in GlobalDocumentModal as well).
+        // Staff only: the client portal (/klien) never mounts it either.
         FilamentView::registerRenderHook(
             PanelsRenderHook::BODY_END,
-            fn(): string => auth()->check()
+            fn(): string => auth()->check() && filament()->getCurrentPanel()?->getId() === 'admin'
                 ? Blade::render('@livewire(\'projects.modals.global-document-modal\')')
                 : '',
         );
 
+        // The client portal puts its company picker here instead (ClientPanelProvider).
         FilamentView::registerRenderHook(
             PanelsRenderHook::SIDEBAR_NAV_START,
-            fn(): string => Blade::render('@livewire(\'profile.user-profile\')'),
+            fn(): string => filament()->getCurrentPanel()?->getId() === 'admin'
+                ? Blade::render('@livewire(\'profile.user-profile\')')
+                : '',
         );
 
         FilamentView::registerRenderHook(

@@ -77,7 +77,7 @@ class ProsesClientIntakePageTest extends ClientIntakeTestCase
         return Livewire::test(ProsesClientIntake::class, ['record' => $intake->getKey()]);
     }
 
-    /** Isian wajib yang tidak ada di CM: AR, PIC (Badan), tenggat proyek. */
+    /** Isian staf yang tidak ada di CM: AR dan PIC (opsional), tenggat proyek (wajib). */
     protected function requiredFields(): array
     {
         return [
@@ -179,6 +179,23 @@ class ProsesClientIntakePageTest extends ClientIntakeTestCase
             && $job->payload['matched'] === false
             && $job->payload['project_name'] === 'PPh Badan 2026'
             && $job->payload['pm_client_id'] === $client->id);
+    }
+
+    public function test_new_client_can_be_created_without_ar_and_pic(): void
+    {
+        $this->fakeCm();
+        $intake = $this->receive();
+
+        $this->page($intake)
+            ->fillForm(['project.due_date' => '2027-04-30'])
+            ->set('data.documents', [])
+            ->call('process')
+            ->assertHasNoFormErrors();
+
+        $client = Client::findOrFail($intake->refresh()->client_id);
+        $this->assertSame('Badan', $client->client_type);
+        $this->assertNull($client->ar_id);
+        $this->assertNull($client->pic_id);
     }
 
     public function test_links_suggested_existing_client_and_suggests_subtype(): void

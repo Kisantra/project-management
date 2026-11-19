@@ -3,31 +3,40 @@
 namespace App\Providers\Filament;
 
 use App\Http\Middleware\RedirectToProperPanelMiddleware;
-use Edwink\FilamentUserActivity\FilamentUserActivityPlugin;
+use App\Http\Middleware\UseIndonesianLocale;
+use App\Support\Ui\Palette;
+use Cmsmaxinc\FilamentErrorPages\FilamentErrorPagesPlugin;
+use Devonab\FilamentEasyFooter\EasyFooterPlugin;
+use EightCedars\FilamentInactivityGuard\FilamentInactivityGuardPlugin;
+use Filament\FontProviders\GoogleFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
-use Filament\Support\Colors\Color;
-use Filament\Widgets;
+use Filament\Support\Enums\MaxWidth;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Kisantra\Watchpost\Http\InjectBrowserScript;
-use Filament\Support\Enums\MaxWidth;
-use EightCedars\FilamentInactivityGuard\FilamentInactivityGuardPlugin;
-use Leandrocfe\FilamentApexCharts\FilamentApexChartsPlugin;
-use Devonab\FilamentEasyFooter\EasyFooterPlugin;
 use Njxqlus\FilamentProgressbar\FilamentProgressbarPlugin;
-use Cmsmaxinc\FilamentErrorPages\FilamentErrorPagesPlugin;
-use Illuminate\Support\HtmlString;
+use TomatoPHP\FilamentPWA\Services\ManifestService;
 
+/**
+ * Client portal (/klien), docs/mockups/client-portal-redesign.html. Same frame
+ * as the admin panel (light sidebar on the ground, content in one inset panel,
+ * Kisantra palette and Manrope); one page per section in app/Filament/Client/Pages.
+ *
+ * Staff-only plugins stay off this panel on purpose: the user-activity plugin
+ * listed every user's visited URLs and the PWA plugin brought the site
+ * settings hub, both reachable by any client account.
+ */
 class ClientPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -35,24 +44,19 @@ class ClientPanelProvider extends PanelProvider
         return $panel
             ->id('klien')
             ->path('klien')
-            ->colors([
-                'primary' => Color::Cyan,
-            ])
-            ->discoverResources(in: app_path('Filament/Client/Resources'), for: 'App\\Filament\\Client\\Resources')
+            ->colors(Palette::kisantra())
+            ->font('Manrope', provider: GoogleFontProvider::class)
+            ->brandName('Portal Klien')
+            ->brandLogo(fn () => view('filament.brand.logo', ['title' => 'Portal Klien']))
+            ->brandLogoHeight('2.25rem')
+            ->homeUrl(fn () => \App\Filament\Client\Pages\DashboardClient::getUrl(panel: 'klien'))
             ->discoverPages(in: app_path('Filament/Client/Pages'), for: 'App\\Filament\\Client\\Pages')
-            ->pages([
-                // Pages\Dashboard::class,
-            ])
-            ->discoverWidgets(in: app_path('Filament/Client/Widgets'), for: 'App\\Filament\\Client\\Widgets')
-            ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
-            ])
-            ->databaseNotifications(
-                fn() =>
-                preg_match('/(android|iphone|ipad|mobile)/i', request()->header('User-Agent'))
-            )
+            ->sidebarFullyCollapsibleOnDesktop()
+            ->sidebarWidth('17rem')
             ->maxContentWidth(MaxWidth::Full)
+            ->databaseNotifications(
+                fn () => preg_match('/(android|iphone|ipad|mobile)/i', (string) request()->header('User-Agent'))
+            )
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -65,29 +69,36 @@ class ClientPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
                 InjectBrowserScript::class,
             ])
-            ->topNavigation()
+            ->middleware([UseIndonesianLocale::class], isPersistent: true)
             ->plugins([
                 FilamentInactivityGuardPlugin::make(),
-                FilamentUserActivityPlugin::make(),
-                \TomatoPHP\FilamentPWA\FilamentPWAPlugin::make(),
-                FilamentApexChartsPlugin::make(),
                 EasyFooterPlugin::make()
                     ->withFooterPosition('sidebar.footer')
-                    ->withSentence(new HtmlString('<img src="' . asset('images/Logo/Logo Vertical.png') . '" style="margin-right:.5rem;" alt="Laravel Logo" width="20" height="20"> Kisantra Management')),
-                FilamentProgressbarPlugin::make()->color('#f59e0b'),
+                    ->withSentence(new HtmlString('<img src="' . asset('images/Logo/Logo Vertical.png') . '" style="margin-right:.5rem;" alt="" width="20" height="20"> Kisantra Management')),
+                FilamentProgressbarPlugin::make()->color('#1790b5'),
                 FilamentErrorPagesPlugin::make(),
-
             ])
+            // Install-as-app meta (manifest, icons), without the PWA settings pages.
             ->renderHook(
-                'panels::topbar.start',
-                fn() => view('livewire.client.panel.client-switcher-hook'),
+                PanelsRenderHook::HEAD_END,
+                fn () => view('filament-pwa::meta', ['config' => ManifestService::generate()]),
             )
             ->renderHook(
-                'panels::body.end',
-                fn() => view('filament.client.chat-floating'),
+                PanelsRenderHook::SIDEBAR_NAV_START,
+                fn () => view('filament.client.switcher-hook', ['variant' => 'sidebar']),
             )
-            ->brandLogo(asset('images/Logo/OnlyLogo.png'))
-            ->brandLogoHeight('3rem')
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_START,
+                fn () => view('filament.client.topbar-start'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => view('filament.client.mobile-nav'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => view('filament.client.chat-floating'),
+            )
             ->viteTheme('resources/css/filament/admin/theme.css')
             ->authMiddleware([
                 RedirectToProperPanelMiddleware::class,

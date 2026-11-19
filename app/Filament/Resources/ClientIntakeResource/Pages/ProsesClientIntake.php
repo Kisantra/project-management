@@ -276,15 +276,11 @@ class ProsesClientIntake extends Page
         $linked = $this->linkedClient();
         $entitySubtype = ClientIntakeService::subtypeForEntity($this->getIntake()->entity);
 
-        // PIC wajib untuk Badan di sini (di form biasa tidak).
-        $picFields = array_map(function ($component) {
-            if ($component instanceof Forms\Components\Select && $component->getName() === 'pic_id') {
-                $component->required(fn (Get $get) => ($get('client_type') === 'Pribadi' && $get('pic_is_self') === 'yes')
-                    || $get('client_type') === 'Badan');
-            }
-
-            return $component;
-        }, ClientResource::picFields());
+        // AR dan PIC opsional, sama seperti form klien biasa: sering belum diketahui
+        // saat deal masuk dan bisa dilengkapi nanti dari halaman klien. Satu-satunya
+        // syarat bawaan tetap berlaku: klien Pribadi yang ditandai "terdaftar sebagai
+        // PIC" harus memilih PIC-nya.
+        $picFields = ClientResource::picFields();
 
         $contractLabels = [
             'ppn_contract' => 'PPN',
@@ -334,14 +330,13 @@ class ProsesClientIntake extends Page
                     ClientResource::kluField(),
                     ClientResource::accountRepresentativeField()
                         ->label('Account Representative (AR)')
-                        ->helperText('KPP klien mengikuti AR yang dipilih.')
-                        ->required()
+                        ->helperText('Opsional. KPP klien mengikuti AR yang dipilih.')
                         ->live(),
                     Forms\Components\Placeholder::make('kpp_display')
                         ->label('KPP')
                         ->content(fn (Get $get) => filled($get('ar_id'))
                             ? (AccountRepresentative::find($get('ar_id'))?->kpp ?: 'AR ini belum punya KPP')
-                            : 'Pilih AR lebih dulu'),
+                            : 'Belum ada, mengikuti AR'),
                 ]),
 
             Forms\Components\Section::make('Penanggung jawab')

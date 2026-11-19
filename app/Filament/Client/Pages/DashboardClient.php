@@ -2,35 +2,20 @@
 
 namespace App\Filament\Client\Pages;
 
-use Filament\Pages\Page;
-use Filament\Support\Enums\MaxWidth;
-
-class DashboardClient extends Page
+/** Ringkasan: the portal's home. The class keeps its old name; login redirects point here. */
+class DashboardClient extends PortalPage
 {
     protected static ?string $navigationIcon = 'heroicon-o-home';
-    
-    protected static ?string $navigationLabel = 'Dashboard';
-    
+
+    protected static ?string $activeNavigationIcon = 'heroicon-s-home';
+
+    protected static ?string $navigationLabel = 'Ringkasan';
+
+    protected static ?string $title = 'Ringkasan';
+
+    protected static ?string $slug = 'ringkasan';
+
     protected static ?int $navigationSort = 1;
 
-    protected static string $view = 'filament.client.pages.dashboard-client';
-    
-    public string $activeTab = 'overview';
-    
-    public function getMaxContentWidth(): MaxWidth
-    {
-        return MaxWidth::Full;
-    }
-    
-    public function setActiveTab(string $tab): void
-    {
-        $this->activeTab = $tab;
-    }
-    
-    protected function getViewData(): array
-    {
-        return [
-            'activeTab' => $this->activeTab,
-        ];
-    }
+    protected static string $component = 'client.panel.overview-tab';
 }

@@ -1,5 +1,6 @@
 {{-- App logo from the Kisantra family system (Kisantra Platform DESIGN.md §4):
-     the shared white K on the Project Management tile, arm in the deeper shade. --}}
+     the shared white K on the Project Management tile, arm in the deeper shade.
+     $title names the panel: "Project Management" for staff, "Portal Klien" for clients. --}}
 <span class="flex h-full items-center gap-x-3">
     <svg viewBox="0 0 160 160" class="kis-logo-tile h-full w-auto shrink-0" aria-hidden="true">
         <rect width="160" height="160" rx="40" fill="#1790b5" />
@@ -7,7 +8,7 @@
         <path fill="#10657f" d="M81.33 37.1A3.5 3.5 0 0 1 84.83 33.6L114.12 33.6Q118.12 33.6 118.06 37.6A37.5 37.5 0 0 1 86.33 72.17Q81.33 72.55 81.33 67.55Z" />
     </svg>
     <span class="flex flex-col leading-tight">
-        <span class="whitespace-nowrap text-sm font-extrabold tracking-[-0.015em] text-gray-950 dark:text-white">Project Management</span>
+        <span class="whitespace-nowrap text-sm font-extrabold tracking-[-0.015em] text-gray-950 dark:text-white">{{ $title ?? 'Project Management' }}</span>
         <span class="text-xs font-semibold text-gray-500 dark:text-gray-400">Kisantra</span>
     </span>
 </span>

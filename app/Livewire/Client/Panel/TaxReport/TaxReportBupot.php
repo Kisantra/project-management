@@ -4,7 +4,9 @@ namespace App\Livewire\Client\Panel\TaxReport;
 
 use App\Models\Bupot;
 use App\Models\TaxReport;
-use App\Models\UserClient;
+use App\Support\ClientPortal\ClientContext;
+use App\Support\TaxPeriod;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\Attributes\On;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +15,9 @@ use Illuminate\Support\Facades\Cache;
 class TaxReportBupot extends Component
 {
     // Properties for tax report data
+    #[Locked]
     public $taxReportId;
+    #[Locked]
     public $taxReport;
     public $hasAccess = false;
     
@@ -59,10 +63,7 @@ class TaxReportBupot extends Component
             return;
         }
         
-        // Check if user has access to this client
-        $this->hasAccess = UserClient::where('user_id', auth()->id())
-            ->where('client_id', $taxReport->client_id)
-            ->exists();
+        $this->hasAccess = app(ClientContext::class)->owns($taxReport->client_id);
     }
     
     /**
@@ -78,7 +79,7 @@ class TaxReportBupot extends Component
                         ->select('id', 'tax_report_id', 'tax_type', 'report_status', 'reported_at');
                 }
             ])
-            ->select('id', 'client_id', 'month', 'created_at')
+            ->select('id', 'client_id', 'month', 'year', 'created_at')
             ->find($this->taxReportId);
             
             // Get report status
@@ -156,8 +157,8 @@ class TaxReportBupot extends Component
         if (!$this->taxReport) {
             return '-';
         }
-        
-        return \Carbon\Carbon::parse($this->taxReport->month . '-01')->format('F Y');
+
+        return TaxPeriod::label($this->taxReport->month, $this->taxReport->year ?: $this->taxReport->created_at?->year);
     }
     
     /**
@@ -165,7 +166,7 @@ class TaxReportBupot extends Component
      */
     public function getClientNameProperty()
     {
-        return $this->taxReport->client->name ?? 'Unknown Client';
+        return $this->taxReport->client->name ?? '-';
     }
 
     /**

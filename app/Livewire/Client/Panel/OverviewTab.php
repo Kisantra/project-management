@@ -3,25 +3,23 @@
 namespace App\Livewire\Client\Panel;
 
 use Livewire\Component;
-use Livewire\Attributes\On;
+use App\Livewire\Client\Panel\Concerns\UsesCurrentClient;
 use App\Models\Client;
-use App\Models\Project;
-use App\Models\TaxReport;
 use App\Models\UserActivity;
-use App\Models\UserClient;
 use App\Models\ClientDocument;
 use App\Models\ClientDocumentRequirement;
 use App\Models\SopLegalDocument;
-use App\Models\TaxCalculationSummary;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Collection;
 
 class OverviewTab extends Component
 {
+    use UsesCurrentClient;
+
     public Collection $clients;
-    public ?int $selectedClientId = null;
-    public bool $isLoading = true;
 
     // Cache duration in seconds (5 minutes)
     protected int $cacheDuration = 300;
@@ -30,56 +28,12 @@ class OverviewTab extends Component
 
     public function mount()
     {
-        $this->loadClientData();
-
-        // Restore from session if switcher has already been used
-        $sessionClientId = session('client_panel_selected_client_id');
-        if ($sessionClientId && $this->clients->contains('id', (int) $sessionClientId)) {
-            $this->selectedClientId = (int) $sessionClientId;
-        }
+        $this->clients = $this->clientContext()->clients();
     }
 
-    protected function loadClientData()
-    {
-        $this->isLoading = true;
-
-        // Get all clients for current user - optimized with single query
-        $this->clients = UserClient::query()
-            ->where('user_id', auth()->id())
-            ->with(['client' => fn($q) => $q->select('id', 'name', 'logo', 'status', 'client_type')])
-            ->get()
-            ->pluck('client')
-            ->filter();
-
-        // Set default selected client
-        if ($this->clients->isNotEmpty() && !$this->selectedClientId) {
-            $this->selectedClientId = $this->clients->first()->id;
-        }
-
-        $this->isLoading = false;
-    }
-
-    /**
-     * Get selected client with caching
-     */
     public function getSelectedClientProperty(): ?Client
     {
-        if (!$this->selectedClientId) {
-            return null;
-        }
-
-        return $this->clients->firstWhere('id', $this->selectedClientId);
-    }
-
-    /**
-     * Change selected client (also called by the global sidebar switcher)
-     */
-    #[On('client-switched')]
-    public function selectClient(int $clientId)
-    {
-        $this->selectedClientId = $clientId;
-        $this->clearClientCache();
-        $this->dispatch('client-changed', clientId: $clientId);
+        return $this->currentClient();
     }
 
     /**
@@ -95,94 +49,14 @@ class OverviewTab extends Component
         $clientId = $this->selectedClientId;
 
         $cacheKeys = [
-            "overview_projects_{$userId}_{$clientId}",
-            "overview_documents_{$userId}_{$clientId}",
             "overview_doc_checklist_{$userId}_{$clientId}",
             "overview_requirements_{$userId}_{$clientId}",
-            "overview_tax_report_{$userId}_{$clientId}",
             "overview_stats_{$userId}_{$clientId}",
         ];
 
         foreach ($cacheKeys as $key) {
             Cache::forget($key);
         }
-    }
-
-    /**
-     * Get all projects for selected client with optimized query
-     * Sorted by status priority: active first, then completed
-     */
-    public function getProjectsProperty(): Collection
-    {
-        if (!$this->selectedClientId) {
-            return collect();
-        }
-
-        $userId = auth()->id();
-        $clientId = $this->selectedClientId;
-
-        return Cache::remember(
-            "overview_projects_{$userId}_{$clientId}",
-            $this->cacheDuration,
-            function () use ($clientId) {
-                // Status ordering: active first, then not_started, then done, then closed.
-                // Within a category, sort by the project_statuses.sort_order column.
-                $statusOrder = DB::raw("(SELECT
-                    FIELD(category, 'active', 'not_started', 'done', 'closed') * 1000 + sort_order
-                    FROM project_statuses WHERE project_statuses.key = projects.status
-                )");
-
-                return Project::query()
-                    ->where('client_id', $clientId)
-                    ->select(['id', 'client_id', 'name', 'status', 'priority', 'due_date', 'pic_id'])
-                    ->with(['pic:id,name'])
-                    ->orderBy($statusOrder)
-                    ->orderBy('due_date', 'asc')
-                    ->get();
-            }
-        );
-    }
-
-    /**
-     * Get recent uploaded documents with optimized query
-     */
-    public function getRecentDocumentsProperty(): Collection
-    {
-        if (!$this->selectedClientId) {
-            return collect();
-        }
-
-        $userId = auth()->id();
-        $clientId = $this->selectedClientId;
-
-        return Cache::remember(
-            "overview_documents_{$userId}_{$clientId}",
-            $this->cacheDuration,
-            function () use ($clientId) {
-                return ClientDocument::query()
-                    ->where('client_id', $clientId)
-                    ->whereNotNull('file_path')
-                    ->select([
-                        'id',
-                        'client_id',
-                        'user_id',
-                        'sop_legal_document_id',
-                        'file_path',
-                        'original_filename',
-                        'status',
-                        'expired_at',
-                        'created_at',
-                        'admin_notes'
-                    ])
-                    ->with([
-                        'user:id,name',
-                        'sopLegalDocument:id,name'
-                    ])
-                    ->latest('created_at')
-                    ->limit(10)
-                    ->get();
-            }
-        );
     }
 
     /**
@@ -395,43 +269,6 @@ class OverviewTab extends Component
     }
 
     /**
-     * Get latest tax report with summaries - optimized query
-     */
-    public function getLatestTaxReportProperty(): ?TaxReport
-    {
-        if (!$this->selectedClientId) {
-            return null;
-        }
-
-        $userId = auth()->id();
-        $clientId = $this->selectedClientId;
-
-        return Cache::remember(
-            "overview_tax_report_{$userId}_{$clientId}",
-            $this->cacheDuration,
-            function () use ($clientId) {
-                return TaxReport::query()
-                    ->where('client_id', $clientId)
-                    ->select(['id', 'client_id', 'month'])
-                    ->with([
-                        'taxCalculationSummaries' => fn($q) => $q
-                            ->select([
-                                'id',
-                                'tax_report_id',
-                                'tax_type',
-                                'report_status',
-                                'status_final',
-                                'saldo_final'
-                            ])
-                            ->orderBy('tax_type')
-                    ])
-                    ->latest('month')
-                    ->first();
-            }
-        );
-    }
-
-    /**
      * Get all stats in a single optimized query batch
      * Using raw SQL for maximum performance
      */
@@ -441,7 +278,6 @@ class OverviewTab extends Component
             return [
                 'projects' => ['total' => 0, 'active' => 0, 'completed' => 0, 'pending' => 0],
                 'tax_reports' => ['total' => 0, 'reported' => 0, 'pending' => 0, 'completion_percentage' => 0],
-                'documents' => ['total' => 0, 'valid' => 0, 'expired' => 0, 'pending' => 0, 'required' => 0],
             ];
         }
 
@@ -475,23 +311,6 @@ class OverviewTab extends Component
                     ")
                     ->first();
 
-                // Single query for document stats
-                $docStats = DB::table('client_documents')
-                    ->where('client_id', $clientId)
-                    ->selectRaw("
-                        SUM(CASE WHEN file_path IS NOT NULL THEN 1 ELSE 0 END) as total,
-                        SUM(CASE WHEN status = 'valid' THEN 1 ELSE 0 END) as valid,
-                        SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) as expired,
-                        SUM(CASE WHEN status = 'pending_review' THEN 1 ELSE 0 END) as pending
-                    ")
-                    ->first();
-
-                // Count pending requirements (not uploaded)
-                $pendingRequirements = DB::table('client_document_requirements')
-                    ->where('client_id', $clientId)
-                    ->where('status', 'pending')
-                    ->count();
-
                 $taxTotal = $taxStats->total ?? 0;
                 $taxReported = $taxStats->reported ?? 0;
 
@@ -507,13 +326,6 @@ class OverviewTab extends Component
                         'reported' => (int) $taxReported,
                         'pending' => (int) ($taxStats->pending ?? 0),
                         'completion_percentage' => $taxTotal > 0 ? round(($taxReported / $taxTotal) * 100) : 0,
-                    ],
-                    'documents' => [
-                        'total' => (int) ($docStats->total ?? 0),
-                        'valid' => (int) ($docStats->valid ?? 0),
-                        'expired' => (int) ($docStats->expired ?? 0),
-                        'pending' => (int) ($docStats->pending ?? 0),
-                        'required' => (int) $pendingRequirements,
                     ],
                 ];
             }
@@ -533,11 +345,6 @@ class OverviewTab extends Component
         return $this->stats['tax_reports'];
     }
 
-    public function getDocumentStatsProperty(): array
-    {
-        return $this->stats['documents'];
-    }
-
     /**
      * Download document
      */
@@ -549,17 +356,18 @@ class OverviewTab extends Component
             ->where('client_id', $this->selectedClientId)
             ->firstOrFail();
 
-        if ($document->file_path && \Storage::disk('public')->exists($document->file_path)) {
-            return \Storage::disk('public')->download(
+        if ($document->file_path && Storage::disk('public')->exists($document->file_path)) {
+            return Storage::disk('public')->download(
                 $document->file_path,
                 $document->getDownloadFilename()
             );
         }
 
-        $this->dispatch('notify', [
-            'type' => 'error',
-            'message' => 'File tidak ditemukan'
-        ]);
+        Notification::make()
+            ->title('File tidak ditemukan')
+            ->body('Berkas dokumen ini tidak ada di server. Hubungi tim Kisantra.')
+            ->warning()
+            ->send();
     }
 
     /**
@@ -568,16 +376,7 @@ class OverviewTab extends Component
     public function refresh()
     {
         $this->clearClientCache();
-        $this->loadClientData();
-        $this->dispatch('overview-refreshed');
-    }
-
-    /**
-     * Alias for pending documents (for backward compatibility)
-     */
-    public function getRequiredDocumentsProperty(): Collection
-    {
-        return $this->pendingDocuments;
+        $this->clients = $this->clientContext()->clients();
     }
 
     /**
@@ -600,18 +399,11 @@ class OverviewTab extends Component
     {
         return view('livewire.client.panel.overview-tab', [
             'selectedClient' => $this->selectedClient,
-            'projects' => $this->projects,
-            'recentDocuments' => $this->recentDocuments,
-            'documentChecklist' => $this->documentChecklist,
-            'requiredDocuments' => $this->pendingDocuments,
-            'additionalRequirements' => $this->additionalRequirements,
             'allDocumentsChecklist' => $this->allDocumentsChecklist,
             'pendingDocuments' => $this->pendingDocuments,
             'rejectedDocuments' => $this->rejectedDocuments,
-            'latestTaxReport' => $this->latestTaxReport,
             'projectStats' => $this->projectStats,
             'taxReportStats' => $this->taxReportStats,
-            'documentStats' => $this->documentStats,
             'recentActivities' => $this->recentActivities,
         ]);
     }

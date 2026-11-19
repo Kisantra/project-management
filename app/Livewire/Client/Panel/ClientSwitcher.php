@@ -2,66 +2,44 @@
 
 namespace App\Livewire\Client\Panel;
 
+use App\Support\ClientPortal\ClientContext;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
-use App\Models\Client;
-use App\Models\UserClient;
-use Illuminate\Support\Collection;
 
+/**
+ * Company picker of the client portal: a card at the top of the sidebar
+ * (variant "sidebar") and a compact button in the topbar on phones
+ * (variant "topbar"). Switching reloads the page, so every tab mounts again
+ * with the new company from ClientContext instead of listening for an event
+ * that carries a client id.
+ */
 class ClientSwitcher extends Component
 {
-    public Collection $clients;
-    public ?int $selectedClientId = null;
-
-    public function mount(): void
-    {
-        $this->loadClients();
-
-        // Restore from session or default to first client
-        $sessionClientId = session('client_panel_selected_client_id');
-
-        if ($sessionClientId && $this->clients->contains('id', $sessionClientId)) {
-            $this->selectedClientId = (int) $sessionClientId;
-        } elseif ($this->clients->isNotEmpty()) {
-            $this->selectedClientId = $this->clients->first()->id;
-            session(['client_panel_selected_client_id' => $this->selectedClientId]);
-        }
-    }
-
-    protected function loadClients(): void
-    {
-        $clientIds = UserClient::where('user_id', auth()->id())->pluck('client_id');
-
-        $this->clients = Client::whereIn('id', $clientIds)
-            ->select(['id', 'name', 'logo'])
-            ->orderBy('name')
-            ->get();
-    }
+    #[Locked]
+    public string $variant = 'sidebar';
 
     public function switchClient(int $clientId): void
     {
-        if (!$this->clients->contains('id', $clientId)) {
+        $context = app(ClientContext::class);
+
+        if ($clientId === $context->id() || ! $context->switchTo($clientId)) {
             return;
         }
 
-        $this->selectedClientId = $clientId;
-        session(['client_panel_selected_client_id' => $clientId]);
+        $panel = filament()->getPanel('klien');
+        $back = url()->previous();
 
-        // Broadcast to all tab components
-        $this->dispatch('client-switched', clientId: $clientId);
-    }
-
-    public function getSelectedClientProperty(): ?Client
-    {
-        if (!$this->selectedClientId) {
-            return null;
-        }
-        return $this->clients->firstWhere('id', $this->selectedClientId);
+        // Stay on the same section; only follow the referer when it points into the portal itself.
+        $this->redirect(str_starts_with($back, url($panel->getPath()) . '/') ? $back : $panel->getUrl());
     }
 
     public function render()
     {
+        $context = app(ClientContext::class);
+
         return view('livewire.client.panel.client-switcher', [
-            'selectedClient' => $this->selectedClient,
+            'clients' => $context->clients(),
+            'selected' => $context->client(),
         ]);
     }
 }

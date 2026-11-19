@@ -1,0 +1,452 @@
+/*
+ * Client portal: Profil (livewire/client/panel/profile-tab.blade.php).
+ * Shared kp-a-* pieces (header, card, empty state) live in overview.css.
+ */
+.kp-pf-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.kp-pf-side {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+}
+
+/* ---------- Company facts ---------- */
+.kp-pf-dl {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    margin: 0;
+}
+
+.kp-pf-dl dt,
+.kp-pf-dl dd {
+    margin: 0;
+    padding: 0.8125rem 1.25rem;
+    border-top: 1px solid var(--kp-line);
+}
+
+.kp-pf-dl dt:first-of-type,
+.kp-pf-dl dd:first-of-type {
+    border-top: 0;
+}
+
+.kp-pf-dl dt {
+    padding-right: 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--kp-muted);
+}
+
+.kp-pf-dl dd {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+/* ---------- People ---------- */
+.kp-pf-person {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1.25rem;
+    border-top: 1px solid var(--kp-line);
+}
+
+.kp-a-card__head + .kp-pf-person {
+    border-top: 0;
+}
+
+.kp-pf-person > .kp-a-label {
+    flex: none;
+    width: 2.25rem;
+}
+
+.kp-pf-person b {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+.kp-pf-person small {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 0.75rem;
+    margin-top: 0.125rem;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--kp-muted);
+}
+
+.kp-pf-avatar {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.125rem;
+    height: 2.125rem;
+    border-radius: 9999px;
+    background: var(--kp-wash-strong);
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--kp-ink-2);
+}
+
+.kp-pf-avatar.is-empty {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--kp-line-strong);
+    color: var(--kp-muted);
+}
+
+/* ---------- Services ---------- */
+.kp-pf-svc {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.kp-pf-svc__cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+    min-width: 0;
+    padding: 1rem 1.25rem 1.125rem;
+}
+
+.kp-pf-svc__cell + .kp-pf-svc__cell {
+    border-left: 1px solid var(--kp-line);
+}
+
+.kp-pf-svc__cell b {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.kp-pf-svc__cell small {
+    margin-bottom: 0.625rem;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--kp-muted);
+}
+
+.kp-pf-svc__cell.is-off b {
+    color: var(--kp-ink-2);
+}
+
+/* ---------- Credentials ---------- */
+.kp-pf-cred__note {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.kp-pf-cred__row {
+    display: grid;
+    grid-template-columns: minmax(8rem, 0.75fr) minmax(0, 1.25fr) minmax(0, 1fr);
+    align-items: center;
+    gap: 1rem;
+    min-height: 3.125rem;
+    padding: 0.5rem 1.25rem;
+    border-top: 1px solid var(--kp-line);
+}
+
+.kp-pf-cred__row:first-child {
+    border-top: 0;
+}
+
+.kp-pf-cred__row--head {
+    min-height: 0;
+    padding-block: 0.6875rem;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--kp-muted);
+}
+
+.kp-pf-cred__row > b {
+    font-size: 13.5px;
+    font-weight: 700;
+}
+
+.kp-pf-cv {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.125rem;
+    min-width: 0;
+}
+
+/* Wide screens: the column header names the value; the label is for screen readers. */
+.kp-pf-cv__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.kp-pf-cv__value {
+    min-width: 0;
+    margin-right: 0.375rem;
+    font-size: 13.5px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.kp-pf-cv__value.kp-a-muted {
+    font-weight: 600;
+}
+
+.kp-pf-cv__btn {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 9px;
+    color: var(--kp-muted);
+    transition: background-color 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.kp-pf-cv__btn:hover {
+    background: var(--kp-wash-strong);
+    color: var(--kp-ink);
+}
+
+.kp-pf-cv__btn:focus-visible {
+    outline: 2px solid rgb(var(--primary-600));
+    outline-offset: 1px;
+}
+
+.kp-pf-cv__ok {
+    color: var(--kp-accent-ink);
+}
+
+/* ---------- Credential editor ---------- */
+.kp-pf-sheet {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+}
+
+.kp-pf-sheet__scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(var(--gray-950), 0.42);
+}
+
+.kp-pf-sheet__panel {
+    position: absolute;
+    inset: 0 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    width: min(28rem, 100vw);
+    border-left: 1px solid var(--kp-line);
+    background: var(--kp-surface);
+    box-shadow: var(--kp-float);
+    color: var(--kp-ink);
+}
+
+.kp-pf-sheet__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1.25rem 1.25rem 0.75rem 1.5rem;
+}
+
+.kp-pf-sheet__head h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+}
+
+.kp-pf-sheet__head p {
+    margin: 0.125rem 0 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--kp-muted);
+}
+
+.kp-pf-sheet__head .kp-pf-cv__btn {
+    margin-left: auto;
+}
+
+.kp-pf-sheet__note {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 1.5rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 11px;
+    background: var(--kp-wash-strong);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--kp-ink-2);
+}
+
+.kp-pf-sheet__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.kp-pf-group {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.kp-pf-group + .kp-pf-group {
+    margin-top: 1.25rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--kp-line);
+}
+
+.kp-pf-group legend {
+    float: left;
+    width: 100%;
+    margin-bottom: 0.75rem;
+}
+
+.kp-pf-field {
+    clear: both;
+}
+
+.kp-pf-field + .kp-pf-field {
+    margin-top: 0.875rem;
+}
+
+.kp-pf-field label {
+    display: block;
+    margin-bottom: 0.375rem;
+    font-size: 13.5px;
+    font-weight: 700;
+}
+
+.kp-pf-field__control {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.kp-pf-field input {
+    width: 100%;
+    height: 2.375rem;
+    padding: 0 0.8125rem;
+    border: 0;
+    border-radius: 11px;
+    background: var(--kp-surface);
+    box-shadow: inset 0 0 0 1px var(--kp-line-strong);
+    font-size: 14px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--kp-ink);
+}
+
+.kp-pf-field input::placeholder {
+    font-weight: 500;
+    color: var(--kp-muted);
+}
+
+.kp-pf-field input:focus {
+    outline: none;
+    box-shadow: inset 0 0 0 1px rgb(var(--primary-600)), 0 0 0 3px rgba(var(--primary-500), 0.18);
+}
+
+.kp-pf-field input[aria-invalid='true'] {
+    box-shadow: inset 0 0 0 1px rgb(var(--danger-600));
+}
+
+.kp-pf-field__control .kp-pf-cv__btn {
+    position: absolute;
+    right: 0.25rem;
+}
+
+.kp-pf-field__control:has(.kp-pf-cv__btn) input {
+    padding-right: 2.5rem;
+}
+
+.kp-pf-field__error {
+    margin: 0.375rem 0 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--kp-red);
+}
+
+.kp-pf-sheet__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.875rem 1.5rem calc(0.875rem + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--kp-line);
+    background: var(--kp-wash);
+}
+
+@media (max-width: 1023.98px) {
+    .kp-pf-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .kp-pf-svc {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .kp-pf-svc__cell:nth-child(odd) {
+        border-left: 0;
+    }
+
+    .kp-pf-svc__cell:nth-child(n + 3) {
+        border-top: 1px solid var(--kp-line);
+    }
+}
+
+/* Narrow screens: one block per service, labels visible. */
+@media (max-width: 767.98px) {
+    .kp-pf-dl {
+        grid-template-columns: 5.5rem minmax(0, 1fr);
+    }
+
+    .kp-pf-dl dt,
+    .kp-pf-dl dd {
+        padding: 0.75rem 1rem;
+    }
+
+    .kp-pf-cred__row--head {
+        display: none;
+    }
+
+    .kp-pf-cred__row {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.5rem;
+        padding: 0.875rem 1rem;
+    }
+
+    .kp-pf-cred__row:nth-child(2) {
+        border-top: 0;
+    }
+
+    .kp-pf-cv__label {
+        position: static;
+        width: 5.5rem;
+        height: auto;
+        overflow: visible;
+        clip: auto;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--kp-muted);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .kp-pf-cv__btn {
+        transition: none;
+    }
+}

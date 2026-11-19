@@ -1,5 +1,12 @@
 @import '/vendor/filament/filament/resources/css/theme.css';
 @import '../../../../vendor/kenepa/banner/resources/css/index.css';
+@import './client-portal/shell.css';
+@import './client-portal/overview.css';
+@import './client-portal/projects.css';
+@import './client-portal/documents.css';
+@import './client-portal/tax.css';
+@import './client-portal/profile.css';
+@import './client-portal/chat.css';
 
 @config 'tailwind.config.js';
 

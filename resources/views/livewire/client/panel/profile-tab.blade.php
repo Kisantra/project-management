@@ -1,521 +1,303 @@
-<div class="w-full space-y-4 antialiased text-slate-900 dark:text-slate-100"
-    x-data="{ mounted: false }"
-    x-init="setTimeout(() => mounted = true, 50)">
+{{--
+    Profil (client portal), docs/mockups/client-portal-redesign.html: company
+    facts, people in charge, contacts, contracted services and the account
+    credentials (passwords hidden until asked). The credential editor is a
+    slide-over. Styles: client-portal/profile.css (+ shared kp-a-* in overview.css).
+--}}
+@php
+    use App\Support\ClientPortal\ClientContext;
+    use App\Support\Ui\Tone;
+    use Illuminate\Support\Facades\Storage;
+@endphp
 
-    @if($clients->isEmpty())
-    <div class="flex flex-col items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-12 text-center shadow-sm"
-        x-show="mounted" x-transition.opacity.duration.300ms>
-        <div class="w-14 h-14 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center mb-4">
-            <x-heroicon-o-building-office-2 class="h-6 w-6 text-slate-400" />
+<div class="kp-a kp-pf">
+    @if ($clients->isEmpty() || ! $selectedClient)
+        <div class="kp-a-card kp-a-empty kp-a-empty--page">
+            <span class="kp-a-empty__icon"><x-heroicon-o-building-office-2 class="h-5 w-5" /></span>
+            <b>Akun Belum Terhubung</b>
+            <span>Akun Anda belum terhubung dengan data klien. Hubungi tim Kisantra.</span>
         </div>
-        <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-200">Akun Belum Terhubung</h3>
-        <p class="mt-1 text-sm text-slate-400">Akun Anda belum terhubung dengan data klien. Hubungi administrator.</p>
-    </div>
     @else
-    @if($selectedClient)
+        @php
+            $client = $selectedClient;
+            $active = collect($contractStatus)->where('active', true)->count();
+            $cred = $client->clientCredential;
+            $credRows = $cred ? [
+                ['service' => 'Core Tax', 'fields' => [
+                    ['key' => 'core-user', 'label' => 'User ID', 'value' => $cred->core_tax_user_id, 'secret' => false],
+                    ['key' => 'core-pass', 'label' => 'Password', 'value' => $cred->core_tax_password, 'secret' => true],
+                ]],
+                ['service' => 'DJP Online', 'fields' => [
+                    ['key' => 'djp-user', 'label' => 'Username', 'value' => $cred->djp_account, 'secret' => false],
+                    ['key' => 'djp-pass', 'label' => 'Password', 'value' => $cred->djp_password, 'secret' => true],
+                ]],
+                ['service' => 'Email Terdaftar', 'fields' => [
+                    ['key' => 'mail-user', 'label' => 'Email', 'value' => $cred->email, 'secret' => false],
+                    ['key' => 'mail-pass', 'label' => 'Password', 'value' => $cred->email_password, 'secret' => true],
+                ]],
+            ] : [];
+            $info = [
+                ['NPWP', $client->NPWP, true],
+                ['EFIN', $client->EFIN, true],
+                ['Alamat', $client->adress, false],
+                ['Email', $client->email, false],
+            ];
+            $ar = $client->accountRepresentative;
+        @endphp
 
-    <div class="space-y-4" x-show="mounted" x-transition.opacity.duration.300ms>
-
-        {{-- ── IDENTITY HEADER ────────────────────────────────── --}}
-        <div class="flex items-center justify-between gap-4">
-            <div class="flex items-center gap-3 min-w-0">
-                @if($selectedClient->logo)
-                    <img src="{{ Storage::url($selectedClient->logo) }}" alt="{{ $selectedClient->name }}"
-                        class="h-10 w-10 rounded-lg object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0">
-                @else
-                    <div class="h-10 w-10 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center flex-shrink-0">
-                        <x-heroicon-o-building-office-2 class="h-5 w-5 text-slate-400" />
-                    </div>
+        {{-- Header --}}
+        <header class="kp-a-head">
+            <span class="kp-a-head__tile">
+                @if ($client->logo)
+                    <img src="{{ Storage::url($client->logo) }}" alt="" onerror="this.remove()">
                 @endif
-                <div class="min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <h1 class="text-base font-semibold text-slate-900 dark:text-white truncate">{{ $selectedClient->name }}</h1>
-                        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold flex-shrink-0
-                            {{ $selectedClient->status === 'Active'
-                                ? 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/20 dark:text-cyan-400 dark:border-cyan-800'
-                                : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700' }}">
-                            {{ $selectedClient->status }}
-                        </span>
-                    </div>
-                    <p class="mt-0.5 text-xs text-slate-400 flex flex-wrap items-center gap-x-1.5">
-                        @if($selectedClient->client_type)
-                            <span>{{ $selectedClient->formatted_client_type }}</span>
-                        @endif
-                        @if($selectedClient->pkp_status)
-                            <span class="text-slate-300 dark:text-slate-600">·</span>
-                            <span>{{ $selectedClient->pkp_status }}</span>
-                        @endif
-                        @if($selectedClient->email)
-                            <span class="text-slate-300 dark:text-slate-600">·</span>
-                            <span>{{ $selectedClient->email }}</span>
-                        @endif
-                    </p>
-                </div>
+                {{ ClientContext::initials($client->name) }}
+            </span>
+            <div class="kp-a-head__text">
+                <h1>
+                    <span>{{ $client->name }}</span>
+                    <x-kis.badge :tone="Tone::forClientStatus($client->status)" dot>{{ $client->status === 'Active' ? 'Aktif' : 'Tidak aktif' }}</x-kis.badge>
+                </h1>
+                <p>
+                    @if ($client->client_type)<span>{{ $client->formatted_client_type }}</span>@endif
+                    @if ($client->pkp_status)<span>{{ $client->pkp_status }}</span>@endif
+                    @if ($client->email)<span>{{ $client->email }}</span>@endif
+                </p>
             </div>
-            <button wire:click="refresh"
-                class="flex-shrink-0 p-2 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                title="Segarkan">
-                <x-heroicon-o-arrow-path class="h-4 w-4" />
-            </button>
-        </div>
-
-        {{-- ── TOP ROW: 2-COLUMN ───────────────────────────────── --}}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-
-            {{-- PANEL: INFORMASI PERUSAHAAN --}}
-            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-                <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                    <div class="w-1 h-4 rounded-full bg-slate-300 dark:bg-slate-600"></div>
-                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Informasi Perusahaan</span>
-                </div>
-                <div class="divide-y divide-slate-50 dark:divide-slate-800/60">
-                    @php
-                        $infoRows = [
-                            ['label' => 'NPWP',   'value' => $selectedClient->NPWP,   'mono' => true],
-                            ['label' => 'EFIN',   'value' => $selectedClient->EFIN,   'mono' => true],
-                            ['label' => 'Alamat', 'value' => $selectedClient->adress, 'mono' => false],
-                            ['label' => 'Email',  'value' => $selectedClient->email,  'mono' => false],
-                        ];
-                    @endphp
-                    @foreach($infoRows as $row)
-                    <div class="flex items-start gap-4 px-4 py-3">
-                        <span class="text-xs text-slate-400 dark:text-slate-500 w-16 flex-shrink-0 pt-0.5">{{ $row['label'] }}</span>
-                        <span class="text-sm {{ $row['mono'] ? 'font-mono' : '' }} {{ $row['value'] ? 'text-slate-800 dark:text-slate-200' : 'text-slate-300 dark:text-slate-600' }}">
-                            {{ $row['value'] ?: '—' }}
-                        </span>
-                    </div>
-                    @endforeach
-                </div>
-            </div>
-
-            {{-- PANEL: PENANGGUNG JAWAB --}}
-            <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-                <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                    <div class="w-1 h-4 rounded-full bg-cyan-400"></div>
-                    <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Penanggung Jawab</span>
-                </div>
-                <div class="divide-y divide-slate-50 dark:divide-slate-800/60">
-
-                    {{-- PIC --}}
-                    <div class="flex items-start gap-4 px-4 py-4">
-                        <span class="text-xs text-slate-400 dark:text-slate-500 w-16 flex-shrink-0 pt-0.5">PIC</span>
-                        @if($selectedClient->pic)
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ $selectedClient->pic->name }}</p>
-                            @if($selectedClient->pic->nik)
-                            <p class="mt-0.5 text-xs text-slate-400 tabular-nums">NIK {{ $selectedClient->pic->nik }}</p>
-                            @endif
-                        </div>
-                        @else
-                        <span class="text-sm text-slate-300 dark:text-slate-600">—</span>
-                        @endif
-                    </div>
-
-                    {{-- Account Representative --}}
-                    <div class="flex items-start gap-4 px-4 py-4">
-                        <span class="text-xs text-slate-400 dark:text-slate-500 w-16 flex-shrink-0 pt-0.5 leading-tight">AR</span>
-                        @if($selectedClient->accountRepresentative)
-                        <div class="min-w-0 flex-1">
-                            <p class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ $selectedClient->accountRepresentative->name }}</p>
-                            <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-400">
-                                @if($selectedClient->accountRepresentative->kpp)
-                                    <span>{{ $selectedClient->accountRepresentative->kpp }}</span>
-                                @endif
-                                @if($selectedClient->accountRepresentative->phone_number)
-                                    <span>{{ $selectedClient->accountRepresentative->phone_number }}</span>
-                                @endif
-                            </div>
-                        </div>
-                        @else
-                        <span class="text-sm text-slate-300 dark:text-slate-600">—</span>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- ── PANEL: STATUS KONTRAK ───────────────────────────── --}}
-        @php $activeCount = collect($contractStatus)->where('active', true)->count(); @endphp
-        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-            <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                <div class="w-1 h-4 rounded-full bg-slate-300 dark:bg-slate-600"></div>
-                <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Status Kontrak Layanan</span>
-                <div class="flex-1"></div>
-                <span class="text-xs text-slate-400 tabular-nums">{{ $activeCount }} dari {{ count($contractStatus) }} aktif</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-50 dark:divide-slate-800/60">
-                @foreach($contractStatus as $contract)
-                <div class="flex items-start gap-3 px-4 py-4">
-                    <div class="flex-shrink-0 mt-0.5 w-2 h-2 rounded-full {{ $contract['active'] ? 'bg-cyan-500' : 'bg-slate-200 dark:bg-slate-700' }}"></div>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm {{ $contract['active'] ? 'font-medium text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500' }}">
-                            {{ $contract['name'] }}
-                        </p>
-                        @if(!empty($contract['description']))
-                        <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500 leading-snug">{{ $contract['description'] }}</p>
-                        @endif
-                        <span class="mt-1.5 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold
-                            {{ $contract['active']
-                                ? 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/20 dark:text-cyan-400 dark:border-cyan-800'
-                                : 'bg-slate-50 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700' }}">
-                            {{ $contract['active'] ? 'Aktif' : 'Tidak Aktif' }}
-                        </span>
-                    </div>
-                </div>
-                @endforeach
-            </div>
-        </div>
-
-        {{-- ── PANEL: KREDENSIAL AKUN ──────────────────────────── --}}
-        <div class="rounded-xl border border-amber-200 dark:border-amber-900/40 bg-white dark:bg-slate-900 shadow-sm overflow-hidden"
-            x-data="{
-                copiedField: null,
-                copy(field, text) {
-                    navigator.clipboard.writeText(text).then(() => {
-                        this.copiedField = field;
-                        setTimeout(() => this.copiedField = null, 1500);
-                    });
-                }
-            }">
-            <div class="flex items-center gap-2 px-4 py-3 border-b border-amber-100 dark:border-amber-900/30 bg-amber-50/40 dark:bg-amber-900/10">
-                <div class="w-1 h-4 rounded-full bg-amber-400"></div>
-                <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Kredensial Akun</span>
-                <div class="flex-1"></div>
-                <button wire:click="openCredentialModal"
-                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors
-                        {{ $selectedClient->clientCredential
-                            ? 'text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 hover:bg-amber-200 dark:hover:bg-amber-800/50'
-                            : 'text-white bg-amber-500 hover:bg-amber-600 active:bg-amber-700' }}">
-                    @if($selectedClient->clientCredential)
-                        <x-heroicon-o-pencil-square class="h-3 w-3" />
-                        Perbarui
-                    @else
-                        <x-heroicon-o-plus class="h-3 w-3" />
-                        Tambah Kredensial
-                    @endif
+            <div class="kp-a-head__acts">
+                <button type="button" wire:click="refresh" wire:loading.attr="disabled" class="kis-btn kis-btn--outline">
+                    <x-heroicon-m-arrow-path class="h-4 w-4 kp-a-muted" wire:loading.class="animate-spin" wire:target="refresh" />
+                    Segarkan
                 </button>
             </div>
+        </header>
 
-            @if($selectedClient->clientCredential)
-            @php $cred = $selectedClient->clientCredential; @endphp
-
-            {{-- Security notice --}}
-            <div class="flex items-center gap-2 px-4 py-2 bg-amber-50/30 dark:bg-amber-900/5 border-b border-amber-50 dark:border-amber-900/20">
-                <x-heroicon-o-shield-exclamation class="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
-                <p class="text-[11px] text-amber-600 dark:text-amber-500">Informasi sensitif — jangan bagikan kepada pihak yang tidak berwenang.</p>
-            </div>
-
-            {{-- Three credential groups side by side --}}
-            <div class="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100 dark:divide-slate-800">
-
-                {{-- Core Tax --}}
-                <div class="px-4 py-4 space-y-4">
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Core Tax</p>
-
-                    @php
-                        $coreTaxFields = [
-                            ['key' => 'core_tax_user', 'label' => 'User ID',  'value' => $cred->core_tax_user_id,  'is_password' => false],
-                            ['key' => 'core_tax_pass', 'label' => 'Password', 'value' => $cred->core_tax_password, 'is_password' => true],
-                        ];
-                    @endphp
-                    @foreach($coreTaxFields as $f)
-                    <div>
-                        <p class="text-[11px] text-slate-400 dark:text-slate-500">{{ $f['label'] }}</p>
-                        <div class="mt-1 flex items-center gap-2">
-                            @if($f['value'])
-                                <p class="text-sm font-mono text-slate-800 dark:text-slate-200 flex-1 break-all select-all">{{ $f['value'] }}</p>
-                                <button @click="copy('{{ $f['key'] }}', '{{ addslashes($f['value']) }}')"
-                                    class="flex-shrink-0 p-1 rounded text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                    title="Salin">
-                                    <x-heroicon-o-clipboard-document class="h-3.5 w-3.5" x-show="copiedField !== '{{ $f['key'] }}'"/>
-                                    <x-heroicon-o-check class="h-3.5 w-3.5 text-cyan-500" x-show="copiedField === '{{ $f['key'] }}'"/>
-                                </button>
-                            @else
-                                <span class="text-sm text-slate-300 dark:text-slate-600">—</span>
-                            @endif
-                        </div>
-                    </div>
+        <div class="kp-pf-grid">
+            {{-- Company --}}
+            <section class="kp-a-card">
+                <header class="kp-a-card__head kp-a-card__head--line"><h2 class="kp-a-card__title">Informasi Perusahaan</h2></header>
+                <dl class="kp-pf-dl">
+                    @foreach ($info as [$label, $value, $tabular])
+                        <dt>{{ $label }}</dt>
+                        <dd @class(['kp-a-num' => $tabular, 'kp-a-muted' => blank($value)])>{{ filled($value) ? $value : 'Belum diisi' }}</dd>
                     @endforeach
-                </div>
+                </dl>
+            </section>
 
-                {{-- DJP Online --}}
-                <div class="px-4 py-4 space-y-4">
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">DJP Online</p>
-
-                    @php
-                        $djpFields = [
-                            ['key' => 'djp_user', 'label' => 'Username', 'value' => $cred->djp_account,  'is_password' => false],
-                            ['key' => 'djp_pass', 'label' => 'Password', 'value' => $cred->djp_password, 'is_password' => true],
-                        ];
-                    @endphp
-                    @foreach($djpFields as $f)
-                    <div>
-                        <p class="text-[11px] text-slate-400 dark:text-slate-500">{{ $f['label'] }}</p>
-                        <div class="mt-1 flex items-center gap-2">
-                            @if($f['value'])
-                                <p class="text-sm font-mono text-slate-800 dark:text-slate-200 flex-1 break-all select-all">{{ $f['value'] }}</p>
-                                <button @click="copy('{{ $f['key'] }}', '{{ addslashes($f['value']) }}')"
-                                    class="flex-shrink-0 p-1 rounded text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                    title="Salin">
-                                    <x-heroicon-o-clipboard-document class="h-3.5 w-3.5" x-show="copiedField !== '{{ $f['key'] }}'"/>
-                                    <x-heroicon-o-check class="h-3.5 w-3.5 text-cyan-500" x-show="copiedField === '{{ $f['key'] }}'"/>
-                                </button>
-                            @else
-                                <span class="text-sm text-slate-300 dark:text-slate-600">—</span>
-                            @endif
-                        </div>
+            <div class="kp-pf-side">
+                {{-- People in charge --}}
+                <section class="kp-a-card">
+                    <header class="kp-a-card__head kp-a-card__head--line"><h2 class="kp-a-card__title">Penanggung Jawab</h2></header>
+                    <div class="kp-pf-person">
+                        <span class="kp-a-label">PIC</span>
+                        @if ($client->pic)
+                            <span class="kp-pf-avatar">{{ ClientContext::initials($client->pic->name) }}</span>
+                            <div class="min-w-0">
+                                <b>{{ $client->pic->name }}</b>
+                                @if ($client->pic->nik)<small class="kp-a-num">NIK {{ $client->pic->nik }}</small>@endif
+                            </div>
+                        @else
+                            <span class="kp-pf-avatar is-empty"><x-heroicon-o-user class="h-4 w-4" /></span>
+                            <b class="kp-a-muted">Belum ditentukan</b>
+                        @endif
                     </div>
-                    @endforeach
-                </div>
-
-                {{-- Email --}}
-                <div class="px-4 py-4 space-y-4">
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Email Terdaftar</p>
-
-                    @php
-                        $emailFields = [
-                            ['key' => 'email_addr', 'label' => 'Email',    'value' => $cred->email,          'is_password' => false, 'email' => true],
-                            ['key' => 'email_pass', 'label' => 'Password', 'value' => $cred->email_password, 'is_password' => true,  'email' => false],
-                        ];
-                    @endphp
-                    @foreach($emailFields as $f)
-                    <div>
-                        <p class="text-[11px] text-slate-400 dark:text-slate-500">{{ $f['label'] }}</p>
-                        <div class="mt-1 flex items-center gap-2">
-                            @if($f['value'])
-                                <p class="text-sm font-mono text-slate-800 dark:text-slate-200 flex-1 break-all select-all">{{ $f['value'] }}</p>
-                                <button @click="copy('{{ $f['key'] }}', '{{ addslashes($f['value']) }}')"
-                                    class="flex-shrink-0 p-1 rounded text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                    title="Salin">
-                                    <x-heroicon-o-clipboard-document class="h-3.5 w-3.5" x-show="copiedField !== '{{ $f['key'] }}'"/>
-                                    <x-heroicon-o-check class="h-3.5 w-3.5 text-cyan-500" x-show="copiedField === '{{ $f['key'] }}'"/>
-                                </button>
-                            @else
-                                <span class="text-sm text-slate-300 dark:text-slate-600">—</span>
-                            @endif
-                        </div>
+                    <div class="kp-pf-person">
+                        <span class="kp-a-label">AR</span>
+                        @if ($ar)
+                            <span class="kp-pf-avatar">{{ ClientContext::initials($ar->name) }}</span>
+                            <div class="min-w-0">
+                                <b>{{ $ar->name }}</b>
+                                @if ($ar->kpp || $ar->phone_number)
+                                    <small>
+                                        @if ($ar->kpp)<span>{{ $ar->kpp }}</span>@endif
+                                        @if ($ar->phone_number)<span class="kp-a-num">{{ $ar->phone_number }}</span>@endif
+                                    </small>
+                                @endif
+                            </div>
+                        @else
+                            <span class="kp-pf-avatar is-empty"><x-heroicon-o-user class="h-4 w-4" /></span>
+                            <b class="kp-a-muted">Belum ditentukan</b>
+                        @endif
                     </div>
-                    @endforeach
-                </div>
-            </div>
+                </section>
 
-            @else
-            {{-- Empty state --}}
-            <div class="flex flex-col items-center justify-center py-10 px-4 text-center">
-                <div class="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center mb-3">
-                    <x-heroicon-o-key class="h-5 w-5 text-amber-400" />
-                </div>
-                <p class="text-sm font-medium text-slate-700 dark:text-slate-300">Belum Ada Kredensial</p>
-                <p class="mt-1 text-xs text-slate-400 max-w-xs">Tambahkan kredensial akun untuk Core Tax, DJP Online, dan Email terdaftar.</p>
+                {{-- Contacts --}}
+                @if ($client->contacts && $client->contacts->isNotEmpty())
+                    <section class="kp-a-card kp-pf-contacts">
+                        <header class="kp-a-card__head kp-a-card__head--line">
+                            <h2 class="kp-a-card__title">Kontak Tambahan</h2>
+                            <span class="kp-a-card__aside">{{ $client->contacts->count() }} kontak</span>
+                        </header>
+                        @foreach ($client->contacts as $contact)
+                            <div class="kp-pf-person">
+                                <span class="kp-pf-avatar">{{ mb_strtoupper(mb_substr($contact->name, 0, 1)) }}</span>
+                                <div class="min-w-0">
+                                    <b>{{ $contact->name }}</b>
+                                    @if ($contact->position)<small>{{ $contact->position }}</small>@endif
+                                    @if ($contact->phone || $contact->email)
+                                        <small>
+                                            @if ($contact->phone)<span class="kp-a-num">{{ $contact->phone }}</span>@endif
+                                            @if ($contact->email)<span class="truncate">{{ $contact->email }}</span>@endif
+                                        </small>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </section>
+                @endif
             </div>
-            @endif
         </div>
 
-        {{-- ── PANEL: KONTAK TAMBAHAN ──────────────────────────── --}}
-        @if($selectedClient->contacts && $selectedClient->contacts->count() > 0)
-        <div class="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm overflow-hidden">
-            <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                <div class="w-1 h-4 rounded-full bg-slate-300 dark:bg-slate-600"></div>
-                <span class="text-xs font-semibold text-slate-700 dark:text-slate-300">Kontak Tambahan</span>
-                <div class="flex-1"></div>
-                <span class="text-xs text-slate-400 tabular-nums">{{ $selectedClient->contacts->count() }}</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-50 dark:divide-slate-800/60">
-                @foreach($selectedClient->contacts as $contact)
-                <div class="flex items-start gap-3 px-4 py-4">
-                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
-                        <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase">{{ substr($contact->name, 0, 1) }}</span>
+        {{-- Contracted services --}}
+        <section class="kp-a-card">
+            <header class="kp-a-card__head kp-a-card__head--line">
+                <h2 class="kp-a-card__title">Status Kontrak Layanan</h2>
+                <span class="kp-a-card__aside">{{ $active }} dari {{ count($contractStatus) }} aktif</span>
+            </header>
+            <div class="kp-pf-svc">
+                @foreach ($contractStatus as $contract)
+                    <div @class(['kp-pf-svc__cell', 'is-off' => ! $contract['active']])>
+                        <b>{{ $contract['name'] }}</b>
+                        <small>{{ $contract['description'] }}</small>
+                        <x-kis.badge :tone="$contract['active'] ? Tone::BLUE : Tone::NEUTRAL" :dot="$contract['active']">{{ $contract['active'] ? 'Aktif' : 'Tidak Aktif' }}</x-kis.badge>
                     </div>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-slate-800 dark:text-slate-200">{{ $contact->name }}</p>
-                        @if($contact->position)
-                        <p class="text-xs text-slate-400 mt-0.5">{{ $contact->position }}</p>
-                        @endif
-                        <div class="mt-1 space-y-0.5 text-xs text-slate-400">
-                            @if($contact->phone)
-                                <p>{{ $contact->phone }}</p>
-                            @endif
-                            @if($contact->email)
-                                <p class="truncate">{{ $contact->email }}</p>
-                            @endif
-                        </div>
-                    </div>
-                </div>
                 @endforeach
             </div>
-        </div>
-        @endif
+        </section>
 
-    </div>{{-- end space-y-4 --}}
+        {{-- Credentials --}}
+        <section class="kp-a-card kp-pf-cred" x-data="{ shown: {}, copied: null, copy(key, text) { window.kisCopy(text).then(() => { this.copied = key; setTimeout(() => this.copied = null, 1500) }) } }">
+            <header class="kp-a-card__head kp-a-card__head--line">
+                <div class="min-w-0">
+                    <h2 class="kp-a-card__title">Kredensial Akun</h2>
+                    <p class="kp-a-card__sub kp-pf-cred__note">
+                        <x-heroicon-o-lock-closed class="h-3.5 w-3.5 flex-none" />
+                        Informasi sensitif. Jangan bagikan kepada pihak yang tidak berwenang.
+                    </p>
+                </div>
+                <div class="ml-auto flex-none">
+                    @if ($cred)
+                        <button type="button" wire:click="openCredentialModal" class="kis-btn kis-btn--outline kis-btn--sm">
+                            <x-heroicon-m-pencil-square class="h-4 w-4 kp-a-muted" /> Perbarui
+                        </button>
+                    @else
+                        <button type="button" wire:click="openCredentialModal" class="kis-btn kis-btn--primary kis-btn--sm">
+                            <x-heroicon-m-plus class="h-4 w-4" /> Tambah Kredensial
+                        </button>
+                    @endif
+                </div>
+            </header>
 
+            @if ($cred)
+                <div class="kp-pf-cred__table" role="table" aria-label="Kredensial akun">
+                    <div class="kp-pf-cred__row kp-pf-cred__row--head" role="row">
+                        <span role="columnheader">Layanan</span>
+                        <span role="columnheader">Akun / ID</span>
+                        <span role="columnheader">Kata sandi</span>
+                    </div>
+                    @foreach ($credRows as $row)
+                        <div class="kp-pf-cred__row" role="row">
+                            <b role="rowheader">{{ $row['service'] }}</b>
+                            @foreach ($row['fields'] as $f)
+                                <div class="kp-pf-cv" role="cell">
+                                    <span class="kp-pf-cv__label">{{ $f['label'] }}</span>
+                                    @if (filled($f['value']))
+                                        @if ($f['secret'])
+                                            <span class="kp-pf-cv__value kp-a-num" x-text="shown[@js($f['key'])] ? @js($f['value']) : '••••••••••'">••••••••••</span>
+                                            <button type="button" class="kp-pf-cv__btn" x-on:click="shown[@js($f['key'])] = ! shown[@js($f['key'])]"
+                                                    x-bind:title="shown[@js($f['key'])] ? 'Sembunyikan' : 'Tampilkan'"
+                                                    x-bind:aria-label="(shown[@js($f['key'])] ? 'Sembunyikan ' : 'Tampilkan ') + @js($f['label'] . ' ' . $row['service'])">
+                                                <span x-show="! shown[@js($f['key'])]"><x-heroicon-o-eye class="h-4 w-4" /></span>
+                                                <span x-show="shown[@js($f['key'])]" x-cloak><x-heroicon-o-eye-slash class="h-4 w-4" /></span>
+                                            </button>
+                                        @else
+                                            <span class="kp-pf-cv__value kp-a-num">{{ $f['value'] }}</span>
+                                        @endif
+                                        <button type="button" class="kp-pf-cv__btn" x-on:click="copy(@js($f['key']), @js($f['value']))"
+                                                title="Salin" aria-label="Salin {{ $f['label'] }} {{ $row['service'] }}">
+                                            <span x-show="copied !== @js($f['key'])"><x-heroicon-o-clipboard-document class="h-4 w-4" /></span>
+                                            <span x-show="copied === @js($f['key'])" x-cloak><x-heroicon-m-check class="h-4 w-4 kp-pf-cv__ok" /></span>
+                                        </button>
+                                    @else
+                                        <span class="kp-pf-cv__value kp-a-muted">Belum diisi</span>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <div class="kp-a-empty">
+                    <span class="kp-a-empty__icon"><x-heroicon-o-key class="h-5 w-5" /></span>
+                    <b>Belum Ada Kredensial</b>
+                    <span>Tambahkan kredensial akun untuk Core Tax, DJP Online, dan Email terdaftar.</span>
+                </div>
+            @endif
+        </section>
     @endif
-    @endif
 
-    {{-- ── SLIDE-OVER: EDIT / TAMBAH KREDENSIAL ───────────── --}}
-    <div
-        x-data="{ open: $wire.entangle('showCredentialModal') }"
-        x-show="open"
-        x-transition:enter="transition-opacity ease-out duration-300"
-        x-transition:enter-start="opacity-0"
-        x-transition:enter-end="opacity-100"
-        x-transition:leave="transition-opacity ease-in duration-200"
-        x-transition:leave-start="opacity-100"
-        x-transition:leave-end="opacity-0"
-        class="fixed inset-0 z-50 overflow-hidden"
-        style="display: none;">
+    {{-- Credential editor (slide-over) --}}
+    <div class="kp-pf-sheet" x-data="{ open: $wire.entangle('showCredentialModal') }" x-show="open" x-cloak
+         x-on:keydown.escape.window="open && $wire.closeCredentialModal()">
+        <div class="kp-pf-sheet__scrim" x-show="open" x-transition.opacity.duration.200ms x-on:click="$wire.closeCredentialModal()"></div>
 
-        {{-- Backdrop --}}
-        <div class="absolute inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm"
-            @click="$wire.closeCredentialModal()"></div>
-
-        {{-- Panel --}}
-        <div class="absolute inset-y-0 right-0 flex max-w-full pointer-events-none">
-            <div
-                x-show="open"
-                x-transition:enter="transform transition ease-in-out duration-300"
-                x-transition:enter-start="translate-x-full"
-                x-transition:enter-end="translate-x-0"
-                x-transition:leave="transform transition ease-in-out duration-200"
-                x-transition:leave-start="translate-x-0"
-                x-transition:leave-end="translate-x-full"
-                class="pointer-events-auto w-screen max-w-md flex flex-col bg-white dark:bg-slate-900 shadow-2xl border-l border-slate-200 dark:border-slate-800">
-
-                {{-- Header --}}
-                <div class="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex-shrink-0">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <div class="w-1 h-4 rounded-full bg-amber-400 flex-shrink-0"></div>
-                        <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                            {{ $selectedClient?->clientCredential ? 'Perbarui Kredensial' : 'Tambah Kredensial' }}
-                        </h2>
-                        @if($selectedClient?->name)
-                        <span class="text-xs text-slate-400 dark:text-slate-500 truncate">— {{ $selectedClient->name }}</span>
-                        @endif
-                    </div>
-                    <button wire:click="closeCredentialModal" type="button"
-                        class="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ml-2">
-                        <x-heroicon-o-x-mark class="h-4 w-4" />
-                    </button>
+        <div class="kp-pf-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="kp-pf-sheet-title"
+             x-show="open" x-trap.noscroll="open"
+             x-transition:enter="transition ease-out duration-250" x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
+             x-transition:leave="transition ease-in duration-200" x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full">
+            <header class="kp-pf-sheet__head">
+                <div class="min-w-0">
+                    <h2 id="kp-pf-sheet-title">{{ $selectedClient?->clientCredential ? 'Perbarui Kredensial' : 'Tambah Kredensial' }}</h2>
+                    @if ($selectedClient?->name)<p>{{ $selectedClient->name }}</p>@endif
                 </div>
+                <button type="button" wire:click="closeCredentialModal" class="kp-pf-cv__btn" aria-label="Tutup">
+                    <x-heroicon-o-x-mark class="h-5 w-5" />
+                </button>
+            </header>
 
-                {{-- Security notice --}}
-                <div class="flex items-center gap-2 px-5 py-2.5 bg-amber-50 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-900/20 flex-shrink-0">
-                    <x-heroicon-o-shield-exclamation class="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
-                    <p class="text-[11px] text-amber-700 dark:text-amber-500">Data tersimpan aman. Jangan bagikan kepada pihak yang tidak berwenang.</p>
-                </div>
+            <p class="kp-pf-sheet__note">
+                <x-heroicon-o-lock-closed class="h-4 w-4 flex-none" />
+                Data tersimpan aman. Jangan bagikan kepada pihak yang tidak berwenang.
+            </p>
 
-                {{-- Form Body --}}
-                <div class="flex-1 overflow-y-auto px-5 py-5 space-y-6">
-
-                    {{-- Core Tax --}}
-                    <div class="space-y-3">
-                        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Core Tax</p>
-
-                        <div>
-                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">User ID</label>
-                            <input wire:model="credCoreTaxUserId" type="text" autocomplete="off"
-                                class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-mono text-slate-800 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400 transition"
-                                placeholder="Masukkan User ID">
-                            @error('credCoreTaxUserId')<p class="mt-1 text-[11px] text-red-500">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div x-data="{ show: false }">
-                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Password</label>
-                            <div class="relative">
-                                <input wire:model="credCoreTaxPassword" :type="show ? 'text' : 'password'" autocomplete="new-password"
-                                    class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 pr-9 text-sm font-mono text-slate-800 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400 transition"
-                                    placeholder="Masukkan Password">
-                                <button type="button" @click="show = !show"
-                                    class="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                                    <x-heroicon-o-eye class="h-4 w-4" x-show="!show" />
-                                    <x-heroicon-o-eye-slash class="h-4 w-4" x-show="show" style="display:none" />
-                                </button>
+            <div class="kp-pf-sheet__body">
+                @foreach ([
+                    ['Core Tax', [['credCoreTaxUserId', 'User ID', 'text', 'Masukkan User ID'], ['credCoreTaxPassword', 'Password', 'password', 'Masukkan Password']]],
+                    ['DJP Online', [['credDjpAccount', 'Username', 'text', 'Masukkan Username DJP'], ['credDjpPassword', 'Password', 'password', 'Masukkan Password DJP']]],
+                    ['Email Terdaftar', [['credEmail', 'Email', 'email', 'nama@domain.com'], ['credEmailPassword', 'Password', 'password', 'Masukkan Password Email']]],
+                ] as [$group, $fields])
+                    <fieldset class="kp-pf-group">
+                        <legend class="kp-a-label">{{ $group }}</legend>
+                        @foreach ($fields as [$model, $label, $type, $placeholder])
+                            <div class="kp-pf-field" @if ($type === 'password') x-data="{ show: false }" @endif>
+                                <label for="kp-pf-{{ $model }}">{{ $label }}</label>
+                                <div class="kp-pf-field__control">
+                                    <input id="kp-pf-{{ $model }}" wire:model="{{ $model }}" placeholder="{{ $placeholder }}"
+                                           @if ($type === 'password') x-bind:type="show ? 'text' : 'password'" type="password" autocomplete="new-password"
+                                           @else type="{{ $type }}" autocomplete="off" @endif
+                                           @error($model) aria-invalid="true" @enderror>
+                                    @if ($type === 'password')
+                                        <button type="button" class="kp-pf-cv__btn" x-on:click="show = ! show" x-bind:aria-label="show ? 'Sembunyikan password' : 'Tampilkan password'">
+                                            <x-heroicon-o-eye class="h-4 w-4" x-show="! show" />
+                                            <x-heroicon-o-eye-slash class="h-4 w-4" x-show="show" x-cloak />
+                                        </button>
+                                    @endif
+                                </div>
+                                @error($model)<p class="kp-pf-field__error">{{ $message }}</p>@enderror
                             </div>
-                            @error('credCoreTaxPassword')<p class="mt-1 text-[11px] text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                    </div>
-
-                    <div class="h-px bg-slate-100 dark:bg-slate-800"></div>
-
-                    {{-- DJP Online --}}
-                    <div class="space-y-3">
-                        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">DJP Online</p>
-
-                        <div>
-                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Username</label>
-                            <input wire:model="credDjpAccount" type="text" autocomplete="off"
-                                class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-mono text-slate-800 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400 transition"
-                                placeholder="Masukkan Username DJP">
-                            @error('credDjpAccount')<p class="mt-1 text-[11px] text-red-500">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div x-data="{ show: false }">
-                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Password</label>
-                            <div class="relative">
-                                <input wire:model="credDjpPassword" :type="show ? 'text' : 'password'" autocomplete="new-password"
-                                    class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 pr-9 text-sm font-mono text-slate-800 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400 transition"
-                                    placeholder="Masukkan Password DJP">
-                                <button type="button" @click="show = !show"
-                                    class="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                                    <x-heroicon-o-eye class="h-4 w-4" x-show="!show" />
-                                    <x-heroicon-o-eye-slash class="h-4 w-4" x-show="show" style="display:none" />
-                                </button>
-                            </div>
-                            @error('credDjpPassword')<p class="mt-1 text-[11px] text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                    </div>
-
-                    <div class="h-px bg-slate-100 dark:bg-slate-800"></div>
-
-                    {{-- Email Terdaftar --}}
-                    <div class="space-y-3">
-                        <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Email Terdaftar</p>
-
-                        <div>
-                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Email</label>
-                            <input wire:model="credEmail" type="email" autocomplete="off"
-                                class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-mono text-slate-800 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400 transition"
-                                placeholder="nama@domain.com">
-                            @error('credEmail')<p class="mt-1 text-[11px] text-red-500">{{ $message }}</p>@enderror
-                        </div>
-
-                        <div x-data="{ show: false }">
-                            <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Password</label>
-                            <div class="relative">
-                                <input wire:model="credEmailPassword" :type="show ? 'text' : 'password'" autocomplete="new-password"
-                                    class="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 pr-9 text-sm font-mono text-slate-800 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-amber-400/60 focus:border-amber-400 transition"
-                                    placeholder="Masukkan Password Email">
-                                <button type="button" @click="show = !show"
-                                    class="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                                    <x-heroicon-o-eye class="h-4 w-4" x-show="!show" />
-                                    <x-heroicon-o-eye-slash class="h-4 w-4" x-show="show" style="display:none" />
-                                </button>
-                            </div>
-                            @error('credEmailPassword')<p class="mt-1 text-[11px] text-red-500">{{ $message }}</p>@enderror
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Footer --}}
-                <div class="flex items-center justify-end gap-3 px-5 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/80 flex-shrink-0">
-                    <button wire:click="closeCredentialModal" type="button"
-                        class="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">
-                        Batal
-                    </button>
-                    <button wire:click="saveCredentials" type="button"
-                        wire:loading.attr="disabled"
-                        wire:target="saveCredentials"
-                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-60 disabled:cursor-not-allowed rounded-lg transition-colors">
-                        <svg wire:loading wire:target="saveCredentials"
-                            class="animate-spin h-3.5 w-3.5 text-white"
-                            xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 22 6.477 22 12h-4z"></path>
-                        </svg>
-                        <span wire:loading.remove wire:target="saveCredentials">Simpan Kredensial</span>
-                        <span wire:loading wire:target="saveCredentials" style="display:none">Menyimpan...</span>
-                    </button>
-                </div>
+                        @endforeach
+                    </fieldset>
+                @endforeach
             </div>
+
+            <footer class="kp-pf-sheet__foot">
+                <button type="button" wire:click="closeCredentialModal" class="kis-btn kis-btn--outline">Batal</button>
+                <button type="button" wire:click="saveCredentials" wire:loading.attr="disabled" wire:target="saveCredentials" class="kis-btn kis-btn--primary">
+                    <x-filament::loading-indicator class="h-4 w-4" wire:loading wire:target="saveCredentials" />
+                    <span wire:loading.remove wire:target="saveCredentials">Simpan Kredensial</span>
+                    <span wire:loading wire:target="saveCredentials">Menyimpan...</span>
+                </button>
+            </footer>
         </div>
     </div>
 </div>

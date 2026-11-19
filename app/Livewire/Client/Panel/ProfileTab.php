@@ -2,21 +2,19 @@
 
 namespace App\Livewire\Client\Panel;
 
-use Livewire\Attributes\On;
+use App\Livewire\Client\Panel\Concerns\UsesCurrentClient;
 use Livewire\Component;
 use App\Models\Client;
 use App\Models\ClientCredential;
-use App\Models\UserClient;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
 class ProfileTab extends Component
 {
+    use UsesCurrentClient;
+
     public Collection $clients;
-    public ?int $selectedClientId = null;
-    public bool $isLoading = true;
-    public bool $showCredentials = false;
     public bool $showCredentialModal = false;
 
     public string $credCoreTaxUserId = '';
@@ -41,7 +39,7 @@ class ProfileTab extends Component
         'credEmail.email' => 'Format email tidak valid.',
     ];
 
-    protected $listeners = ['refreshProfile' => 'refresh', 'client-changed' => 'handleClientChange'];
+    protected $listeners = ['refreshProfile' => 'refresh'];
 
     public function mount()
     {
@@ -50,20 +48,7 @@ class ProfileTab extends Component
 
     protected function loadClientData()
     {
-        $this->isLoading = true;
-
-        $this->clients = UserClient::query()
-            ->where('user_id', auth()->id())
-            ->with(['client' => fn($q) => $q->select('id', 'name', 'logo', 'status', 'client_type')])
-            ->get()
-            ->pluck('client')
-            ->filter();
-
-        if ($this->clients->isNotEmpty() && !$this->selectedClientId) {
-            $this->selectedClientId = $this->clients->first()->id;
-        }
-
-        $this->isLoading = false;
+        $this->clients = $this->clientContext()->clients();
     }
 
     public function getSelectedClientProperty(): ?Client
@@ -92,20 +77,6 @@ class ProfileTab extends Component
         );
     }
 
-    #[On('client-switched')]
-    public function selectClient(int $clientId)
-    {
-        $this->selectedClientId = $clientId;
-        $this->clearClientCache();
-        $this->dispatch('client-changed', clientId: $clientId);
-    }
-
-    public function handleClientChange(int $clientId)
-    {
-        $this->selectedClientId = $clientId;
-        $this->clearClientCache();
-    }
-
     protected function clearClientCache()
     {
         if (!$this->selectedClientId) {
@@ -116,11 +87,6 @@ class ProfileTab extends Component
         $clientId = $this->selectedClientId;
 
         Cache::forget("profile_client_{$userId}_{$clientId}");
-    }
-
-    public function toggleCredentials()
-    {
-        $this->showCredentials = !$this->showCredentials;
     }
 
     public function openCredentialModal(): void
@@ -190,9 +156,7 @@ class ProfileTab extends Component
 
     protected function userOwnsClient(int $clientId): bool
     {
-        return UserClient::where('user_id', auth()->id())
-            ->where('client_id', $clientId)
-            ->exists();
+        return $this->clientContext()->owns($clientId);
     }
 
     protected function resetCredentialForm(): void
@@ -218,47 +182,29 @@ class ProfileTab extends Component
                 'name' => 'PPN',
                 'active' => $client->ppn_contract ?? false,
                 'description' => 'Pajak Pertambahan Nilai',
-                'icon' => 'document-currency-dollar',
             ],
             [
                 'name' => 'PPh 21',
                 'active' => $client->pph_contract ?? false,
                 'description' => 'Pajak Penghasilan Pasal 21',
-                'icon' => 'banknotes',
             ],
             [
                 'name' => 'PPh Unifikasi',
                 'active' => $client->bupot_contract ?? false,
                 'description' => 'Bukti Potong Unifikasi',
-                'icon' => 'document-check',
             ],
             [
                 'name' => 'PPh Badan',
                 'active' => $client->pph_badan_contract ?? false,
                 'description' => 'PPh Badan Tahunan',
-                'icon' => 'building-office',
             ],
         ];
-    }
-
-    public function maskString(string $value, int $visibleChars = 3): string
-    {
-        if (strlen($value) <= $visibleChars * 2) {
-            return str_repeat('*', strlen($value));
-        }
-
-        $start = substr($value, 0, $visibleChars);
-        $end = substr($value, -$visibleChars);
-        $middle = str_repeat('*', max(strlen($value) - ($visibleChars * 2), 4));
-
-        return $start . $middle . $end;
     }
 
     public function refresh()
     {
         $this->clearClientCache();
         $this->loadClientData();
-        $this->dispatch('profile-refreshed');
     }
 
     public function render()

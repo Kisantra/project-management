@@ -5,7 +5,6 @@ namespace App\Livewire\Client\Panel;
 use App\Filament\Resources\ClientResource;
 use App\Models\Client;
 use App\Models\ClientRequirementGroup;
-use App\Models\UserClient;
 use App\Models\ClientDocument;
 use App\Models\ClientDocumentRequirement;
 use App\Models\SopLegalDocument;
@@ -15,13 +14,16 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Textarea;
+use App\Support\Ui\Tone;
+use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\HtmlString;
 use Livewire\Component;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
+use App\Livewire\Client\Panel\Concerns\UsesCurrentClient;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -29,35 +31,66 @@ use Illuminate\Support\Str;
 class DocumentTab extends Component implements HasForms
 {
     use InteractsWithForms;
+    use UsesCurrentClient;
 
     public $clients = [];
-    public $selectedClientId = null;
 
     public $checklist = [];
     public $additionalDocuments = [];
     public $requiredAdditionalDocuments = [];
     public $groups = [];
-    public $stats = [];
 
     // Search and Filter
     public $searchQuery = '';
     public $statusFilter = 'all';
-    public $typeFilter = 'all';
+
+    /** Status filter options (key => label), in menu order. */
+    public const STATUS_FILTERS = [
+        'all' => 'Semua Status',
+        'valid' => 'Valid',
+        'pending' => 'Dalam Review',
+        'not_uploaded' => 'Belum Diunggah',
+        'expired' => 'Kedaluwarsa',
+        'rejected' => 'Ditolak',
+    ];
+
+    /** Badge per status key: [label, tone, dot]. Document statuses first, then requirement statuses. */
+    private const STATUS_BADGES = [
+        'valid' => ['Valid', Tone::BLUE, true],
+        'pending_review' => ['Menunggu Review', Tone::OUTLINE, true],
+        'rejected' => ['Ditolak', Tone::RED, true],
+        'expired' => ['Kedaluwarsa', Tone::RED, true],
+        'not_uploaded' => ['Belum Diunggah', Tone::NEUTRAL, false],
+        'required' => ['Belum Diunggah', Tone::NEUTRAL, false],
+        'overdue' => ['Terlambat', Tone::RED, true],
+        'fulfilled' => ['Terpenuhi', Tone::BLUE, true],
+        'pending' => ['Menunggu', Tone::OUTLINE, true],
+        'waived' => ['Dikecualikan', Tone::NEUTRAL, false],
+    ];
 
     // Modal state
+    #[Locked]
     public $currentClient = null;
     public $selectedSopId = null;
     public $uploadFile = [];
-    public $documentNumber = '';
+    /** Name of the file as the client chose it (FileUpload::storeFileNamesIn). */
+    public $uploadFileNames = [];
     public $documentName = '';
-    public $expiredAt = '';
     public $isAdditionalDocument = false;
     public $selectedRequirementId = null;
     public $documentToDelete = null;
     public $documentDescription = '';
 
     // Preview state
+    #[Locked]
     public $previewDocument = null;
+
+    /** Set when the page is opened with ?unggah=sop-{id} or ?unggah=req-{id} (links from Ringkasan). */
+    #[Locked]
+    public bool $openUploadOnLoad = false;
+
+    /** Latest uploaded document per requirement id, loaded once per request (see latestRequirementDocuments()). */
+    protected ?Collection $latestRequirementDocumentsMemo = null;
 
     // Cache duration (5 minutes)
     protected int $cacheDuration = 300;
@@ -66,72 +99,40 @@ class DocumentTab extends Component implements HasForms
     {
         $this->loadClients();
 
-        // Restore from session if the sidebar switcher has been used
-        $sessionClientId = session('client_panel_selected_client_id');
-        if ($sessionClientId && $this->clients->contains('id', (int) $sessionClientId)) {
-            $this->selectedClientId = (int) $sessionClientId;
+        if ($this->selectedClientId) {
             $this->loadClientData($this->selectedClientId);
-        } elseif ($this->clients->isNotEmpty()) {
-            $this->selectedClientId = $this->clients->first()->id;
-            $this->loadClientData($this->selectedClientId);
+            $this->openUploadFromQuery((string) request()->query('unggah', ''));
         }
     }
 
     /**
-     * Load all clients linked to current user with optimized query
+     * Ringkasan links straight to an upload: "sop-12" (SOP legal document) or
+     * "req-7" (requirement). Anything that isn't one of this company's items
+     * is ignored, so the page simply opens without the dialog.
      */
-    public function loadClients()
+    protected function openUploadFromQuery(string $target): void
     {
-        $userId = auth()->id();
-
-        // Get client IDs first (lightweight query)
-        $clientIds = UserClient::where('user_id', $userId)
-            ->pluck('client_id');
-
-        if ($clientIds->isEmpty()) {
-            $this->clients = collect([]);
+        if (! preg_match('/^(sop|req)-(\d+)$/', $target, $match) || ! $this->currentClient) {
             return;
         }
 
-        // Load clients with minimal data and eager load relationships
-        $this->clients = Client::whereIn('id', $clientIds)
-            ->select(['id', 'name', 'logo', 'client_type', 'pic_id', 'ar_id'])
-            ->with([
-                'pic:id,name',
-                'accountRepresentative:id,name'
-            ])
-            ->orderBy('name')
-            ->get()
-            ->map(function ($client) {
-                // Calculate stats using cached method
-                $client->document_stats = $this->getClientDocumentStats($client->id);
-                return $client;
-            });
+        $id = (int) $match[2];
+
+        if ($match[1] === 'sop' && $this->currentClient->getApplicableSopDocuments()->contains('id', $id)) {
+            $this->prepareUpload(sopId: $id);
+        } elseif ($match[1] === 'req' && ClientDocumentRequirement::where('client_id', $this->selectedClientId)->whereKey($id)->exists()) {
+            $this->prepareUpload(requirementId: $id);
+        } else {
+            return;
+        }
+
+        // The modal's Alpine component isn't listening yet during mount; the view opens it after init.
+        $this->openUploadOnLoad = true;
     }
 
-    /**
-     * Get document stats for a client (cached)
-     */
-    protected function getClientDocumentStats($clientId): array
+    public function loadClients()
     {
-        $userId = auth()->id();
-
-        return Cache::remember(
-            "client_doc_stats_{$userId}_{$clientId}",
-            $this->cacheDuration,
-            function () use ($clientId) {
-                $client = Client::find($clientId);
-                return $client ? $client->getLegalDocumentsStats() : [];
-            }
-        );
-    }
-
-    #[On('client-switched')]
-    public function selectClient($clientId)
-    {
-        $this->selectedClientId = $clientId;
-        $this->clearClientCache($clientId);
-        $this->loadClientData($clientId);
+        $this->clients = $this->clientContext()->clients();
     }
 
     /**
@@ -149,6 +150,8 @@ class DocumentTab extends Component implements HasForms
 
     public function loadClientData($clientId)
     {
+        $this->clientContext()->authorize($clientId);
+
         $this->currentClient = Client::find($clientId);
 
         if (!$this->currentClient) {
@@ -159,7 +162,6 @@ class DocumentTab extends Component implements HasForms
         $this->loadAdditionalDocuments();
         $this->loadRequiredAdditionalDocuments();
         $this->loadGroups();
-        $this->calculateStats();
     }
 
     /**
@@ -185,76 +187,68 @@ class DocumentTab extends Component implements HasForms
     {
         return $form
             ->schema([
-                Section::make()
-                    ->schema([
-                        Grid::make(2)
-                            ->schema([
-                                // For Legal Documents (SOP-based)
-                                Select::make('selectedSopId')
-                                    ->label('Jenis Dokumen')
-                                    ->options(function () {
-                                        if ($this->isAdditionalDocument || $this->selectedRequirementId || !$this->currentClient) {
-                                            return [];
-                                        }
-                                        return $this->currentClient->getApplicableSopDocuments()
-                                            ->pluck('name', 'id');
-                                    })
-                                    ->searchable()
-                                    ->required()
-                                    ->visible(fn() => !$this->isAdditionalDocument && !$this->selectedRequirementId)
-                                    ->columnSpan(2),
+                // For Legal Documents (SOP-based)
+                Select::make('selectedSopId')
+                    ->label('Jenis Dokumen')
+                    ->options(function () {
+                        if ($this->isAdditionalDocument || $this->selectedRequirementId || !$this->currentClient) {
+                            return [];
+                        }
+                        return $this->currentClient->getApplicableSopDocuments()
+                            ->pluck('name', 'id');
+                    })
+                    ->searchable()
+                    ->required()
+                    ->visible(fn() => !$this->isAdditionalDocument && !$this->selectedRequirementId),
 
-                                // For uploading to a requirement
-                                Select::make('selectedRequirementId')
-                                    ->label('Untuk Persyaratan')
-                                    ->options(function () {
-                                        if (!$this->currentClient)
-                                            return [];
-                                        return $this->currentClient->documentRequirements()
-                                            ->pending()
-                                            ->pluck('name', 'id');
-                                    })
-                                    ->searchable()
-                                    ->required()
-                                    ->visible(fn() => $this->selectedRequirementId)
-                                    ->disabled()
-                                    ->columnSpan(2),
+                // For uploading to a requirement
+                Select::make('selectedRequirementId')
+                    ->label('Untuk Persyaratan')
+                    ->options(function () {
+                        if (!$this->currentClient)
+                            return [];
+                        return $this->currentClient->documentRequirements()
+                            ->pluck('name', 'id');
+                    })
+                    ->required()
+                    ->visible(fn() => $this->selectedRequirementId)
+                    ->disabled(),
 
-                                // For additional documents
-                                TextInput::make('documentName')
-                                    ->label('Nama Dokumen')
-                                    ->placeholder('Masukkan nama dokumen')
-                                    ->required()
-                                    ->visible(fn() => $this->isAdditionalDocument && !$this->selectedRequirementId)
-                                    ->columnSpan(2),
-                            ]),
+                // For additional documents
+                TextInput::make('documentName')
+                    ->label('Nama Dokumen')
+                    ->placeholder('Masukkan nama dokumen')
+                    ->required()
+                    ->maxLength(150)
+                    ->visible(fn() => $this->isAdditionalDocument && !$this->selectedRequirementId),
 
-                        Textarea::make('documentDescription')
-                            ->label('Catatan')
-                            ->placeholder('Tambahkan catatan untuk dokumen ini (opsional)')
-                            ->rows(3)
-                            ->columnSpanFull(),
-
-                        FileUpload::make('uploadFile')
-                            ->label('File Dokumen')
-                            ->acceptedFileTypes([
-                                'application/pdf',
-                                'image/*',
-                                'application/msword',
-                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                                'application/vnd.ms-excel',
-                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                'text/csv',
-                            ])
-                            ->maxSize(10240) // 10MB
-                            ->required()
-                            ->helperText('Format: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX, CSV (Maks. 10MB)')
-                            ->disk('public')
-                            ->directory(fn() => $this->getUploadDirectory())
-                            ->visibility('private')
-                            ->uploadingMessage('Sedang mengupload...')
-                            ->columnSpanFull(),
+                FileUpload::make('uploadFile')
+                    ->label('File Dokumen')
+                    ->acceptedFileTypes([
+                        'application/pdf',
+                        'image/*',
+                        'application/msword',
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        'application/vnd.ms-excel',
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        'text/csv',
                     ])
+                    ->maxSize(10240) // 10MB
+                    ->required()
+                    ->placeholder(new HtmlString('Seret file ke sini atau <span class="filepond--label-action">pilih file</span>'))
+                    ->helperText('Format: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX, CSV (Maks. 10MB)')
+                    ->disk('public')
+                    ->directory(fn() => $this->getUploadDirectory())
+                    // getState() already stores the file under a random name; keep the client's name for display and download.
+                    ->storeFileNamesIn('uploadFileNames')
+                    ->visibility('private')
+                    ->uploadingMessage('Sedang mengunggah...'),
+
+                Textarea::make('documentDescription')
+                    ->label('Catatan')
+                    ->placeholder('Tambahkan catatan untuk dokumen ini (opsional)')
+                    ->rows(3)
+                    ->maxLength(1000),
             ]);
     }
 
@@ -379,25 +373,28 @@ class DocumentTab extends Component implements HasForms
         );
     }
 
-    public function calculateStats()
-    {
-        if (!$this->currentClient) {
-            $this->stats = [];
-            return;
-        }
-
-        $this->stats = $this->getClientDocumentStats($this->currentClient->id);
-    }
-
     public function openUploadModal($clientId, $sopId = null, $isAdditional = false, $requirementId = null)
     {
-        $this->currentClient = Client::find($clientId);
+        // The client id from the view is ignored beyond this check: uploads always go to the selected company.
+        abort_unless((int) $clientId === $this->selectedClientId, 403);
+        abort_if($requirementId && ! ClientDocumentRequirement::where('client_id', $this->selectedClientId)->whereKey($requirementId)->exists(), 403);
+
+        $this->prepareUpload(
+            sopId: $sopId ? (int) $sopId : null,
+            isAdditional: (bool) $isAdditional,
+            requirementId: $requirementId ? (int) $requirementId : null,
+        );
+
+        $this->dispatch('open-modal', id: 'upload-document-modal');
+    }
+
+    protected function prepareUpload(?int $sopId = null, bool $isAdditional = false, ?int $requirementId = null): void
+    {
+        $this->currentClient = Client::find($this->selectedClientId);
         $this->selectedSopId = $sopId;
         $this->isAdditionalDocument = $isAdditional;
         $this->selectedRequirementId = $requirementId;
         $this->resetModalFields();
-
-        $this->dispatch('open-modal', id: 'upload-document-modal');
     }
 
     public function closeUploadModal()
@@ -409,15 +406,10 @@ class DocumentTab extends Component implements HasForms
     private function resetModalFields()
     {
         $this->uploadFile = [];
-        $this->documentNumber = '';
+        $this->uploadFileNames = [];
         $this->documentName = '';
-        $this->expiredAt = '';
         $this->documentDescription = '';
-
-        if (!$this->selectedSopId && !$this->selectedRequirementId) {
-            $this->selectedSopId = null;
-            $this->selectedRequirementId = null;
-        }
+        $this->resetValidation();
     }
 
     public function uploadDocument()
@@ -431,6 +423,10 @@ class DocumentTab extends Component implements HasForms
             return;
         }
 
+        // Both ids are public properties, so check them again against the selected company.
+        abort_if($this->selectedRequirementId && ! ClientDocumentRequirement::where('client_id', $this->selectedClientId)->whereKey($this->selectedRequirementId)->exists(), 403);
+        abort_if(! $this->isAdditionalDocument && ! $this->selectedRequirementId && ! $this->currentClient->getApplicableSopDocuments()->contains('id', (int) $this->selectedSopId), 403);
+
         $data = $this->form->getState();
 
         try {
@@ -442,7 +438,9 @@ class DocumentTab extends Component implements HasForms
                 if (is_object($uploadedFile) && method_exists($uploadedFile, 'getClientOriginalName')) {
                     $originalName = $uploadedFile->getClientOriginalName();
                 } else {
-                    $originalName = basename($uploadedFile);
+                    // Single uploads keep one name (a string); multiple uploads would be keyed by path.
+                    $names = $this->uploadFileNames;
+                    $originalName = (is_string($names) && $names !== '' ? $names : collect($names)->get($uploadedFile)) ?? basename($uploadedFile);
                 }
 
                 // Create sanitized filename with timestamp
@@ -467,13 +465,13 @@ class DocumentTab extends Component implements HasForms
                     'user_id' => auth()->id(),
                     'file_path' => $filePath,
                     'original_filename' => $originalName,
-                    'description' => $data['documentDescription'] ?? null,
+                    'description' => $this->descriptionFor($data),
                     'status' => 'pending_review',
                 ];
 
                 // Link to SOP Legal Document
                 if (!$this->isAdditionalDocument && !$this->selectedRequirementId && $this->selectedSopId) {
-                    $documentData['sop_legal_document_id'] = $data['selectedSopId'];
+                    $documentData['sop_legal_document_id'] = (int) $this->selectedSopId;
                 }
 
                 // Link to Requirement
@@ -499,15 +497,15 @@ class DocumentTab extends Component implements HasForms
                 $this->loadClients(); // Refresh stats
 
                 Notification::make()
-                    ->title('Berhasil!')
-                    ->body('Dokumen berhasil diupload dan menunggu review!')
+                    ->title('Dokumen terunggah')
+                    ->body('Dokumen berhasil diunggah dan menunggu review tim Kisantra.')
                     ->success()
                     ->duration(3000)
                     ->send();
             } else {
                 Notification::make()
-                    ->title('Error!')
-                    ->body('Tidak ada file yang diupload')
+                    ->title('Belum ada file')
+                    ->body('Pilih file yang akan diunggah.')
                     ->warning()
                     ->duration(3000)
                     ->send();
@@ -517,17 +515,45 @@ class DocumentTab extends Component implements HasForms
             \Log::error('Document upload error: ' . $e->getMessage());
 
             Notification::make()
-                ->title('Error!')
-                ->body('Gagal mengupload dokumen: ' . $e->getMessage())
+                ->title('Gagal mengunggah')
+                ->body('Gagal mengunggah dokumen: ' . $e->getMessage())
                 ->danger()
                 ->duration(5000)
                 ->send();
         }
     }
 
+    /**
+     * client_documents has one free-text column. For an additional document it
+     * holds the name on the first line and the optional note below it (see
+     * splitDescription()); for SOP and requirement uploads it is the note.
+     */
+    protected function descriptionFor(array $data): ?string
+    {
+        $note = trim((string) ($data['documentDescription'] ?? '')) ?: null;
+
+        if ($this->isAdditionalDocument && ! $this->selectedRequirementId) {
+            $name = trim((string) ($data['documentName'] ?? ''));
+
+            return $note ? $name . "\n" . $note : ($name ?: null);
+        }
+
+        return $note;
+    }
+
+    /** @return array{0: ?string, 1: ?string} first line, rest */
+    protected static function splitDescription(?string $description): array
+    {
+        $parts = preg_split('/\R/', trim((string) $description), 2);
+
+        return [trim($parts[0] ?? '') ?: null, trim($parts[1] ?? '') ?: null];
+    }
+
     public function downloadDocument($documentId)
     {
-        $document = ClientDocument::with(['client', 'requirement', 'sopLegalDocument'])->find($documentId);
+        $document = ClientDocument::with(['client', 'requirement', 'sopLegalDocument'])
+            ->where('client_id', $this->selectedClientId)
+            ->find($documentId);
 
         if (!$document || !$document->file_path) {
             Notification::make()
@@ -560,7 +586,7 @@ class DocumentTab extends Component implements HasForms
                 return;
             }
 
-            $document = ClientDocument::find($this->documentToDelete);
+            $document = ClientDocument::where('client_id', $this->selectedClientId)->find($this->documentToDelete);
 
             if (!$document) {
                 Notification::make()
@@ -617,7 +643,7 @@ class DocumentTab extends Component implements HasForms
 
     public function deleteDocumentConfirm($documentId)
     {
-        $document = ClientDocument::find($documentId);
+        $document = ClientDocument::where('client_id', $this->selectedClientId)->find($documentId);
 
         // Check if user can delete this document
         if (!$document || $document->user_id !== auth()->id() || $document->status === 'valid') {
@@ -641,7 +667,9 @@ class DocumentTab extends Component implements HasForms
 
     public function previewDocuments($documentId)
     {
-        $this->previewDocument = ClientDocument::with(['user:id,name', 'requirement', 'sopLegalDocument'])->find($documentId);
+        $this->previewDocument = ClientDocument::with(['user:id,name', 'requirement', 'sopLegalDocument'])
+            ->where('client_id', $this->selectedClientId)
+            ->find($documentId);
 
         if ($this->previewDocument) {
             $this->dispatch('open-modal', id: 'preview-document-modal');
@@ -672,7 +700,9 @@ class DocumentTab extends Component implements HasForms
         }
 
         try {
-            $document = ClientDocument::with(['user:id,name', 'requirement', 'sopLegalDocument'])->findOrFail($documentId);
+            $document = ClientDocument::with(['user:id,name', 'requirement', 'sopLegalDocument'])
+                ->where('client_id', $this->selectedClientId)
+                ->findOrFail($documentId);
 
             $document->update([
                 'status' => $status,
@@ -877,79 +907,345 @@ class DocumentTab extends Component implements HasForms
         }
     }
 
+    public function updatedStatusFilter($value): void
+    {
+        if (! array_key_exists((string) $value, self::STATUS_FILTERS)) {
+            $this->statusFilter = 'all';
+        }
+    }
+
     /**
-     * Filter documents based on search and filters
+     * Latest uploaded document per requirement, in one query. The view used to
+     * call getLatestDocument() (a query each time) several times per row.
+     *
+     * @return Collection<int, ClientDocument>
      */
-    public function getFilteredChecklistProperty()
+    protected function latestRequirementDocuments(): Collection
     {
-        return $this->filterDocuments($this->checklist);
-    }
-
-    public function getFilteredRequirementsProperty()
-    {
-        return $this->filterDocuments($this->requiredAdditionalDocuments, true);
-    }
-
-    public function getFilteredAdditionalDocsProperty()
-    {
-        return $this->filterDocuments($this->additionalDocuments);
-    }
-
-    protected function filterDocuments($documents, $isRequirement = false)
-    {
-        $filtered = $documents;
-
-        // Apply search filter
-        if (!empty($this->searchQuery)) {
-            $search = strtolower($this->searchQuery);
-            $filtered = $filtered->filter(function ($doc) use ($search, $isRequirement) {
-                if ($isRequirement) {
-                    // For requirements
-                    $name = strtolower($doc->name ?? '');
-                    $description = strtolower($doc->description ?? '');
-                    return str_contains($name, $search) || str_contains($description, $search);
-                } else {
-                    // For documents (array or object)
-                    if (is_array($doc)) {
-                        $name = strtolower($doc['name'] ?? '');
-                        $description = strtolower($doc['description'] ?? '');
-                    } else {
-                        $name = strtolower($doc->description ?? $doc->original_filename ?? '');
-                        $description = strtolower($doc->admin_notes ?? '');
-                    }
-                    return str_contains($name, $search) || str_contains($description, $search);
-                }
-            });
+        if ($this->latestRequirementDocumentsMemo !== null) {
+            return $this->latestRequirementDocumentsMemo;
         }
 
-        // Apply status filter
-        if ($this->statusFilter !== 'all') {
-            $filtered = $filtered->filter(function ($doc) use ($isRequirement) {
-                if ($isRequirement) {
-                    $latestDoc = $doc->getLatestDocument();
-                    $status = $latestDoc ? $latestDoc->status : $doc->status;
-                } else {
-                    if (is_array($doc)) {
-                        $status = $doc['is_uploaded']
-                            ? ($doc['uploaded_document']->status ?? 'pending_review')
-                            : 'not_uploaded';
-                    } else {
-                        $status = $doc->status ?? 'not_uploaded';
-                    }
-                }
+        $ids = collect($this->requiredAdditionalDocuments)->pluck('id')->filter();
 
-                return match ($this->statusFilter) {
-                    'valid' => $status === 'valid',
-                    'pending' => in_array($status, ['pending_review', 'pending']),
-                    'not_uploaded' => in_array($status, ['not_uploaded', 'required']),
-                    'expired' => $status === 'expired',
-                    'rejected' => $status === 'rejected',
-                    default => true,
-                };
-            });
+        return $this->latestRequirementDocumentsMemo = $ids->isEmpty()
+            ? collect()
+            : ClientDocument::query()
+                ->where('client_id', $this->selectedClientId)
+                ->whereIn('requirement_id', $ids)
+                ->whereNotNull('file_path')
+                ->with('user:id,name')
+                ->orderByDesc('created_at')
+                ->orderByDesc('id')
+                ->get()
+                ->unique('requirement_id')
+                ->keyBy('requirement_id');
+    }
+
+    /** Status key used by the filter and the badge: the document's status, or why there is none. */
+    protected function legalStatus(array $item): string
+    {
+        return $item['is_uploaded'] ? ($item['uploaded_document']->status ?? 'pending_review') : 'not_uploaded';
+    }
+
+    protected function requirementStatus(ClientDocumentRequirement $requirement): string
+    {
+        if ($document = $this->latestRequirementDocuments()->get($requirement->id)) {
+            return $document->status ?? 'pending_review';
         }
 
-        return $filtered;
+        return match (true) {
+            $requirement->isOverdue() => 'overdue',
+            in_array($requirement->status, ['fulfilled', 'waived'], true) => $requirement->status,
+            default => 'not_uploaded',
+        };
+    }
+
+    protected static function isExpired(?ClientDocument $document): bool
+    {
+        return $document !== null
+            && ($document->status === 'expired' || ($document->expired_at && Carbon::parse($document->expired_at)->isPast()));
+    }
+
+    protected function matchesStatus(string $status, ?ClientDocument $document, ?string $filter = null): bool
+    {
+        return match ($filter ?? $this->statusFilter) {
+            'valid' => $status === 'valid',
+            'pending' => $status === 'pending_review',
+            'not_uploaded' => in_array($status, ['not_uploaded', 'overdue'], true),
+            'expired' => self::isExpired($document),
+            'rejected' => $status === 'rejected',
+            default => true,
+        };
+    }
+
+    protected function matchesSearch(?string ...$haystack): bool
+    {
+        $needle = mb_strtolower(trim((string) $this->searchQuery));
+
+        return $needle === '' || str_contains(mb_strtolower(implode(' ', array_filter($haystack))), $needle);
+    }
+
+    /** "31 Mei 2026": the app locale is still English, the portal copy is not. */
+    protected static function date($value): ?string
+    {
+        return $value ? Carbon::parse($value)->locale('id')->translatedFormat('d M Y') : null;
+    }
+
+    /** @return array{label: string, tone: string, dot: bool} */
+    protected static function badge(string $status): array
+    {
+        [$label, $tone, $dot] = self::STATUS_BADGES[$status] ?? ['Tidak Diketahui', Tone::NEUTRAL, false];
+
+        return ['label' => $label, 'tone' => $tone, 'dot' => $dot];
+    }
+
+    /** Meta parts shared by uploaded documents: number, validity date, admin note. */
+    protected static function documentMeta(?ClientDocument $document, int $noteLimit = 55): array
+    {
+        if (! $document) {
+            return [];
+        }
+
+        $meta = [];
+
+        if ($document->document_number) {
+            $meta[] = ['text' => 'No. ' . $document->document_number, 'tone' => null];
+        }
+
+        if ($document->expired_at) {
+            $expired = Carbon::parse($document->expired_at)->isPast();
+            $meta[] = ['text' => 's.d. ' . self::date($document->expired_at) . ($expired ? ', kedaluwarsa' : ''), 'tone' => $expired ? 'red' : null];
+        }
+
+        if ($document->admin_notes) {
+            $meta[] = ['text' => 'Catatan admin: ' . Str::limit($document->admin_notes, $noteLimit), 'tone' => null];
+        }
+
+        return $meta;
+    }
+
+    protected function legalRow(array $item): array
+    {
+        $document = $item['is_uploaded'] ? $item['uploaded_document'] : null;
+
+        return [
+            'key' => 'sop-' . $item['sop_id'],
+            'state' => $document ? 'ok' : 'missing',
+            'name' => $item['name'],
+            'tags' => $item['is_required'] ? [['text' => 'Wajib', 'tone' => Tone::OUTLINE]] : [],
+            'meta' => self::documentMeta($document),
+            'status' => self::badge($this->legalStatus($item)),
+            'actions' => $document
+                ? [['preview', $document->id], ['download', $document->id], ['reupload', 'sop', $item['sop_id']]]
+                : [['upload', 'sop', $item['sop_id']]],
+        ];
+    }
+
+    protected function requirementRow(ClientDocumentRequirement $requirement, bool $withCategory = false, bool $child = false): array
+    {
+        $document = $this->latestRequirementDocuments()->get($requirement->id);
+        $overdue = $requirement->isOverdue();
+
+        $tags = [];
+        if ($requirement->is_required) {
+            $tags[] = ['text' => 'Wajib', 'tone' => Tone::OUTLINE];
+        }
+        // Without a document the status badge already says "Terlambat".
+        if ($overdue && $document) {
+            $tags[] = ['text' => 'Terlambat', 'tone' => Tone::RED];
+        }
+        if ($withCategory) {
+            $tags[] = ['text' => $requirement->category_badge['text'], 'tone' => Tone::NEUTRAL];
+        }
+
+        $meta = [];
+        if ($requirement->due_date) {
+            $meta[] = ['text' => 'Tenggat ' . self::date($requirement->due_date), 'tone' => $overdue ? 'red' : null];
+        }
+        if ($requirement->description) {
+            $meta[] = ['text' => Str::limit($requirement->description, $withCategory ? 60 : 50), 'tone' => null];
+        }
+
+        $actions = [['upload', 'req', $requirement->id]];
+        if ($document) {
+            $actions = [['preview', $document->id]];
+            if ($document->status !== 'valid') {
+                $actions[] = ['reupload', 'req', $requirement->id];
+            }
+        }
+
+        return [
+            'key' => 'req-' . $requirement->id,
+            'state' => $document ? 'ok' : 'missing',
+            'child' => $child,
+            'name' => $requirement->name,
+            'tags' => $tags,
+            'meta' => $meta,
+            'status' => self::badge($this->requirementStatus($requirement)),
+            'actions' => $actions,
+        ];
+    }
+
+    protected function additionalRow(ClientDocument $document): array
+    {
+        [$title, $note] = self::splitDescription($document->description);
+        $title ??= $document->original_filename;
+
+        $meta = [];
+        if ($document->original_filename && $document->original_filename !== $title) {
+            $meta[] = ['text' => $document->original_filename, 'tone' => null, 'file' => true];
+        }
+        $meta[] = ['text' => self::date($document->created_at), 'tone' => null];
+        if ($note) {
+            $meta[] = ['text' => Str::limit($note, 60), 'tone' => null];
+        }
+        if ($document->admin_notes) {
+            $meta[] = ['text' => 'Catatan admin: ' . Str::limit($document->admin_notes, 40), 'tone' => null];
+        }
+
+        $actions = [['preview', $document->id], ['download', $document->id]];
+        // Same rule as deleteDocument(): own upload, not yet validated.
+        if ($document->status !== 'valid' && (int) $document->user_id === (int) auth()->id()) {
+            $actions[] = ['delete', $document->id];
+        }
+
+        return [
+            'key' => 'doc-' . $document->id,
+            'state' => 'ok',
+            'name' => $title,
+            'tags' => [],
+            'meta' => $meta,
+            'status' => self::badge($document->status ?? 'pending_review'),
+            'actions' => $actions,
+        ];
+    }
+
+    /** Everything the view draws, filtered by search and status; the summary strip is unfiltered. */
+    protected function viewData(): array
+    {
+        $checklist = collect($this->checklist);
+        $requirements = collect($this->requiredAdditionalDocuments);
+        $additional = collect($this->additionalDocuments);
+        $latest = $this->latestRequirementDocuments();
+
+        // Status of every item, unfiltered: the strip and the counts in the status menu.
+        $statuses = collect()
+            ->concat($checklist->map(fn ($item) => [$this->legalStatus($item), $item['is_uploaded'] ? $item['uploaded_document'] : null]))
+            ->concat($requirements->map(fn ($r) => [$this->requirementStatus($r), $latest->get($r->id)]))
+            ->concat($additional->map(fn ($d) => [$d->status ?? 'pending_review', $d]));
+
+        $valid = $statuses->where(0, 'valid')->count();
+        $total = $statuses->count();
+        $needUpload = $statuses->filter(fn ($s) => in_array($s[0], ['not_uploaded', 'overdue'], true))->count();
+
+        $stats = [
+            'total' => $total,
+            'valid' => $valid,
+            'review' => $statuses->where(0, 'pending_review')->count(),
+            'need' => $needUpload,
+            'pct' => $total > 0 ? (int) round($valid / $total * 100) : 0,
+        ];
+
+        $filterCounts = collect(self::STATUS_FILTERS)->map(
+            fn ($label, $key) => $statuses->filter(fn ($s) => $this->matchesStatus($s[0], $s[1], $key))->count()
+        );
+
+        $legal = $checklist
+            ->filter(fn ($item) => $this->matchesSearch($item['name'], $item['description'] ?? null)
+                && $this->matchesStatus($this->legalStatus($item), $item['is_uploaded'] ? $item['uploaded_document'] : null))
+            ->map(fn ($item) => $this->legalRow($item))
+            ->values();
+
+        $requirementMatches = fn (ClientDocumentRequirement $r) => $this->matchesSearch($r->name, $r->description)
+            && $this->matchesStatus($this->requirementStatus($r), $latest->get($r->id));
+
+        $groups = collect($this->groups)->map(function (array $group) use ($requirements, $requirementMatches) {
+            $all = $requirements->where('group_id', $group['id']);
+            $done = $all->filter(fn ($r) => ($doc = $this->latestRequirementDocuments()->get($r->id))
+                ? $doc->status === 'valid'
+                : $r->status === 'fulfilled')->count();
+            // Cached as an array: the date is an ISO string in UTC, so bring it back to the app's timezone.
+            $due = $group['due_date'] ? Carbon::parse($group['due_date'])->timezone(config('app.timezone')) : null;
+
+            return [
+                'id' => $group['id'],
+                'name' => $group['name'],
+                'year' => $group['year'],
+                'overdue' => $due?->isPast() ?? false,
+                'due' => self::date($due),
+                'done' => $done,
+                'total' => $all->count(),
+                'pct' => $all->count() > 0 ? (int) round($done / $all->count() * 100) : 0,
+                'rows' => $all->filter($requirementMatches)->map(fn ($r) => $this->requirementRow($r, child: true))->values(),
+            ];
+        });
+
+        $filtering = $this->filtersActive();
+
+        return [
+            'stats' => $stats,
+            'filterCounts' => $filterCounts,
+            'filtering' => $filtering,
+            'statusLabel' => self::STATUS_FILTERS[$this->statusFilter] ?? self::STATUS_FILTERS['all'],
+            'legalRows' => $legal,
+            // While filtering, a group without matches would only be noise.
+            'groupBlocks' => $filtering ? $groups->filter(fn ($g) => $g['rows']->isNotEmpty())->values() : $groups,
+            'groupCount' => $groups->count(),
+            'otherRequirementRows' => $requirements
+                ->filter(fn ($r) => is_null($r->group_id))
+                ->filter($requirementMatches)
+                ->map(fn ($r) => $this->requirementRow($r, withCategory: true))
+                ->values(),
+            'additionalRows' => $additional
+                ->filter(function ($d) {
+                    [$title, $note] = self::splitDescription($d->description);
+
+                    return $this->matchesSearch($title, $note, $d->original_filename, $d->admin_notes)
+                        && $this->matchesStatus($d->status ?? 'pending_review', $d);
+                })
+                ->map(fn ($d) => $this->additionalRow($d))
+                ->values(),
+            'additionalTotal' => $additional->count(),
+            'preview' => $this->previewData(),
+        ];
+    }
+
+    /** What the preview modal shows for $previewDocument. */
+    protected function previewData(): ?array
+    {
+        $document = $this->previewDocument;
+
+        if (! $document) {
+            return null;
+        }
+
+        $extension = strtolower(pathinfo($document->file_path ?? '', PATHINFO_EXTENSION));
+        $isAdditional = ! $document->requirement && ! $document->sopLegalDocument;
+        [$title, $rest] = self::splitDescription($document->description);
+
+        return [
+            'id' => $document->id,
+            'url' => $document->file_path ? asset('storage/' . $document->file_path) : null,
+            'kind' => in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true) ? 'image' : ($extension === 'pdf' ? 'pdf' : 'other'),
+            'title' => $document->requirement?->name ?? $document->sopLegalDocument?->name ?? $title ?? $document->original_filename,
+            'label' => $document->requirement ? 'Persyaratan' : ($document->sopLegalDocument ? 'Jenis Dokumen' : 'Dokumen'),
+            'note' => $isAdditional ? $rest : (trim((string) $document->description) ?: null),
+            'filename' => $document->original_filename,
+            'uploader' => $document->user->name ?? '-',
+            'uploadedAgo' => $document->created_at?->locale('id')->diffForHumans(),
+            'uploadedAt' => $document->created_at?->locale('id')->translatedFormat('d M Y, H:i'),
+            'number' => $document->document_number,
+            'expires' => self::date($document->expired_at),
+            'expired' => self::isExpired($document),
+            'adminNotes' => $document->admin_notes,
+            'badge' => self::badge($document->status ?? 'pending_review'),
+        ];
+    }
+
+    protected function filtersActive(): bool
+    {
+        return trim((string) $this->searchQuery) !== '' || $this->statusFilter !== 'all';
     }
 
     /**
@@ -959,11 +1255,10 @@ class DocumentTab extends Component implements HasForms
     {
         $this->searchQuery = '';
         $this->statusFilter = 'all';
-        $this->typeFilter = 'all';
     }
 
     public function render()
     {
-        return view('livewire.client.panel.document-tab');
+        return view('livewire.client.panel.document-tab', $this->selectedClientId && $this->currentClient ? $this->viewData() : []);
     }
 }

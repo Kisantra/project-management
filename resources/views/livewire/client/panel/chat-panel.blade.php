@@ -49,7 +49,7 @@
             }
         }
     }"
-    class="flex h-full flex-col overflow-hidden bg-white dark:bg-gray-950"
+    @class(['flex h-full flex-col overflow-hidden', 'kp-cp' => $compact, 'bg-white dark:bg-gray-950' => ! $compact])
 >
     @if (!$hasClients)
         <div class="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
@@ -63,256 +63,122 @@
         </div>
     @else
 
-        {{-- ═══════════════════════════════════════════════
-             COMPACT / FLOATING MODE  (single-column panels)
-        ════════════════════════════════════════════════ --}}
+        {{-- Compact mode: the floating chat of the client portal (chat.css). --}}
         @if ($compact)
+            @php
+                $typeLabels = ['client_support' => 'Layanan klien', 'project' => 'Proyek', 'tax_report' => 'Laporan pajak'];
+                $initial = fn (?string $name) => mb_strtoupper(mb_substr(trim((string) $name) ?: '?', 0, 1));
+            @endphp
 
-            {{-- ── THREADS VIEW ───────────────────────────── --}}
-            <div x-show="view === 'threads'" class="flex h-full flex-col overflow-hidden">
-
-                {{-- Header --}}
-                <div class="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-950">
-                    <div class="flex items-center gap-2.5">
-                        <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-cyan-700">
-                            <x-heroicon-o-chat-bubble-left-right class="h-4 w-4 text-white" />
-                        </div>
-                        <div>
-                            <p class="text-sm font-semibold text-gray-900 dark:text-white">
-                                {{ $showAllClients ? 'Semua Percakapan' : ($selectedClient?->name ?? 'Chat') }}
-                            </p>
-                            <p class="text-[11px] text-gray-400">{{ $threads->count() }} percakapan aktif</p>
-                        </div>
+            {{-- Threads --}}
+            <div x-show="view === 'threads'" class="kp-cp__pane">
+                <div class="kp-cp__head">
+                    <div class="kp-cp__title">
+                        <b>{{ $showAllClients ? 'Semua Percakapan' : ($selectedClient?->name ?? 'Chat') }}</b>
+                        <small>{{ $threads->count() }} percakapan aktif</small>
                     </div>
-                    <button
-                        type="button"
-                        wire:click="toggleNewThreadForm"
-                        title="Percakapan baru"
-                        class="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-gray-500 transition hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-600 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-cyan-600 dark:hover:text-cyan-400"
-                    >
-                        <x-heroicon-o-plus class="h-4 w-4" />
+                    <button type="button" wire:click="toggleNewThreadForm" class="kp-cp__icon" title="Percakapan baru" aria-label="Percakapan baru">
+                        <x-heroicon-m-plus class="h-4 w-4" />
                     </button>
                 </div>
 
-                {{-- New thread form --}}
                 @if ($showNewThreadForm)
-                    <form
-                        wire:submit.prevent="createThread"
-                        class="shrink-0 border-b border-gray-100 bg-gray-50/80 px-4 py-3 dark:border-gray-800 dark:bg-gray-900/60"
-                    >
-                        <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Percakapan Baru</p>
-                        <div class="space-y-2">
-                            @if ($showAllClients)
-                                <select
-                                    wire:model.defer="newThreadClientId"
-                                    class="w-full rounded-lg border-gray-200 bg-white text-sm text-gray-700 shadow-sm focus:border-cyan-400 focus:ring-cyan-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                                >
-                                    @foreach ($clients as $client)
-                                        <option value="{{ $client->id }}">{{ $client->name }}</option>
-                                    @endforeach
-                                </select>
-                            @endif
-
-                            <div class="flex gap-2">
-                                <input
-                                    type="text"
-                                    wire:model.defer="newThreadTitle"
-                                    placeholder="Judul percakapan (opsional)"
-                                    class="min-w-0 flex-1 rounded-lg border-gray-200 bg-white text-sm text-gray-700 shadow-sm placeholder:text-gray-400 focus:border-cyan-400 focus:ring-cyan-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                                />
-                                <button
-                                    type="submit"
-                                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-cyan-600 text-white transition hover:bg-cyan-700"
-                                >
-                                    <x-heroicon-o-check class="h-4 w-4" />
-                                </button>
-                            </div>
+                    <form wire:submit.prevent="createThread" class="kp-cp__new">
+                        <p class="kp-cp__label">Percakapan baru</p>
+                        @if ($showAllClients)
+                            <select wire:model.defer="newThreadClientId" class="kp-cp__field">
+                                @foreach ($clients as $client)
+                                    <option value="{{ $client->id }}">{{ $client->name }}</option>
+                                @endforeach
+                            </select>
+                        @endif
+                        <div class="kp-cp__row">
+                            <input type="text" wire:model.defer="newThreadTitle" placeholder="Judul percakapan (opsional)" class="kp-cp__field" />
+                            <button type="submit" class="kp-cp__send" title="Buat percakapan" aria-label="Buat percakapan">
+                                <x-heroicon-m-check class="h-4 w-4" />
+                            </button>
                         </div>
-                        @error('newThreadClientId')
-                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                        @enderror
-                        @error('newThreadTitle')
-                            <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                        @enderror
+                        @error('newThreadClientId') <p class="kp-cp__error">{{ $message }}</p> @enderror
+                        @error('newThreadTitle') <p class="kp-cp__error">{{ $message }}</p> @enderror
                     </form>
                 @endif
 
-                {{-- Thread list --}}
-                <div class="flex-1 overflow-y-auto">
+                <div class="kp-cp__list">
                     @forelse ($threads as $thread)
                         @php
                             $latestMsg = $thread->latestMessage;
-                            $isActive  = $activeThread?->id === $thread->id;
-                            $clientInitial = strtoupper(substr($thread->client?->name ?? '?', 0, 1));
+                            $isActive = $activeThread?->id === $thread->id;
                         @endphp
-
-                        <button
-                            type="button"
-                            wire:click="selectThread({{ $thread->id }})"
-                            class="group flex w-full items-start gap-3 border-b border-gray-100 px-4 py-3 text-left transition-colors dark:border-gray-800/80
-                                {{ $isActive
-                                    ? 'bg-cyan-50 dark:bg-cyan-900/20'
-                                    : 'hover:bg-gray-50 dark:hover:bg-gray-900/50' }}"
-                        >
-                            {{-- Avatar --}}
-                            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br
-                                {{ $isActive ? 'from-cyan-500 to-cyan-700' : 'from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600' }}
-                                text-xs font-bold {{ $isActive ? 'text-white' : 'text-gray-600 dark:text-gray-300' }}">
-                                {{ $clientInitial }}
-                            </div>
-
-                            <div class="min-w-0 flex-1">
-                                <div class="flex items-baseline justify-between gap-2">
-                                    <p class="truncate text-sm font-semibold
-                                        {{ $isActive ? 'text-cyan-700 dark:text-cyan-300' : 'text-gray-900 dark:text-white' }}">
-                                        {{ $thread->title ?: 'Percakapan' }}
-                                    </p>
-                                    <span class="shrink-0 text-[11px] text-gray-400">
-                                        {{ ($latestMsg?->created_at ?? $thread->created_at)?->format('H:i') }}
-                                    </span>
-                                </div>
-
+                        <button type="button" wire:click="selectThread({{ $thread->id }})" @class(['kp-cp__thread', 'is-on' => $isActive])>
+                            <span class="kp-cp__avatar">{{ $initial($thread->client?->name) }}</span>
+                            <span class="kp-cp__tbody">
+                                <span class="kp-cp__tline">
+                                    <b>{{ $thread->title ?: 'Percakapan' }}</b>
+                                    <time>{{ ($latestMsg?->created_at ?? $thread->created_at)?->format('H.i') }}</time>
+                                </span>
                                 @if ($showAllClients && $thread->client)
-                                    <p class="mt-0.5 truncate text-[11px] font-medium text-cyan-600 dark:text-cyan-400">
-                                        {{ $thread->client->name }}
-                                    </p>
+                                    <span class="kp-cp__client">{{ $thread->client->name }}</span>
                                 @endif
-
-                                <p class="mt-0.5 line-clamp-1 text-xs text-gray-400 dark:text-gray-500">
-                                    {{ $latestMsg?->body ?: 'Belum ada pesan.' }}
-                                </p>
-                            </div>
+                                <span class="kp-cp__last">{{ $latestMsg?->body ?: 'Belum ada pesan.' }}</span>
+                            </span>
                         </button>
                     @empty
-                        <div class="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
-                                <x-heroicon-o-chat-bubble-oval-left class="h-6 w-6 text-gray-300 dark:text-gray-600" />
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Belum ada percakapan</p>
-                                <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-500">Mulai percakapan baru di atas.</p>
-                            </div>
+                        <div class="kp-cp__empty">
+                            <x-heroicon-o-chat-bubble-left-right class="h-6 w-6" />
+                            <b>Belum ada percakapan</b>
+                            <span>Mulai percakapan baru di atas.</span>
                         </div>
                     @endforelse
                 </div>
             </div>
 
-            {{-- ── MESSAGES VIEW ──────────────────────────── --}}
-            <div x-show="view === 'messages'" class="flex h-full flex-col overflow-hidden" style="display: none;">
-
-                {{-- Sub-header --}}
-                <div class="flex shrink-0 items-center gap-3 border-b border-gray-100 bg-white px-3 py-3 dark:border-gray-800 dark:bg-gray-950">
-                    <button
-                        type="button"
-                        @click="goBack()"
-                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-gray-500 transition hover:bg-gray-100 hover:text-gray-800 dark:hover:bg-gray-800 dark:hover:text-white"
-                    >
-                        <x-heroicon-o-arrow-left class="h-4 w-4" />
+            {{-- Messages --}}
+            <div x-show="view === 'messages'" class="kp-cp__pane" style="display: none;">
+                <div class="kp-cp__head">
+                    <button type="button" x-on:click="goBack()" class="kp-cp__icon" title="Kembali ke daftar percakapan" aria-label="Kembali">
+                        <x-heroicon-m-arrow-left class="h-4 w-4" />
                     </button>
-
                     @if ($activeThread)
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm font-semibold text-gray-900 dark:text-white">
-                                {{ $activeThread->title ?: 'Percakapan' }}
-                            </p>
-                            <p class="truncate text-[11px] text-gray-400">
-                                @if ($showAllClients && $activeThread->client)
-                                    {{ $activeThread->client->name }} ·
-                                @endif
-                                {{ $activeThread->participants->count() }} peserta
-                            </p>
+                        <div class="kp-cp__title">
+                            <b>{{ $activeThread->title ?: 'Percakapan' }}</b>
+                            <small>
+                                @if ($showAllClients && $activeThread->client){{ $activeThread->client->name }} · @endif{{ $activeThread->participants->count() }} peserta
+                            </small>
                         </div>
-
-                        <span class="shrink-0 rounded-full bg-cyan-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300">
-                            {{ str_replace('_', ' ', $activeThread->type) }}
-                        </span>
+                        <x-kis.badge tone="neutral" size="sm">{{ $typeLabels[$activeThread->type] ?? str_replace('_', ' ', $activeThread->type) }}</x-kis.badge>
                     @else
-                        <p class="text-sm text-gray-400">Pilih percakapan</p>
+                        <div class="kp-cp__title"><small>Pilih percakapan</small></div>
                     @endif
                 </div>
 
-                {{-- Messages --}}
-                <div
-                    x-ref="messageList"
-                    class="flex-1 space-y-3 overflow-y-auto bg-gray-50/70 px-4 py-4 dark:bg-gray-900/40"
-                    style="scrollbar-width: thin; scrollbar-color: #d1d5db transparent;"
-                >
+                <div x-ref="messageList" class="kp-cp__msgs">
                     @forelse ($messages as $message)
                         @php $isOwn = $message->user_id === auth()->id(); @endphp
-
-                        <div class="flex {{ $isOwn ? 'justify-end' : 'justify-start' }} items-end gap-2">
-                            @unless ($isOwn)
-                                <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gray-300 to-gray-400 text-[10px] font-bold text-white dark:from-gray-600 dark:to-gray-700">
-                                    {{ strtoupper(substr($message->user?->name ?? '?', 0, 1)) }}
-                                </div>
-                            @endunless
-
-                            <div class="max-w-[75%]">
-                                @unless ($isOwn)
-                                    <p class="mb-1 ml-1 text-[11px] font-medium text-gray-400">
-                                        {{ $message->user?->name ?? 'Pengguna' }}
-                                    </p>
-                                @endunless
-
-                                <div class="rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm
-                                    {{ $isOwn
-                                        ? 'rounded-br-sm bg-gradient-to-br from-cyan-500 to-cyan-600 text-white'
-                                        : 'rounded-bl-sm border border-gray-200 bg-white text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100' }}">
-                                    <p class="whitespace-pre-wrap break-words">{{ $message->body }}</p>
-                                </div>
-
-                                <p class="mt-1 px-1 text-[10px] text-gray-400 {{ $isOwn ? 'text-right' : 'text-left' }}">
-                                    {{ $message->created_at?->format('d MMM, H:i') ?? $message->created_at?->format('d M, H:i') }}
-                                </p>
-                            </div>
+                        <div @class(['kp-cp__msg', 'is-own' => $isOwn])>
+                            <p class="kp-cp__meta">
+                                {{ $isOwn ? 'Anda' : ($message->user?->name ?? 'Pengguna') }} · {{ $message->created_at?->locale('id')->translatedFormat('j M, H.i') }}
+                            </p>
+                            <div class="kp-cp__bubble">{{ $message->body }}</div>
                         </div>
                     @empty
-                        <div class="flex h-full flex-col items-center justify-center gap-3 py-8 text-center">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
-                                <x-heroicon-o-chat-bubble-oval-left class="h-5 w-5 text-gray-300 dark:text-gray-600" />
-                            </div>
-                            <p class="text-xs text-gray-400 dark:text-gray-500">Belum ada pesan. Mulai percakapan!</p>
+                        <div class="kp-cp__empty">
+                            <x-heroicon-o-chat-bubble-oval-left class="h-6 w-6" />
+                            <span>Belum ada pesan. Mulai percakapan!</span>
                         </div>
                     @endforelse
                 </div>
 
-                {{-- Input --}}
-                <form
-                    wire:submit.prevent="sendMessage"
-                    class="shrink-0 border-t border-gray-100 bg-white px-3 py-3 dark:border-gray-800 dark:bg-gray-950"
-                >
-                    <div class="flex items-end gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 transition-colors focus-within:border-cyan-400 focus-within:bg-white dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-cyan-600 dark:focus-within:bg-gray-900">
-                        <textarea
-                            wire:model.defer="messageBody"
-                            rows="1"
-                            placeholder="Tulis pesan… (Enter kirim, Shift+Enter baris baru)"
-                            @keydown="sendOnEnter($event)"
-                            class="max-h-24 min-h-[2rem] flex-1 resize-none border-0 bg-transparent p-0 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-0 dark:text-gray-100 dark:placeholder:text-gray-500"
-                            style="scrollbar-width: thin;"
-                        ></textarea>
-
-                        <button
-                            type="submit"
-                            wire:loading.attr="disabled"
-                            wire:target="sendMessage"
-                            title="Kirim pesan"
-                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-600 text-white shadow-sm transition hover:bg-cyan-700 disabled:cursor-wait disabled:opacity-60"
-                        >
-                            <span wire:loading.remove wire:target="sendMessage">
-                                <x-heroicon-o-paper-airplane class="h-4 w-4" />
-                            </span>
-                            <span wire:loading wire:target="sendMessage">
-                                <svg class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                                </svg>
-                            </span>
+                <form wire:submit.prevent="sendMessage" class="kp-cp__compose">
+                    <div class="kp-cp__input">
+                        <textarea wire:model.defer="messageBody" rows="1" x-on:keydown="sendOnEnter($event)"
+                                  placeholder="Tulis pesan…" aria-label="Pesan" aria-describedby="kp-cp-hint"></textarea>
+                        <button type="submit" class="kp-cp__send" wire:loading.attr="disabled" wire:target="sendMessage" title="Kirim pesan" aria-label="Kirim pesan">
+                            <x-heroicon-m-paper-airplane class="h-4 w-4" wire:loading.remove wire:target="sendMessage" />
+                            <x-filament::loading-indicator class="h-4 w-4" wire:loading wire:target="sendMessage" />
                         </button>
                     </div>
-
-                    @error('messageBody')
-                        <p class="mt-1.5 text-xs text-red-500">{{ $message }}</p>
-                    @enderror
+                    @error('messageBody') <p class="kp-cp__error">{{ $message }}</p> @enderror
+                    <p id="kp-cp-hint" class="kp-cp__hint">Enter untuk kirim, Shift+Enter untuk baris baru</p>
                 </form>
             </div>
 

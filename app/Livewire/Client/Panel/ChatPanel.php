@@ -10,6 +10,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -17,10 +18,12 @@ class ChatPanel extends Component
 {
     public EloquentCollection $clients;
 
+    #[Locked]
     public bool $showAllClients = false;
 
     public bool $compact = false;
 
+    #[Locked]
     public ?int $selectedClientId = null;
 
     public ?int $newThreadClientId = null;

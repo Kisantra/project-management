@@ -16,8 +16,13 @@ This application uses **Laravel Filament** as the admin panel framework with **L
 ```
 app/Filament/
 ├── Client/                          # CLIENT PANEL (accessed at /klien)
-│   └── Pages/
-│       └── DashboardClient.php      # Main client dashboard with tabs
+│   └── Pages/                       # One page per portal section (PortalPage subclasses)
+│       ├── PortalPage.php           # Base: renders one client.panel.* component, no Filament heading
+│       ├── DashboardClient.php      # Ringkasan (/klien/ringkasan, home; old class name kept)
+│       ├── Projects.php             # Proyek (/klien/proyek)
+│       ├── Documents.php            # Dokumen (/klien/dokumen, badge = documents still to upload)
+│       ├── TaxReports.php           # Laporan Pajak (/klien/laporan-pajak)
+│       └── Profile.php              # Profil (/klien/profil)
 │
 ├── Exports/                         # Data exporters
 │   ├── ClientExporter.php
@@ -71,7 +76,7 @@ app/Filament/
 
 | File | Description |
 |------|-------------|
-| `Client/Pages/DashboardClient.php` | Client panel entry point, renders tabs for Overview, Projects, Documents, Tax Reports |
+| `Client/Pages/*.php` | Client portal sections (Ringkasan, Proyek, Dokumen, Laporan Pajak, Profil), one Filament page each; the selected company comes from `App\Support\ClientPortal\ClientContext` |
 | `Resources/ClientResource.php` | Admin client management, uses `Client/Management/` Livewire tabs |
 | `Pages/Dashboard.php` | Admin main dashboard |
 | `Pages/DashboardTaxReport.php` | Admin tax report monitoring dashboard |
@@ -249,8 +254,11 @@ resources/views/livewire/
 ```
 resources/views/filament/
 ├── client/                          # CLIENT PANEL views
-│   └── pages/
-│       └── dashboard-client.blade.php   # Main client dashboard
+│   ├── pages/portal.blade.php       # Shared body of every portal page
+│   ├── topbar-start.blade.php       # Crumb (desktop) / app tile + company picker (phones)
+│   ├── switcher-hook.blade.php      # Company picker at the top of the sidebar
+│   ├── mobile-nav.blade.php         # Bottom tab bar on phones
+│   └── chat-floating.blade.php      # Floating chat button + compact ChatPanel
 │
 ├── components/                      # Reusable Filament components
 ├── modals/
@@ -312,8 +320,10 @@ resources/views/filament/
   - Uses tabs from `app/Livewire/Client/Management/`
 
 ### Client Panel (`/klien`)
-- **Dashboard**: `app/Filament/Client/Pages/DashboardClient.php`
-  - Uses tabs from `app/Livewire/Client/Panel/`
+- **Pages**: `app/Filament/Client/Pages/` (Ringkasan, Proyek, Dokumen, Laporan Pajak, Profil)
+  - Each page mounts one component from `app/Livewire/Client/Panel/`
+  - Components use the `Concerns\UsesCurrentClient` trait: the company id is locked and comes from `ClientContext` (session, checked against `user_clients`), never from the browser
+  - Styles: `resources/css/filament/admin/client-portal/*.css`; mockup `docs/mockups/client-portal-redesign.html`
 
 ---
 

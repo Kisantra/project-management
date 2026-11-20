@@ -666,6 +666,10 @@ class ClientResource extends Resource
                 'PKP' => 'PKP (Pengusaha Kena Pajak)',
             ])
             ->default('Non-PKP')
+            // Kolom pkp_status NOT NULL: tanpa ini opsi kosong "Select an option"
+            // bisa dipilih dan menyimpan klien gagal di database (Watchpost #16).
+            ->required()
+            ->selectablePlaceholder(false)
             ->live()
             ->afterStateUpdated(function (Forms\Get $get, Forms\Set $set, ?string $state) {
                 if ($state === 'Non-PKP') {

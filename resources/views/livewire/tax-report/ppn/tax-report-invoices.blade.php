@@ -124,7 +124,7 @@
                         <div><dt>Keluaran dihitung</dt><dd>{{ $b->keluar->count() }}</dd></div>
                         <div><dt>Masukan dikreditkan</dt><dd>{{ $b->masuk->count() }}</dd></div>
                         <div>
-                            <dt>Dikecualikan <span class="kis-kv__hint">kode 02, 03, 07, 08 dan masukan non-usaha</span></dt>
+                            <dt>Dikecualikan <span class="kis-kv__hint">keluaran kode 02, 03, 07, 08; masukan kode 07, 08 atau non-usaha</span></dt>
                             <dd>{{ $b->excludedKeluar + $b->excludedMasuk }}</dd>
                         </div>
                         @if ($this->revisionCount > 0)
@@ -140,6 +140,7 @@
                         <li>Faktur keluaran kode 02, 03, 07, 08 tidak dihitung</li>
                         <li>Faktur yang direvisi dihitung dengan revisi terbarunya</li>
                         <li>Faktur masukan dihitung bila terkait usaha</li>
+                        <li>Faktur masukan kode 07, 08 tidak dapat dikreditkan</li>
                         <li>Peredaran bruto dari DPP faktur keluaran</li>
                     </ul>
                 </section>

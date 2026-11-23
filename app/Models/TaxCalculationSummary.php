@@ -425,12 +425,10 @@ class TaxCalculationSummary extends Model
     /**
      * Calculate PPN
      * 
-     * Important: Faktur Keluaran with prefixes 02, 03, 07, 08 are excluded from calculation
-     * These represent special transaction types that are not subject to PPN:
-     * - 02: Exports (zero-rated transactions)
-     * - 03: Transactions to free trade zones (tax-exempt special economic zones)
-     * - 07: Transactions with certain exemptions (government-approved exemptions)
-     * - 08: Other non-taxable transactions (various exempt categories)
+     * The first two digits of the invoice number are the transaction code:
+     * - Faktur Keluaran 02, 03 (PPN collected by the buyer as pemungut) and
+     *   07, 08 (tidak dipungut/DTP, dibebaskan) are not counted;
+     * - Faktur Masuk 07, 08 are not credited: the buyer paid no PPN on them.
      */
     protected function calculatePpn($taxReport): array
     {

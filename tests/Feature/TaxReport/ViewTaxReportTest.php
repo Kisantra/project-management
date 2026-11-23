@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\TaxReport;
 
+use App\Exports\TaxReportInvoicesExport;
 use App\Filament\Resources\TaxReportResource;
 use App\Filament\Resources\TaxReportResource\Pages\ViewTaxReport;
 use App\Livewire\TaxReport\Ppn\InvoiceTable;
@@ -157,6 +158,23 @@ class ViewTaxReportTest extends TestCase
 
         $summary = $report->fresh()->taxCalculationSummaries()->where('tax_type', 'ppn')->first();
         $this->assertSame(132000.0, (float) $summary->selisih, 'Stored summary uses the same rules');
+    }
+
+    public function test_faktur_masuk_with_code_07_or_08_is_not_credited(): void
+    {
+        $report = $this->report('February');
+        $this->invoice($report, ['type' => 'Faktur Masuk', 'dpp' => 100000, 'ppn' => 11000]);
+        $this->invoice($report, ['type' => 'Faktur Masuk', 'invoice_number' => '0700123', 'dpp' => 200000, 'ppn' => 22000]); // tidak dipungut / DTP
+        $this->invoice($report, ['type' => 'Faktur Masuk', 'invoice_number' => '0800123', 'dpp' => 300000, 'ppn' => 33000]); // dibebaskan
+        $this->invoice($report, ['type' => 'Faktur Masuk', 'invoice_number' => '0300123', 'dpp' => 400000, 'ppn' => 44000]); // client is the pemungut
+
+        $breakdown = PpnBreakdown::for($report);
+        $this->assertSame(55000.0, $breakdown->ppnMasuk(), 'Code 04 11.000 + code 03 44.000; 07 and 08 left out');
+        $this->assertSame(2, $breakdown->excludedMasuk);
+        $this->assertSame(55000.0, (float) $report->fresh()->ppnSummary->pajak_masuk, 'Stored summary uses the same rules');
+
+        $totals = array_values(array_filter((new TaxReportInvoicesExport($report))->array(), fn (array $row) => $row[2] === 'JUMLAH'));
+        $this->assertSame('Rp 55.000', $totals[1][7], 'The Excel masukan total follows the same rule');
     }
 
     public function test_calculation_ledger_includes_manual_compensation_like_the_stored_saldo(): void

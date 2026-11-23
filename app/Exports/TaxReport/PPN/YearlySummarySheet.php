@@ -4,6 +4,7 @@
 namespace App\Exports\TaxReport\PPN;
 
 use App\Models\TaxReport;
+use App\Services\TaxReport\PpnBreakdown;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
@@ -45,14 +46,8 @@ class YearlySummarySheet implements FromArray, WithStyles, WithColumnWidths, Wit
                 'is_excluded_code' => false
             ];
         } else {
-            $isExcludedCode = false;
-            if ($invoice->type === 'Faktur Keluaran' && $invoice->invoice_number) {
-                preg_match('/^(\d{2})/', $invoice->invoice_number, $matches);
-                if (!empty($matches[1])) {
-                    $code = $matches[1];
-                    $isExcludedCode = in_array($code, ['02', '03', '07', '08']);
-                }
-            }
+            // Faktur Keluaran 02, 03, 07, 08 and Faktur Masuk 07, 08 (see PpnBreakdown)
+            $isExcludedCode = PpnBreakdown::isExcludedCode($invoice->type, $invoice->invoice_number);
             
             return [
                 'dpp_nilai_lainnya' => $invoice->dpp_nilai_lainnya ?? 0,

@@ -235,7 +235,7 @@
             </thead>
             <tbody>
                 @forelse($fakturMasukan as $row)
-                <tr class="@if($row['is_revised']) row-revised @elseif(!$row['is_business_related']) row-non-business @endif">
+                <tr class="@if($row['is_revised']) row-revised @elseif($row['is_excluded_code']) row-excluded @elseif(!$row['is_business_related']) row-non-business @endif">
                     <td class="col-no">{{ $row['no'] }}</td>
                     <td class="col-company">{{ $row['company_name'] }}</td>
                     <td class="col-invoice">{{ $row['invoice_number'] }}</td>
@@ -302,7 +302,7 @@
                 <span class="legend-color" style="background-color: #F5F5F5;"></span>Direvisi (nilai 0)
             </span>
             <span class="legend-item">
-                <span class="legend-color" style="background-color: #E6F2FF;"></span>Kode Dikecualikan (02, 03, 07, 08)
+                <span class="legend-color" style="background-color: #E6F2FF;"></span>Kode Dikecualikan (keluaran 02, 03, 07, 08; masukan 07, 08)
             </span>
             <span class="legend-item">
                 <span class="legend-color" style="background-color: #FFF9E6;"></span>Tidak Terkait Bisnis

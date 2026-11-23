@@ -4,6 +4,7 @@
 namespace App\Exports;
 
 use App\Models\TaxReport;
+use App\Services\TaxReport\PpnBreakdown;
 use Maatwebsite\Excel\Concerns\FromArray;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
@@ -66,17 +67,8 @@ class TaxReportInvoicesExport implements FromArray, WithStyles, WithColumnWidths
                 'is_excluded_code' => false
             ];
         } else {
-            // Check if Faktur Keluaran has excluded code (02, 03, 07, 08)
-            $isExcludedCode = false;
-            if ($invoice->type === 'Faktur Keluaran' && $invoice->invoice_number) {
-                // Extract first 2 digits from invoice number
-                // Format: 020025001621138864, 030025001621138882, etc.
-                preg_match('/^(\d{2})/', $invoice->invoice_number, $matches);
-                if (!empty($matches[1])) {
-                    $code = $matches[1];
-                    $isExcludedCode = in_array($code, ['02', '03', '07', '08']);
-                }
-            }
+            // Faktur Keluaran 02, 03, 07, 08 and Faktur Masuk 07, 08 (see PpnBreakdown)
+            $isExcludedCode = PpnBreakdown::isExcludedCode($invoice->type, $invoice->invoice_number);
             
             // Latest revision or original without revisions - show actual values
             return [
@@ -207,6 +199,9 @@ class TaxReportInvoicesExport implements FromArray, WithStyles, WithColumnWidths
             $keterangan = [];
             if ($displayValues['is_revised']) {
                 $keterangan[] = 'Direvisi';
+            }
+            if ($displayValues['is_excluded_code']) {
+                $keterangan[] = 'Kode 07/08 (PPN tidak dapat dikreditkan)';
             }
             if (!$invoice->is_business_related) {
                 $keterangan[] = 'Tidak Terkait Bisnis';

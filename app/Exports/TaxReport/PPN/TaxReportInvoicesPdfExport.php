@@ -3,6 +3,7 @@
 namespace App\Exports\TaxReport\PPN;
 
 use App\Models\TaxReport;
+use App\Services\TaxReport\PpnBreakdown;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Collection;
 
@@ -35,14 +36,8 @@ class TaxReportInvoicesPdfExport
                 'is_excluded_code' => false
             ];
         } else {
-            $isExcludedCode = false;
-            if ($invoice->type === 'Faktur Keluaran' && $invoice->invoice_number) {
-                preg_match('/^(\d{2})/', $invoice->invoice_number, $matches);
-                if (!empty($matches[1])) {
-                    $code = $matches[1];
-                    $isExcludedCode = in_array($code, ['02', '03', '07', '08']);
-                }
-            }
+            // Faktur Keluaran 02, 03, 07, 08 and Faktur Masuk 07, 08 (see PpnBreakdown)
+            $isExcludedCode = PpnBreakdown::isExcludedCode($invoice->type, $invoice->invoice_number);
             
             return [
                 'dpp_nilai_lainnya' => $invoice->dpp_nilai_lainnya ?? 0,
@@ -165,10 +160,13 @@ class TaxReportInvoicesPdfExport
             if ($displayValues['is_revised']) {
                 $keterangan[] = 'Direvisi';
             }
+            if ($displayValues['is_excluded_code']) {
+                $keterangan[] = 'Tidak Dapat Dikreditkan';
+            }
             if (!$invoice->is_business_related) {
                 $keterangan[] = 'Tidak Terkait Bisnis';
             }
-            
+
             $fakturMasukanRows[] = [
                 'no' => $index + 1,
                 'company_name' => $invoice->company_name,
@@ -179,7 +177,7 @@ class TaxReportInvoicesPdfExport
                 'ppn' => $displayValues['ppn'],
                 'keterangan' => implode(' | ', $keterangan),
                 'is_revised' => $displayValues['is_revised'],
-                'is_excluded_code' => false,
+                'is_excluded_code' => $displayValues['is_excluded_code'],
                 'is_business_related' => $invoice->is_business_related,
             ];
             

@@ -3,10 +3,13 @@
 namespace App\Exceptions;
 
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Console\Command;
+use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Console\Exception\ExceptionInterface as ConsoleException;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -54,6 +57,45 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             $this->sendErrorWebhook($e);
         });
+    }
+
+    /**
+     * Salah ketik artisan di terminal tidak dilaporkan ke log, Watchpost, maupun Discord.
+     */
+    protected function shouldntReport(Throwable $e)
+    {
+        return $this->isArtisanTypo($e) || parent::shouldntReport($e);
+    }
+
+    /**
+     * Perintah artisan yang salah ketik, mis. `php artisan migrate --status` (Watchpost #21).
+     * Symfony menolak opsi, argumen, atau nama perintahnya sebelum kode aplikasi jalan, dan
+     * pesannya sudah tampil di terminal orang yang mengetik. Cirinya: di antara
+     * `Kernel::handle()` dan titik lempar hanya ada mesin konsol. `Artisan::call()` atau
+     * `$this->call()` dari kode dengan opsi keliru tetap dilaporkan karena itu bug.
+     */
+    private function isArtisanTypo(Throwable $e): bool
+    {
+        if (! $e instanceof ConsoleException) {
+            return false;
+        }
+
+        foreach ($e->getTrace() as $frame) {
+            $class = $frame['class'] ?? '';
+
+            if ($class === ConsoleKernel::class && $frame['function'] === 'handle') {
+                return true;
+            }
+
+            $isConsoleMachinery = str_starts_with($class, 'Symfony\\Component\\Console\\')
+                || ($class === Command::class && $frame['function'] === 'run');
+
+            if (! $isConsoleMachinery) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /** Kirim notifikasi contoh ke Discord untuk menguji format & pengiriman (lewati guard production). */
